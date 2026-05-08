@@ -1,0 +1,10 @@
+{
+    "run_id": "run_20260507_120521",
+    "timestamp": "2026-05-07T12:05:21",
+    "platform": "Windows 10",
+    "python_version": "3.11.9",
+    "base_url": "https://pione.zentri.cloud/",
+    "total_routes_scanned": 0,
+    "total_components_detected": 0,
+    "execution_duration_seconds": 28.13
+}

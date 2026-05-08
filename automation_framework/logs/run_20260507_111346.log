@@ -1,0 +1,92 @@
+2026-05-07 11:14:30 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_111346 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_111346.log | base_url=https://catsentinel.pionedata.com
+2026-05-07 11:14:31 | INFO | __main__:main:62 | Login started
+2026-05-07 11:14:33 | INFO | __main__:main:65 | Login successful
+2026-05-07 11:14:33 | INFO | __main__:main:67 | Current URL after login: https://catsentinel.pionedata.com/live-events
+2026-05-07 11:14:33 | INFO | __main__:main:71 | Expanding navigation if needed
+2026-05-07 11:14:34 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-07 11:14:34 | INFO | __main__:main:74 | Crawler execution started
+2026-05-07 11:14:34 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/live-events
+2026-05-07 11:14:36 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/live-events (menu: live-events)
+2026-05-07 11:14:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/live-events
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.crawler_engine:crawl:77 | Discovered 16 menu items to explore
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:146 | Skipping already-visited menu route: Live Events (https://catsentinel.pionedata.com/live-events)
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: CAT History -> https://catsentinel.pionedata.com/cat-history
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/cat-history
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/cat-history (menu: CAT History)
+2026-05-07 11:14:41 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/cat-history
+2026-05-07 11:14:41 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/cat-history, retrying after stabilization wait
+2026-05-07 11:14:44 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/cat-history
+2026-05-07 11:14:45 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Risk Map -> https://catsentinel.pionedata.com/risk-map
+2026-05-07 11:14:45 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/risk-map
+2026-05-07 11:14:46 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/risk-map (menu: Risk Map)
+2026-05-07 11:14:46 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-map
+2026-05-07 11:14:48 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/risk-map, retrying after stabilization wait
+2026-05-07 11:14:51 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-map
+2026-05-07 11:14:52 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:234 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/risk-map
+2026-05-07 11:14:52 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Action Queue -> https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 11:14:52 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 11:15:02 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_loaders_to_disappear:48 | Loader timeout during UI stabilization
+2026-05-07 11:15:03 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/action-queue-module (menu: Action Queue)
+2026-05-07 11:15:03 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 11:15:07 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Microsites -> https://catsentinel.pionedata.com/micro-sites
+2026-05-07 11:15:07 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/micro-sites
+2026-05-07 11:15:07 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/micro-sites (menu: Microsites)
+2026-05-07 11:15:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/micro-sites
+2026-05-07 11:15:14 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: CAT Event Book -> https://catsentinel.pionedata.com/event-book
+2026-05-07 11:15:14 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/event-book
+2026-05-07 11:15:14 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/event-book (menu: CAT Event Book)
+2026-05-07 11:15:14 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/event-book
+2026-05-07 11:15:17 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Knowledge Base -> https://catsentinel.pionedata.com/knowledge-base
+2026-05-07 11:15:21 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/event-book
+2026-05-07 11:15:22 | INFO | automation_framework.crawler.crawler_engine:_scan_route:202 | Route already scanned, skipping: https://catsentinel.pionedata.com/event-book
+2026-05-07 11:15:22 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Policyholder Risk Profile -> https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 11:15:22 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 11:15:22 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/policyholder-risk (menu: Policyholder Risk Profile)
+2026-05-07 11:15:22 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 11:15:23 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/policyholder-risk, retrying after stabilization wait
+2026-05-07 11:15:25 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 11:15:26 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: User -> https://catsentinel.pionedata.com/user
+2026-05-07 11:15:26 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/user
+2026-05-07 11:15:26 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/user (menu: User)
+2026-05-07 11:15:26 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/user
+2026-05-07 11:15:28 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Geo Spatial -> https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 11:15:28 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 11:15:29 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/geo-spatial (menu: Geo Spatial)
+2026-05-07 11:15:29 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 11:15:29 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Risk Analyzer -> https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 11:15:30 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 11:15:30 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/alert-event-monitor (menu: Risk Analyzer)
+2026-05-07 11:15:30 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 11:15:31 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/alert-event-monitor, retrying after stabilization wait
+2026-05-07 11:15:33 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 11:15:34 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:234 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 11:15:34 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: CAT Synapse -> https://catsentinel.pionedata.com/prompt-master
+2026-05-07 11:15:34 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/prompt-master
+2026-05-07 11:15:35 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/prompt-master (menu: CAT Synapse)
+2026-05-07 11:15:35 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/prompt-master
+2026-05-07 11:15:36 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/prompt-master, retrying after stabilization wait
+2026-05-07 11:15:38 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/prompt-master
+2026-05-07 11:15:39 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:234 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/prompt-master
+2026-05-07 11:15:39 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: CheckList Templates -> https://catsentinel.pionedata.com/template/checklist
+2026-05-07 11:15:39 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/template/checklist
+2026-05-07 11:15:39 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/template/checklist (menu: CheckList Templates)
+2026-05-07 11:15:39 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/template/checklist
+2026-05-07 11:15:41 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Risk Insights -> https://catsentinel.pionedata.com/risk-insights
+2026-05-07 11:15:41 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 11:15:42 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/risk-insights (menu: Risk Insights)
+2026-05-07 11:15:42 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 11:15:42 | INFO | automation_framework.crawler.crawler_engine:_scan_route:221 | Empty scan on https://catsentinel.pionedata.com/risk-insights, retrying after stabilization wait
+2026-05-07 11:15:48 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 11:15:48 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:234 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/risk-insights
+2026-05-07 11:15:48 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Command Center -> https://catsentinel.pionedata.com/command-center
+2026-05-07 11:15:53 | WARNING | automation_framework.crawler.crawler_engine:_click_menu_item:192 | Network idle timeout after clicking menu: Command Center
+2026-05-07 11:15:53 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/command-center
+2026-05-07 11:15:54 | INFO | automation_framework.crawler.crawler_engine:_scan_route:209 | Scanning route: https://catsentinel.pionedata.com/command-center (menu: Command Center)
+2026-05-07 11:15:54 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:150 | Building UI intelligence for route: https://catsentinel.pionedata.com/command-center
+2026-05-07 11:15:54 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:149 | Visiting menu: Contact Support -> (click)
+2026-05-07 11:15:54 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.pionedata.com/command-center
+2026-05-07 11:15:55 | INFO | automation_framework.crawler.crawler_engine:_scan_route:202 | Route already scanned, skipping: https://catsentinel.pionedata.com/command-center
+2026-05-07 11:25:33 | INFO | automation_framework.crawler.crawl_exporter:export_crawl_results:36 | Crawl results exported to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_111346_crawl_results.json and C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_111346_crawl_results.yaml
+2026-05-07 11:25:33 | INFO | __main__:main:96 | Crawler execution completed
+2026-05-07 11:25:34 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 11:25:34 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_111346_metadata.json

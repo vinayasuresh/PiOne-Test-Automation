@@ -1,0 +1,3 @@
+2026-05-07 14:51:38 | INFO | api.services.crawler_service:run_scan:35 | [API] Scan started | run_id=run_20260507_145138 | url=https://pione.zentri.cloud/login
+2026-05-07 14:51:39 | ERROR | api.services.crawler_service:run_scan:77 | [API] Scan failed after 1.23s | error=BrowserType.launch: Connection closed while reading from the driver
+2026-05-07 14:51:39 | ERROR | api.routers.scan:scan:75 | [API] Unexpected scan error: BrowserType.launch: Connection closed while reading from the driver

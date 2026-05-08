@@ -1,0 +1,14 @@
+2026-05-07 11:42:10 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_114137 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_114137.log | base_url=https://pione.zentri.cloud
+2026-05-07 11:42:11 | INFO | __main__:main:62 | Login started
+2026-05-07 11:42:12 | WARNING | automation_framework.crawler.login_handler:login:48 | Standard username detection failed; switching to discovery mode
+2026-05-07 11:42:12 | INFO | automation_framework.crawler.login_handler:_discover_username_field:126 | Discovery mode: scanning 0 input element(s)
+2026-05-07 11:42:12 | WARNING | automation_framework.crawler.login_handler:_screenshot_failure:300 | Login failure screenshot saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\screenshots\login_failure.png
+2026-05-07 11:42:12 | ERROR | __main__:main:109 | Framework execution failed
+Traceback (most recent call last):
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\main.py", line 63, in main
+    login(page, username, password, base_url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\login_handler.py", line 53, in login
+    raise RuntimeError("Login failed: could not locate a username/email field")
+RuntimeError: Login failed: could not locate a username/email field
+2026-05-07 11:42:12 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 11:42:12 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_114137_metadata.json

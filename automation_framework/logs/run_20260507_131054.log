@@ -1,0 +1,175 @@
+2026-05-07 13:11:24 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_131054 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_131054.log | base_url=https://pione.zentri.cloud/
+2026-05-07 13:11:25 | INFO | __main__:main:62 | Login started
+2026-05-07 13:11:27 | WARNING | automation_framework.crawler.login_handler:login:56 | Standard username detection failed; switching to discovery mode
+2026-05-07 13:11:27 | INFO | automation_framework.crawler.login_handler:_discover_username_field:140 | Discovery mode: 3 total input element(s) found
+2026-05-07 13:11:27 | INFO | automation_framework.crawler.login_handler:_discover_username_field:156 |   Discovery input 0: type='email' placeholder='admin@company.com' name='email' id='email'
+2026-05-07 13:11:27 | INFO | automation_framework.crawler.login_handler:_discover_username_field:179 |     → score=20 selector=input[name="email"]
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:_discover_username_field:156 |   Discovery input 1: type='password' placeholder='••••••••' name='password' id='password'
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:_discover_username_field:156 |   Discovery input 2: type='checkbox' placeholder='' name='' id=''
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:_discover_username_field:181 | Discovery mode: 3 visible input(s), 1 candidate(s)
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:login:62 | Username field detected using discovery=input[name="email"]
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:login:69 | Password field detected using input[type="password"]
+2026-05-07 13:11:28 | INFO | automation_framework.crawler.login_handler:login:80 | Login button detected using role=button[name~="sign in"]
+2026-05-07 13:11:29 | INFO | automation_framework.crawler.login_handler:_wait_for_login_success:378 | Login confirmed: URL left login page → https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:29 | INFO | __main__:main:65 | Login successful
+2026-05-07 13:11:29 | INFO | __main__:main:67 | Current URL after login: https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:29 | INFO | __main__:main:71 | Expanding navigation if needed
+2026-05-07 13:11:29 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:28 | Sidebar navigation detected
+2026-05-07 13:11:29 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:31 | Sidebar navigation already expanded
+2026-05-07 13:11:29 | INFO | __main__:main:74 | Crawler execution started
+2026-05-07 13:11:29 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:31 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_loaders_to_disappear:57 | Loader timeout during UI stabilization
+2026-05-07 13:11:32 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/dashboard (menu: dashboard)
+2026-05-07 13:11:32 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:32 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/dashboard | 12 targets | 0.09s
+2026-05-07 13:11:32 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 2 candidate triggers
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/dashboard: dashboard > 9+
+2026-05-07 13:11:34 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 4 candidate triggers
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/dashboard: dashboard > Activity
+2026-05-07 13:11:34 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/dashboard
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:crawl:78 | Discovered 9 menu items to explore
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:147 | Skipping already-visited menu route: AssetZentri PiOne Technologies (https://pione.zentri.cloud/dashboard)
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: Assets -> https://pione.zentri.cloud/assets
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/assets
+2026-05-07 13:11:34 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/assets (menu: Assets)
+2026-05-07 13:11:34 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/assets
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.crawler_engine:_scan_route:223 | Empty scan on https://pione.zentri.cloud/assets, retrying after domcontentloaded
+2026-05-07 13:11:35 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/assets
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/assets | 44 targets | 0.53s
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 61 candidate triggers
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/assets: Assets > 9+
+2026-05-07 13:11:35 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/assets
+2026-05-07 13:11:35 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 63 candidate triggers
+2026-05-07 13:11:36 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:11:36 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/assets: Assets > Activity
+2026-05-07 13:11:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/assets
+2026-05-07 13:11:36 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'All Types'
+2026-05-07 13:11:36 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/assets: Assets > All Types
+2026-05-07 13:11:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/assets
+2026-05-07 13:11:36 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 61 candidate triggers
+2026-05-07 13:11:53 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: AI & LLM Governance -> https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:23 | WARNING | automation_framework.crawler.crawler_engine:_click_menu_item:196 | Click failed for menu 'AI & LLM Governance', will fall back to URL navigation
+2026-05-07 13:12:23 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:24 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/ai-assets (menu: AI & LLM Governance)
+2026-05-07 13:12:24 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:24 | INFO | automation_framework.crawler.crawler_engine:_scan_route:223 | Empty scan on https://pione.zentri.cloud/ai-assets, retrying after domcontentloaded
+2026-05-07 13:12:24 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:25 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:235 | low confidence scan: no automation targets detected on https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/ai-assets | 0 targets | 0.12s
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 2 candidate triggers
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/ai-assets: AI & LLM Governance > 9+
+2026-05-07 13:12:25 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 4 candidate triggers
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/ai-assets: AI & LLM Governance > Activity
+2026-05-07 13:12:25 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/ai-assets
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: IT Governance -> https://pione.zentri.cloud/it-governance
+2026-05-07 13:12:25 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/it-governance
+2026-05-07 13:12:27 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_loaders_to_disappear:57 | Loader timeout during UI stabilization
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/it-governance (menu: IT Governance)
+2026-05-07 13:12:27 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/it-governance
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/it-governance | 2 targets | 0.09s
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 2 candidate triggers
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/it-governance: IT Governance > 9+
+2026-05-07 13:12:27 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/it-governance
+2026-05-07 13:12:27 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 4 candidate triggers
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/it-governance: IT Governance > Activity
+2026-05-07 13:12:28 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/it-governance
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: Tickets -> https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/tickets (menu: Tickets)
+2026-05-07 13:12:28 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:_scan_route:223 | Empty scan on https://pione.zentri.cloud/tickets, retrying after domcontentloaded
+2026-05-07 13:12:28 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:235 | low confidence scan: no automation targets detected on https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/tickets | 0 targets | 0.19s
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 27 candidate triggers
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/tickets: Tickets > 9+
+2026-05-07 13:12:28 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:28 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 29 candidate triggers
+2026-05-07 13:12:29 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:12:29 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/tickets: Tickets > Activity
+2026-05-07 13:12:29 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:29 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'All Status'
+2026-05-07 13:12:29 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/tickets: Tickets > All Status
+2026-05-07 13:12:29 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/tickets
+2026-05-07 13:12:29 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 29 candidate triggers
+2026-05-07 13:12:33 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: ZentriPulse -> https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:03 | WARNING | automation_framework.crawler.crawler_engine:_click_menu_item:196 | Click failed for menu 'ZentriPulse', will fall back to URL navigation
+2026-05-07 13:13:03 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/zentri-pulse (menu: ZentriPulse)
+2026-05-07 13:13:04 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/zentri-pulse | 4 targets | 0.05s
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 7 candidate triggers
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/zentri-pulse: ZentriPulse > 9+
+2026-05-07 13:13:04 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:04 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 9 candidate triggers
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/zentri-pulse: ZentriPulse > Activity
+2026-05-07 13:13:05 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Analysis Runs'
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/zentri-pulse: ZentriPulse > Analysis Runs
+2026-05-07 13:13:05 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 7 candidate triggers
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Budget'
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/zentri-pulse: ZentriPulse > Budget
+2026-05-07 13:13:05 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/zentri-pulse
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 5 candidate triggers
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: Vendors -> https://pione.zentri.cloud/vendors
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/vendors
+2026-05-07 13:13:05 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/vendors (menu: Vendors)
+2026-05-07 13:13:05 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/vendors
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:_scan_route:223 | Empty scan on https://pione.zentri.cloud/vendors, retrying after domcontentloaded
+2026-05-07 13:13:06 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/vendors
+2026-05-07 13:13:06 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:235 | low confidence scan: no automation targets detected on https://pione.zentri.cloud/vendors
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/vendors | 0 targets | 0.16s
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 18 candidate triggers
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/vendors: Vendors > 9+
+2026-05-07 13:13:06 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/vendors
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 20 candidate triggers
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/vendors: Vendors > Activity
+2026-05-07 13:13:06 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/vendors
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: Settings -> https://pione.zentri.cloud/settings
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/settings
+2026-05-07 13:13:06 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/settings (menu: Settings)
+2026-05-07 13:13:06 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/settings
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/settings | 12 targets | 0.06s
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=0: 12 candidate triggers
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking '9+'
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/settings: Settings > 9+
+2026-05-07 13:13:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/settings
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 14 candidate triggers
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Activity'
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/settings: Settings > Activity
+2026-05-07 13:13:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/settings
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'Organization'
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/settings: Settings > Organization
+2026-05-07 13:13:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/settings
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:92 | Deep exploration depth=1: 14 candidate triggers
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.hidden_navigation_explorer:_explore_recursive:133 | Deep exploration: state change detected after clicking 'UTC'
+2026-05-07 13:13:07 | INFO | automation_framework.crawler.crawler_engine:on_state_change:260 | Deep exploration scanning sub-state of https://pione.zentri.cloud/settings: Settings > UTC
+2026-05-07 13:13:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/settings
+2026-05-07 13:13:25 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:150 | Visiting menu: Terms and Conditions -> https://pione.zentri.cloud/terms
+2026-05-07 13:13:55 | WARNING | automation_framework.crawler.crawler_engine:_click_menu_item:196 | Click failed for menu 'Terms and Conditions', will fall back to URL navigation
+2026-05-07 13:13:56 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://pione.zentri.cloud/terms
+2026-05-07 13:13:56 | INFO | automation_framework.crawler.crawler_engine:_scan_route:211 | Scanning route: https://pione.zentri.cloud/terms (menu: Terms and Conditions)
+2026-05-07 13:13:56 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/terms
+2026-05-07 13:13:57 | INFO | automation_framework.crawler.crawler_engine:_scan_route:223 | Empty scan on https://pione.zentri.cloud/terms, retrying after domcontentloaded
+2026-05-07 13:13:57 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:250 | Building UI intelligence for route: https://pione.zentri.cloud/terms
+2026-05-07 13:13:57 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:235 | low confidence scan: no automation targets detected on https://pione.zentri.cloud/terms
+2026-05-07 13:13:57 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Route scan done: https://pione.zentri.cloud/terms | 0 targets | 0.11s
+2026-05-07 13:14:17 | INFO | automation_framework.crawler.crawl_exporter:export_crawl_results:36 | Crawl results exported to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_131054_crawl_results.json and C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_131054_crawl_results.yaml
+2026-05-07 13:14:17 | INFO | __main__:main:96 | Crawler execution completed
+2026-05-07 13:14:18 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 13:14:18 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_131054_metadata.json

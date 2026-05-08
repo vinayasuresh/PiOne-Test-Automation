@@ -1,0 +1,11 @@
+2026-05-07 11:35:36 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_113513 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_113513.log | base_url=https://pione.zentri.cloud/
+2026-05-07 11:35:38 | INFO | __main__:main:62 | Login started
+2026-05-07 11:35:38 | ERROR | __main__:main:109 | Framework execution failed
+Traceback (most recent call last):
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\main.py", line 63, in main
+    login(page, username, password, base_url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\login_handler.py", line 44, in login
+    raise RuntimeError("Login failed: could not locate a username/email field")
+RuntimeError: Login failed: could not locate a username/email field
+2026-05-07 11:35:39 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 11:35:39 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_113513_metadata.json

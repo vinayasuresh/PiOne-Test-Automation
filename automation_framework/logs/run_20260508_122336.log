@@ -1,0 +1,11 @@
+2026-05-08 12:23:36 | INFO | api.services.crawler_service:run_scan:43 | [API] Scan started | run_id=run_20260508_122336 | url=https://pione.zentri.cloud/login
+2026-05-08 12:23:38 | INFO | api.services.crawler_service:run_scan:57 | [API] Logging in | user=user01@pione.com
+2026-05-08 12:23:38 | INFO | automation_framework.crawler.login_handler:login:71 | [login] Navigating to https://pione.zentri.cloud/login
+2026-05-08 12:23:39 | INFO | automation_framework.crawler.login_handler:login:77 | [login] Username field selector: input[type="email"]
+2026-05-08 12:23:39 | INFO | automation_framework.crawler.login_handler:login:80 | [login] Password field selector: input[type="password"]
+2026-05-08 12:23:39 | INFO | automation_framework.crawler.login_handler:login:83 | [login] Submit button selector: form button[type='submit']
+2026-05-08 12:23:39 | INFO | automation_framework.crawler.login_handler:login:85 | [login] Filling credentials
+2026-05-08 12:23:39 | INFO | automation_framework.crawler.login_handler:login:90 | [login] Submitting form
+2026-05-08 12:23:41 | WARNING | automation_framework.crawler.login_handler:_screenshot_failure:298 | [login] Could not save failure screenshot
+2026-05-08 12:23:41 | ERROR | automation_framework.crawler.login_handler:login:100 | [login] Login failed: Target page, context or browser has been closed
+2026-05-08 12:23:42 | ERROR | api.routers.scan:scan:92 | [API] Scan rejected: Login failed: Target page, context or browser has been closed

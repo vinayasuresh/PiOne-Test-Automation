@@ -1,0 +1,197 @@
+2026-05-07 17:29:36 | INFO | api.services.crawler_service:run_scan:43 | [API] Scan started | run_id=run_20260507_172936 | url=https://catsentinel.pionedata.com
+2026-05-07 17:29:39 | INFO | api.services.crawler_service:run_scan:57 | [API] Logging in | user=superadmin@pionedata.com
+2026-05-07 17:29:39 | INFO | automation_framework.crawler.login_handler:login:71 | [login] Navigating to https://catsentinel.pionedata.com
+2026-05-07 17:29:41 | INFO | automation_framework.crawler.login_handler:login:77 | [login] Username field selector: input[type="email"]
+2026-05-07 17:29:42 | INFO | automation_framework.crawler.login_handler:login:80 | [login] Password field selector: input[type="password"]
+2026-05-07 17:29:42 | INFO | automation_framework.crawler.login_handler:login:83 | [login] Submit button selector: form button[type='submit']
+2026-05-07 17:29:42 | INFO | automation_framework.crawler.login_handler:login:85 | [login] Filling credentials
+2026-05-07 17:29:43 | INFO | automation_framework.crawler.login_handler:login:90 | [login] Submitting form
+2026-05-07 17:29:46 | INFO | automation_framework.crawler.login_handler:login:96 | [login] Login successful — current URL: https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:46 | INFO | api.services.crawler_service:run_scan:63 | [API] Login successful
+2026-05-07 17:29:46 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-07 17:29:46 | INFO | api.services.crawler_service:run_scan:85 | [API] Interactive mode ENABLED | per-route timeout=45s
+2026-05-07 17:29:46 | INFO | api.services.crawler_service:run_scan:89 | [API] Crawler started
+2026-05-07 17:29:46 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:50 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/live-events (menu: ABC Insurance)
+2026-05-07 17:29:54 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:56 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 10 buttons on https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:56 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 3 inputs on https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:56 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 tables on https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:56 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/live-events
+2026-05-07 17:29:56 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:29:56 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 13 interactions captured on https://catsentinel.pionedata.com/live-events
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/live-events | 14 targets | 51.64s
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.crawler_engine:crawl:92 | Discovered 16 menu items to explore
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:161 | Skipping already-visited menu route: Live Events (https://catsentinel.pionedata.com/live-events)
+2026-05-07 17:30:41 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: CAT History -> https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:42 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:42 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/cat-history (menu: CAT History)
+2026-05-07 17:30:49 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:50 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 4 buttons on https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:50 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 inputs on https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:50 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 filters on https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:50 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:30:50 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:30:50 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:31:35 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:31:35 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 27 interactions captured on https://catsentinel.pionedata.com/cat-history
+2026-05-07 17:31:35 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/cat-history | 6 targets | 52.61s
+2026-05-07 17:31:35 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Risk Map -> https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:31:35 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:31:36 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/risk-map (menu: Risk Map)
+2026-05-07 17:31:43 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:31:44 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 inputs on https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:31:46 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:31:46 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:31:46 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:32:31 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:32:31 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 34 interactions captured on https://catsentinel.pionedata.com/risk-map
+2026-05-07 17:32:31 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/risk-map | 1 targets | 55.56s
+2026-05-07 17:32:31 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Action Queue -> https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:32 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:34 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_loaders_to_disappear:57 | Loader timeout during UI stabilization
+2026-05-07 17:32:35 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/action-queue-module (menu: Action Queue)
+2026-05-07 17:32:39 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:40 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 2 buttons on https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:40 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 inputs on https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:40 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 tables on https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:40 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:32:40 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:32:40 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:33:25 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:33:25 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 55 interactions captured on https://catsentinel.pionedata.com/action-queue-module
+2026-05-07 17:33:25 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/action-queue-module | 4 targets | 50.67s
+2026-05-07 17:33:25 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Microsites -> https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:28 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:28 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/micro-sites (menu: Microsites)
+2026-05-07 17:33:33 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:33 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 2 buttons on https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:33 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 12 tables on https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:33 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:33:33 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:33:33 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 76 interactions captured on https://catsentinel.pionedata.com/micro-sites
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/micro-sites | 14 targets | 50.52s
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: CAT Event Book -> https://catsentinel.pionedata.com/event-book
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/event-book
+2026-05-07 17:34:19 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/event-book (menu: CAT Event Book)
+2026-05-07 17:34:29 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/event-book
+2026-05-07 17:34:30 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/event-book
+2026-05-07 17:34:30 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/event-book
+2026-05-07 17:34:30 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:34:30 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:35:15 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:35:15 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 79 interactions captured on https://catsentinel.pionedata.com/event-book
+2026-05-07 17:35:15 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/event-book | 1 targets | 55.91s
+2026-05-07 17:35:15 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Knowledge Base -> https://catsentinel.pionedata.com/knowledge-base
+2026-05-07 17:35:18 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/event-book
+2026-05-07 17:35:31 | INFO | automation_framework.crawler.crawler_engine:_scan_route:217 | Route already scanned, skipping: https://catsentinel.pionedata.com/event-book
+2026-05-07 17:35:31 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Policyholder Risk Profile -> https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:31 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:32 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/policyholder-risk (menu: Policyholder Risk Profile)
+2026-05-07 17:35:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:37 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:37 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 inputs on https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:37 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 tables on https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:37 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:35:37 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:35:37 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:36:22 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:36:22 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 89 interactions captured on https://catsentinel.pionedata.com/policyholder-risk
+2026-05-07 17:36:22 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/policyholder-risk | 3 targets | 50.06s
+2026-05-07 17:36:22 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: User -> https://catsentinel.pionedata.com/user
+2026-05-07 17:36:22 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/user
+2026-05-07 17:36:23 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/user (menu: User)
+2026-05-07 17:36:27 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/user
+2026-05-07 17:36:31 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/user
+2026-05-07 17:36:31 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 4 inputs on https://catsentinel.pionedata.com/user
+2026-05-07 17:36:31 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 tables on https://catsentinel.pionedata.com/user
+2026-05-07 17:36:31 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/user
+2026-05-07 17:36:31 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:36:31 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:37:16 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:37:16 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 109 interactions captured on https://catsentinel.pionedata.com/user
+2026-05-07 17:37:16 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/user | 6 targets | 53.47s
+2026-05-07 17:37:16 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Geo Spatial -> https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:16 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:17 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/geo-spatial (menu: Geo Spatial)
+2026-05-07 17:37:24 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:24 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:24 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 inputs on https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:24 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:37:24 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:37:24 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:38:09 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:38:09 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 109 interactions captured on https://catsentinel.pionedata.com/geo-spatial
+2026-05-07 17:38:09 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/geo-spatial | 2 targets | 52.58s
+2026-05-07 17:38:09 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Risk Analyzer -> https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:09 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:10 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/alert-event-monitor (menu: Risk Analyzer)
+2026-05-07 17:38:17 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:17 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Empty scan on https://catsentinel.pionedata.com/alert-event-monitor, retrying after domcontentloaded
+2026-05-07 17:38:17 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:17 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:252 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:17 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:38:17 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:38:17 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:39:02 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:39:02 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 110 interactions captured on https://catsentinel.pionedata.com/alert-event-monitor
+2026-05-07 17:39:02 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/alert-event-monitor | 0 targets | 52.61s
+2026-05-07 17:39:02 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: CAT Synapse -> https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:02 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:03 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/prompt-master (menu: CAT Synapse)
+2026-05-07 17:39:10 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:10 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 2 inputs on https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:10 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:10 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:39:10 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:39:55 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:39:55 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 129 interactions captured on https://catsentinel.pionedata.com/prompt-master
+2026-05-07 17:39:55 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/prompt-master | 2 targets | 52.56s
+2026-05-07 17:39:55 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: CheckList Templates -> https://catsentinel.pionedata.com/template/checklist
+2026-05-07 17:39:56 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/template/checklist
+2026-05-07 17:39:56 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/template/checklist (menu: CheckList Templates)
+2026-05-07 17:40:03 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/template/checklist/3
+2026-05-07 17:40:03 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/template/checklist/3
+2026-05-07 17:40:03 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/template/checklist
+2026-05-07 17:40:03 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:40:03 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 149 interactions captured on https://catsentinel.pionedata.com/template/checklist
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/template/checklist | 1 targets | 52.62s
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Risk Insights -> https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:49 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/risk-insights (menu: Risk Insights)
+2026-05-07 17:40:59 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:59 | INFO | automation_framework.crawler.crawler_engine:_scan_route:240 | Empty scan on https://catsentinel.pionedata.com/risk-insights, retrying after domcontentloaded
+2026-05-07 17:40:59 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:59 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:252 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:59 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:40:59 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:40:59 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:41:45 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:41:45 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 150 interactions captured on https://catsentinel.pionedata.com/risk-insights
+2026-05-07 17:41:45 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/risk-insights | 0 targets | 55.58s
+2026-05-07 17:41:45 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Command Center -> https://catsentinel.pionedata.com/command-center
+2026-05-07 17:41:49 | WARNING | automation_framework.crawler.crawler_engine:_click_menu_item:207 | Network idle timeout after clicking menu: Command Center
+2026-05-07 17:41:49 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/command-center
+2026-05-07 17:41:53 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_network_idle:47 | Network idle timeout during UI stabilization
+2026-05-07 17:41:53 | INFO | automation_framework.crawler.crawler_engine:_scan_route:225 | Scanning route: https://catsentinel.pionedata.com/command-center (menu: Command Center)
+2026-05-07 17:42:11 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/command-center
+2026-05-07 17:42:11 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:349 | Detected 1 buttons on https://catsentinel.pionedata.com/command-center
+2026-05-07 17:42:11 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:338 | Interactive mode: capturing on https://catsentinel.pionedata.com/command-center
+2026-05-07 17:42:11 | INFO | automation_framework.crawler.interactive_capture:inject_capture:162 | Interactive capture: recorder injected
+2026-05-07 17:42:11 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:174 | Interactive capture: waiting up to 45s for user
+2026-05-07 17:42:56 | INFO | automation_framework.crawler.interactive_capture:wait_for_user:184 | Interactive capture: timed out waiting for user
+2026-05-07 17:42:56 | INFO | automation_framework.crawler.crawler_engine:_capture_interactions:355 | Interactive mode: 155 interactions captured on https://catsentinel.pionedata.com/command-center
+2026-05-07 17:42:56 | INFO | automation_framework.crawler.crawler_engine:_scan_route:270 | Scan complete: https://catsentinel.pionedata.com/command-center | 1 targets | 62.94s
+2026-05-07 17:42:56 | INFO | automation_framework.crawler.crawler_engine:_visit_menu_item:164 | Visiting menu: Contact Support -> (click)
+2026-05-07 17:42:56 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/command-center
+2026-05-07 17:43:00 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_network_idle:47 | Network idle timeout during UI stabilization
+2026-05-07 17:43:00 | INFO | automation_framework.crawler.crawler_engine:_scan_route:217 | Route already scanned, skipping: https://catsentinel.pionedata.com/command-center
+2026-05-07 17:43:00 | INFO | api.services.crawler_service:run_scan:111 | [API] Scan completed successfully
+2026-05-07 17:43:00 | INFO | api.services.crawler_service:run_scan:112 | [API] Total routes scanned: 14
+2026-05-07 17:43:00 | INFO | api.services.crawler_service:run_scan:113 | [API] Duration: 804.25s

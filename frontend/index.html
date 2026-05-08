@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI UI Intelligence Scanner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+
+    /* ── Header ── */
+    .scanner-header { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #0f172a 100%); }
+    .header-dots {
+      background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* ── Segmented mode switch ── */
+    .mode-switch { background: #F1F5F9; padding: 4px; border-radius: 12px; display: inline-flex; gap: 4px; }
+    .mode-btn {
+      padding: 8px 18px; border-radius: 9px;
+      font-size: 13px; font-weight: 600; color: #64748B;
+      cursor: pointer; transition: all 0.18s ease;
+      border: 1.5px solid transparent; background: transparent;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .mode-btn:hover { color: #1E293B; }
+    .mode-btn.active-demo {
+      background: white; color: #047857;
+      border-color: #A7F3D0;
+      box-shadow: 0 1px 3px rgba(16,185,129,0.18);
+    }
+    .mode-btn.active-live {
+      background: white; color: #B45309;
+      border-color: #FDE68A;
+      box-shadow: 0 1px 3px rgba(245,158,11,0.18);
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 72px; height: 72px;
+      border: 3px solid #E2E8F0; border-top-color: #2563EB;
+      border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Fade-in up ── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.4s ease forwards; }
+    .d1 { animation-delay: 0.05s; opacity: 0; }
+    .d2 { animation-delay: 0.12s; opacity: 0; }
+    .d3 { animation-delay: 0.20s; opacity: 0; }
+    .d4 { animation-delay: 0.28s; opacity: 0; }
+
+    /* ── Scan button ── */
+    .scan-btn { background: linear-gradient(135deg, #2563EB, #1d4ed8); transition: all 0.18s ease; }
+    .scan-btn:hover:not(:disabled) {
+      background: linear-gradient(135deg, #1d4ed8, #1e40af);
+      transform: translateY(-1px); box-shadow: 0 4px 18px rgba(37,99,235,0.38);
+    }
+    .scan-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Cards ── */
+    .metric-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.09); }
+    .route-item { transition: all 0.14s ease; }
+    .route-item:hover { background: #EFF6FF; border-color: #93C5FD; }
+    .route-item.active { background: #EFF6FF; border-color: #2563EB; }
+
+    /* ── Pulse badge ── */
+    .pulse-dot { width: 7px; height: 7px; background: #10B981; border-radius: 50%; animation: pdot 1.6s ease-in-out infinite; }
+    @keyframes pdot { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+
+    /* ── Loading message fade ── */
+    #loading-msg { transition: opacity 0.22s ease; }
+
+    /* ── Disabled credential field look ── */
+    input:disabled { background: #F8FAFC; color: #94A3B8; cursor: not-allowed; }
+  </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- ═══ TOP ACTION BAR ════════════════════════════════════════════════ -->
+  <nav id="top-action-bar" class="sticky top-0 z-30 bg-white/90 border-b border-slate-200 shadow-sm flex items-center justify-between px-4 py-2 gap-2">
+    <div class="flex items-center gap-2">
+      <span class="font-bold text-blue-900 text-lg tracking-tight">AI UI Intelligence Scanner</span>
+      <span id="step-indicator" class="ml-4 flex items-center gap-2"></span>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btn-newscan" class="hidden bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">New Scan</button>
+      <button id="btn-backscan" class="hidden bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Back to Scan</button>
+      <button id="btn-continue" class="hidden bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Continue → AI Test Generator</button>
+      <button id="btn-execute" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Execute Test</button>
+      <button id="btn-viewresults" class="hidden bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">View Results</button>
+      <button id="btn-export-json" class="hidden bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Export JSON</button>
+      <button id="btn-export-yaml" class="hidden bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Export YAML</button>
+      <button id="btn-export-excel" class="hidden bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Export Excel</button>
+    </div>
+  </nav>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <header class="scanner-header header-dots py-12 px-4 text-center relative overflow-hidden">
+    <div class="absolute top-0 left-1/3 w-72 h-72 bg-blue-600 rounded-full opacity-10 blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-0 right-1/4 w-52 h-52 bg-indigo-500 rounded-full opacity-10 blur-3xl pointer-events-none"></div>
+
+    <!-- Back button (visible only when not on input panel) -->
+    <button id="back-btn" onclick="resetUI()" class="hidden absolute top-5 left-5 inline-flex items-center gap-1.5 text-slate-300 hover:text-white text-sm font-medium transition z-10">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Back
+    </button>
+
+    <div class="relative z-0">
+      <div class="inline-flex items-center gap-2 bg-blue-900/50 border border-blue-700 text-blue-300 text-xs font-semibold px-3 py-1 rounded-full mb-5">
+        <span class="w-1.5 h-1.5 bg-blue-400 rounded-full"></span>
+        Powered by Playwright + FastAPI
+      </div>
+      <h1 class="text-4xl sm:text-5xl font-bold text-white mb-3 tracking-tight">AI UI Intelligence Scanner</h1>
+      <p class="text-slate-400 text-lg max-w-lg mx-auto leading-relaxed">
+        Automatically understand any application's structure, routes, and components
+      </p>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN ══════════════════════════════════════════════════════════════ -->
+  <main class="max-w-5xl mx-auto px-4 py-8 space-y-5">
+
+  <!-- Step-based workflow indicator -->
+  <div id="stepper" class="flex items-center justify-center gap-2 mb-4"></div>
+
+    <!-- ── Input Panel ───────────────────────────────────────────────────── -->
+    <section id="panel-input" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+
+      <!-- Mode badge + segmented switch -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <span id="mode-badge"
+            class="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full pulse-dot"></span>
+            <span id="mode-badge-text">Demo Mode Active</span>
+          </span>
+        </div>
+
+        <div class="mode-switch">
+          <button class="mode-btn active-demo" id="btn-demo" onclick="setMode(true)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            Demo Mode
+          </button>
+          <button class="mode-btn" id="btn-live" onclick="setMode(false)">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Live Scan
+          </button>
+        </div>
+      </div>
+
+      <!-- URL field -->
+      <div>
+        <label class="block text-sm font-semibold text-slate-700 mb-1.5">Target Application URL</label>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+            </svg>
+          </span>
+          <input id="url-input" type="url" value="https://demo.yourapp.com" placeholder="https://your-app.com"
+            class="w-full pl-9 pr-4 py-3 border border-slate-300 rounded-xl text-slate-800 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+        </div>
+      </div>
+
+      <!-- Credentials (visible only in Live Scan mode) -->
+      <div id="credentials-block" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Username</label>
+          <input id="username-input" type="text" placeholder="Enter username"
+            class="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-800 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Password</label>
+          <input id="password-input" type="password" placeholder="Enter password"
+            class="w-full px-4 py-3 border border-slate-300 rounded-xl text-slate-800 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition" />
+        </div>
+        <p id="creds-warning" class="hidden col-span-full text-xs text-red-600 font-medium flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Credentials required for real scan
+        </p>
+      </div>
+
+      <!-- Interactive Learning toggle (Live Scan mode only) -->
+      <div id="interactive-block" class="hidden">
+        <label class="flex items-start gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 cursor-pointer hover:bg-blue-100/70 transition">
+          <input id="interactive-input" type="checkbox" class="mt-0.5 h-4 w-4 accent-blue-600" />
+          <div class="flex-1">
+            <p class="text-sm font-semibold text-slate-800">Interactive Learning Mode</p>
+            <p class="text-xs text-slate-600 mt-0.5">
+              On every route, the scanner pauses so <span class="font-semibold">you</span> can demonstrate clicks, inputs and dropdown selections.
+              Click the floating <span class="font-mono">"Continue ▶"</span> button on each page to move to the next route.
+              The scan budget extends to 30 minutes when this is on.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      <!-- CTA + hint -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+        <p id="hint-text" class="text-xs flex items-center gap-1.5 text-emerald-600">
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Demo mode returns instant results — no browser required.</span>
+        </p>
+
+        <button id="scan-btn" onclick="startScan()"
+          class="scan-btn text-white font-semibold px-7 py-3 rounded-xl text-sm whitespace-nowrap">
+          <span id="btn-label">Start Scan</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Loading Panel ─────────────────────────────────────────────────── -->
+    <section id="panel-loading" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
+      <div class="flex justify-center mb-6"><div class="spinner"></div></div>
+      <h3 class="text-lg font-semibold text-slate-800 mb-2">Running Scan</h3>
+      <p id="loading-msg" class="text-slate-500 text-sm h-5">Initializing scan engine...</p>
+      <p class="text-slate-400 text-xs mt-2">Scanning application... this may take 2–3 minutes</p>
+      <div class="flex justify-center gap-1.5 mt-5">
+        <span class="w-2 h-2 bg-blue-300 rounded-full animate-bounce" style="animation-delay:0s"></span>
+        <span class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay:0.14s"></span>
+        <span class="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style="animation-delay:0.28s"></span>
+      </div>
+      <button onclick="cancelScan()"
+        class="mt-6 text-xs text-slate-400 hover:text-slate-700 font-medium transition">
+        Cancel
+      </button>
+    </section>
+
+    <!-- ── Error Panel ───────────────────────────────────────────────────── -->
+    <section id="panel-error" class="hidden">
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-start gap-3">
+        <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <svg class="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h4 id="error-title" class="font-semibold text-red-800">Scan Failed</h4>
+          <p id="error-msg" class="text-red-600 text-sm mt-1">Something went wrong. Try again with Demo Mode enabled.</p>
+          <div class="flex gap-2 mt-3">
+            <button onclick="resetUI()" class="text-sm font-semibold text-red-700 underline underline-offset-2">Try Again</button>
+            <button onclick="switchToDemoAndRetry()" id="demo-retry-btn" class="hidden text-sm font-semibold text-emerald-700 underline underline-offset-2">Switch to Demo Mode</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Results Panel ─────────────────────────────────────────────────── -->
+    <section id="panel-results" class="hidden space-y-5">
+
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800">Scan Results</h2>
+          <p id="result-url" class="text-sm text-slate-500 mt-0.5 font-mono"></p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <span class="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full">
+            <span class="pulse-dot"></span> Complete
+          </span>
+          <button onclick="downloadResult('json')"
+            class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            JSON
+          </button>
+          <button onclick="downloadResult('yaml')"
+            class="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            YAML
+          </button>
+          <button onclick="resetUI()"
+            class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            New Scan
+          </button>
+        </div>
+      </div>
+
+      <div id="metric-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-up d2">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-semibold text-slate-800">Routes Discovered</h3>
+            <span id="route-badge" class="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1 rounded-full"></span>
+          </div>
+          <div id="routes-list" class="p-4 space-y-2 max-h-72 overflow-y-auto"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden fade-up d3">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <h3 class="font-semibold text-slate-800">Intelligence Insights</h3>
+          </div>
+          <div id="insights-list" class="p-4 space-y-2 max-h-72 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <div id="route-detail" class="hidden bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden fade-up">
+        <div class="px-5 py-4 border-b border-blue-100 bg-blue-50 flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-blue-500 uppercase tracking-wide">Route Detail</p>
+            <h3 id="detail-title" class="font-bold text-slate-800 mt-0.5 font-mono"></h3>
+          </div>
+          <button onclick="closeDetail()" class="text-slate-400 hover:text-slate-700 transition">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Buttons</p>
+            <div id="detail-buttons" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Inputs</p>
+            <div id="detail-inputs" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Dropdowns</p>
+            <div id="detail-dropdowns" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Tables</p>
+            <div id="detail-tables" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Charts</p>
+            <div id="detail-charts" class="space-y-1.5"></div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Maps</p>
+            <div id="detail-maps" class="space-y-1.5"></div>
+          </div>
+          <div id="detail-interactions-wrap" class="sm:col-span-2 lg:col-span-3 hidden">
+            <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              Captured Interactions
+            </p>
+            <div id="detail-interactions" class="space-y-1.5"></div>
+          </div>
+          <div id="detail-purpose-wrap" class="sm:col-span-2 lg:col-span-3 hidden">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Purpose</p>
+            <p id="detail-purpose" class="text-xs text-slate-600 leading-relaxed"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+
+    <!-- ── LLM Test Generator Panel ─────────────────────────────────────── -->
+    <section id="panel-llm" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">AI Test Generator</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">Input Context</h3>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3">
+            <div class="mb-2"><span class="font-semibold">Routes:</span> <span id="llm-routes-context" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Components:</span> <span id="llm-components-context" class="font-mono text-xs"></span></div>
+          </div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Test Description</label>
+          <textarea id="llm-test-desc" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-sm mb-3"></textarea>
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Feature Focus</label>
+          <input id="llm-feature-focus" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-sm mb-3" />
+          <label class="block text-sm font-semibold text-slate-700 mb-1.5">Upload Screenshots (optional)</label>
+          <input id="llm-upload" type="file" multiple class="mb-3" />
+          <button onclick="generateLLMTest()" class="scan-btn text-white font-semibold px-7 py-2 rounded-xl text-sm">Generate Test</button>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">Generated Test Script</h3>
+          <pre id="llm-test-script" class="bg-slate-100 border border-slate-200 rounded-xl p-4 text-xs overflow-x-auto min-h-[120px]"></pre>
+          <h3 class="font-semibold text-slate-700 mt-4 mb-2">Execution Script</h3>
+          <pre id="llm-exec-script" class="bg-slate-100 border border-slate-200 rounded-xl p-4 text-xs overflow-x-auto min-h-[80px]"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Test Execution Results Panel ─────────────────────────────────── -->
+    <section id="panel-exec" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">Execution Results</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-xs border border-slate-200 rounded-xl">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 border-b">TC_ID</th>
+              <th class="px-3 py-2 border-b">Screen</th>
+              <th class="px-3 py-2 border-b">Module</th>
+              <th class="px-3 py-2 border-b">Feature</th>
+              <th class="px-3 py-2 border-b">Test Case</th>
+              <th class="px-3 py-2 border-b">Expected Result</th>
+              <th class="px-3 py-2 border-b">Actual Result</th>
+              <th class="px-3 py-2 border-b">Status</th>
+              <th class="px-3 py-2 border-b">Failure Info</th>
+              <th class="px-3 py-2 border-b">Bug Priority</th>
+            </tr>
+          </thead>
+          <tbody id="exec-results-body"></tbody>
+        </table>
+      </div>
+      <button onclick="downloadExecResults()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg">Export as Excel (CSV)</button>
+    </section>
+
+    <!-- ── System & App Insights Panel ─────────────────────────────────── -->
+    <section id="panel-insights" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">System & App Insights</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">Target Application</h3>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3">
+            <div><span class="font-semibold">Base URL:</span> <span id="insight-base-url" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Detected Routes:</span> <span id="insight-routes" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Detected Modules:</span> <span id="insight-modules" class="font-mono text-xs"></span></div>
+          </div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">System Details</h3>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-3">
+            <div><span class="font-semibold">OS:</span> <span id="insight-os" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Browser:</span> <span id="insight-browser" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Python Version:</span> <span id="insight-python" class="font-mono text-xs"></span></div>
+            <div><span class="font-semibold">Execution Env:</span> <span id="insight-env" class="font-mono text-xs"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Enhanced Scan Output Preview (JSON/YAML) ───────────────────── -->
+    <section id="panel-output" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <h2 class="text-xl font-bold text-slate-800 mb-2">Scan Output</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">JSON Preview</h3>
+          <pre id="output-json" class="bg-slate-100 border border-slate-200 rounded-xl p-4 text-xs overflow-x-auto min-h-[120px]"></pre>
+          <button onclick="downloadResult('json')" class="mt-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Download JSON</button>
+        </div>
+        <div>
+          <h3 class="font-semibold text-slate-700 mb-2">YAML Preview</h3>
+          <pre id="output-yaml" class="bg-slate-100 border border-slate-200 rounded-xl p-4 text-xs overflow-x-auto min-h-[120px]"></pre>
+          <button onclick="downloadResult('yaml')" class="mt-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Download YAML</button>
+        </div>
+      </div>
+    </section>
+
+  <footer class="text-center py-8 text-xs text-slate-400">
+    UI Intelligence Scanner &mdash; Playwright + FastAPI
+  </footer>
+
+  <!-- ═══ SCRIPT ═══════════════════════════════════════════════════════════ -->
+  <script>
+            // ── Global State ──
+            let state = {
+              scanResult: null,
+              generatedScript: null,
+              executionResult: null,
+              loading: false,
+              step: 1 // 1=scan, 2=analyze, 3=generate, 4=execute, 5=report
+            };
+
+            // Stepper steps
+            const STEPS = [
+              { label: 'Scan Application' },
+              { label: 'Analyze Routes' },
+              { label: 'Generate Test' },
+              { label: 'Execute Test' },
+              { label: 'View Report' }
+            ];
+
+            function renderStepper() {
+              const el = document.getElementById('stepper');
+              el.innerHTML = '';
+              STEPS.forEach((s, i) => {
+                const active = state.step === i+1;
+                const done = state.step > i+1;
+                el.innerHTML += `<span class="inline-flex items-center gap-1 ${active ? 'text-blue-700 font-bold' : done ? 'text-emerald-600' : 'text-slate-400'}">
+                  <span class="w-5 h-5 flex items-center justify-center rounded-full border ${active ? 'border-blue-600 bg-blue-50' : done ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-white'}">${done ? '✔' : i+1}</span>
+                  ${s.label}
+                </span>${i < STEPS.length-1 ? '<span class="w-6 h-0.5 bg-slate-200 mx-1"></span>' : ''}`;
+              });
+              // Top bar indicator
+              document.getElementById('step-indicator').innerHTML = STEPS.map((s,i) => `<span class="${state.step===i+1?'text-blue-700 font-bold':'text-slate-400'}">${i+1}. ${s.label}${i<STEPS.length-1?'':''}</span>`).join('<span class="mx-1">→</span>');
+            }
+
+            // ── Top Action Bar Button Logic ──
+            function updateTopBar() {
+              // Hide all
+              ['btn-newscan','btn-backscan','btn-continue','btn-execute','btn-viewresults','btn-export-json','btn-export-yaml','btn-export-excel'].forEach(id => document.getElementById(id).classList.add('hidden'));
+              // Show relevant
+              if (state.step > 1) document.getElementById('btn-newscan').classList.remove('hidden');
+              if (state.step > 1 && state.step < 5) document.getElementById('btn-backscan').classList.remove('hidden');
+              if (state.step === 2) document.getElementById('btn-continue').classList.remove('hidden');
+              if (state.step === 3 && state.generatedScript) document.getElementById('btn-execute').classList.remove('hidden');
+              if (state.step === 4 && state.executionResult) document.getElementById('btn-viewresults').classList.remove('hidden');
+              if (state.step >= 2 && state.scanResult) {
+                document.getElementById('btn-export-json').classList.remove('hidden');
+                document.getElementById('btn-export-yaml').classList.remove('hidden');
+              }
+              if (state.step === 5 && state.executionResult) document.getElementById('btn-export-excel').classList.remove('hidden');
+            }
+
+            // ── State Management ──
+            function setStep(step) {
+              state.step = step;
+              renderStepper();
+              updateTopBar();
+            }
+
+            function clearState() {
+              state = { scanResult: null, generatedScript: null, executionResult: null, loading: false, step: 1 };
+              localStorage.removeItem(STORAGE_KEY);
+              renderStepper();
+              updateTopBar();
+            }
+
+            // Restore state on load
+            window.addEventListener('DOMContentLoaded', () => {
+              renderStepper();
+              updateTopBar();
+            });
+        // ── Demo/mock data for new panels ──
+        const DEMO_EXEC_RESULTS = [
+          { TC_ID: 'TC001', Screen: 'Login', Module: 'Auth', Feature: 'Login', Test_Case: 'Valid login', Expected_Result: 'Dashboard loads', Actual_Result: 'Dashboard loads', Status: 'Pass', Failure_Info: '', Bug_Priority: '' },
+          { TC_ID: 'TC002', Screen: 'Users', Module: 'UserMgmt', Feature: 'Add User', Test_Case: 'Add valid user', Expected_Result: 'User added', Actual_Result: 'User added', Status: 'Pass', Failure_Info: '', Bug_Priority: '' },
+          { TC_ID: 'TC003', Screen: 'Users', Module: 'UserMgmt', Feature: 'Delete User', Test_Case: 'Delete user', Expected_Result: 'User deleted', Actual_Result: 'Error', Status: 'Fail', Failure_Info: 'DB constraint', Bug_Priority: 'High' },
+        ];
+        const DEMO_LLM_TEST = {
+          test_script: `def test_login(driver):\n    driver.get('https://demo.yourapp.com/login')\n    driver.find_element(By.ID, 'username').send_keys('demo')\n    driver.find_element(By.ID, 'password').send_keys('demo123')\n    driver.find_element(By.ID, 'login-btn').click()\n    assert 'Dashboard' in driver.title` ,
+          exec_script: `pytest --browser=chrome --env=staging --tc=TC001`
+        };
+        const DEMO_SYSTEM = {
+          os: 'Windows 11', browser: 'Chrome 124', python: '3.11.9', env: 'venv'
+        };
+
+        // ── Panel navigation helpers ──
+        function showPanel(panelId) {
+          ['panel-input','panel-loading','panel-error','panel-results','panel-llm','panel-exec','panel-insights','panel-output'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+          });
+          const el = document.getElementById(panelId);
+          if (el) el.classList.remove('hidden');
+          document.getElementById('back-btn').classList.toggle('hidden', panelId === 'panel-input');
+        }
+
+        // ── Demo navigation buttons (for mockup flow) ──
+
+        // ── Robust Navigation (state-driven) ──
+        function goToLLM() {
+          if (!state.scanResult) {
+            showToast('Scan required before generating test');
+            return;
+          }
+          const routes = (state.scanResult.routes || []).map(r => r.path).join(', ');
+          const comps = (state.scanResult.routes || []).flatMap(r => Object.keys(r.components||{})).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
+          document.getElementById('llm-routes-context').textContent = routes;
+          document.getElementById('llm-components-context').textContent = comps;
+          document.getElementById('llm-test-desc').value = '';
+          document.getElementById('llm-feature-focus').value = '';
+          document.getElementById('llm-upload').value = '';
+          document.getElementById('llm-test-script').textContent = '';
+          document.getElementById('llm-exec-script').textContent = '';
+          setStep(3);
+          showPanel('panel-llm');
+        }
+        function goToExecResults() {
+          if (!state.generatedScript) {
+            showToast('Generate test to continue');
+            return;
+          }
+          state.executionResult = DEMO_EXEC_RESULTS;
+          renderExecResults(DEMO_EXEC_RESULTS);
+          setStep(4);
+          showPanel('panel-exec');
+        }
+        function goToInsights() {
+          if (!state.scanResult) {
+            showToast('Scan required');
+            return;
+          }
+          document.getElementById('insight-base-url').textContent = state.scanResult.url || '';
+          document.getElementById('insight-routes').textContent = (state.scanResult.routes||[]).map(r=>r.path).join(', ');
+          document.getElementById('insight-modules').textContent = (state.scanResult.routes||[]).map(r=>r.menu_name).filter(Boolean).join(', ');
+          document.getElementById('insight-os').textContent = DEMO_SYSTEM.os;
+          document.getElementById('insight-browser').textContent = DEMO_SYSTEM.browser;
+          document.getElementById('insight-python').textContent = DEMO_SYSTEM.python;
+          document.getElementById('insight-env').textContent = DEMO_SYSTEM.env;
+          setStep(5);
+          showPanel('panel-insights');
+        }
+        function goToOutput() {
+          if (!state.scanResult) {
+            showToast('Scan required');
+            return;
+          }
+          document.getElementById('output-json').textContent = JSON.stringify(state.scanResult, null, 2);
+          document.getElementById('output-yaml').textContent = toYaml(state.scanResult);
+          setStep(5);
+          showPanel('panel-output');
+        }
+
+        // ── Toast Notification ──
+        function showToast(msg) {
+          let toast = document.getElementById('toast');
+          if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'fixed top-6 right-6 z-50 bg-emerald-600 text-white px-5 py-2 rounded-lg shadow-lg text-sm font-semibold opacity-0 pointer-events-none transition';
+            document.body.appendChild(toast);
+          }
+          toast.textContent = msg;
+          toast.style.opacity = 1;
+          setTimeout(() => { toast.style.opacity = 0; }, 1800);
+        }
+
+        // ── LLM Test Generation (mock/demo only) ──
+        function generateLLMTest() {
+          document.getElementById('llm-test-script').textContent = DEMO_LLM_TEST.test_script;
+          document.getElementById('llm-exec-script').textContent = DEMO_LLM_TEST.exec_script;
+        }
+
+        // ── Execution Results Table (mock/demo only) ──
+        function renderExecResults(rows) {
+          const body = document.getElementById('exec-results-body');
+          body.innerHTML = '';
+          (rows||[]).forEach(row => {
+            const tr = document.createElement('tr');
+            [ 'TC_ID','Screen','Module','Feature','Test_Case','Expected_Result','Actual_Result','Status','Failure_Info','Bug_Priority' ].forEach(k => {
+              const td = document.createElement('td');
+              td.className = 'px-3 py-2 border-b';
+              td.textContent = row[k] || '';
+              if (k==='Status') td.className += row[k]==='Pass' ? ' text-emerald-600 font-bold' : (row[k]==='Fail' ? ' text-red-600 font-bold' : '');
+              tr.appendChild(td);
+            });
+            body.appendChild(tr);
+          });
+        }
+        function downloadExecResults() {
+          const rows = isMockMode ? DEMO_EXEC_RESULTS : [];
+          const headers = [ 'TC_ID','Screen','Module','Feature','Test_Case','Expected_Result','Actual_Result','Status','Failure_Info','Bug_Priority' ];
+          let csv = headers.join(',') + '\n';
+          rows.forEach(r => {
+            csv += headers.map(h => '"'+String(r[h]||'').replace(/"/g,'""')+'"').join(',') + '\n';
+          });
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'execution_results.csv';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 0);
+        }
+    // ── Configuration ─────────────────────────────────────────────────────
+    const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8000' : window.location.origin;
+    const STORAGE_KEY      = 'ui_scanner_last_result';
+
+    // Loading messages cycle through during the long-running scan. The last
+    // message stays on screen until the backend response arrives — there is
+    // NO client-side timeout; we wait for the server to finish.
+    const LOADING_MSGS = [
+      'Initializing scan engine...',
+      'Launching browser...',
+      'Navigating to application...',
+      'Authenticating...',
+      'Discovering navigation and routes...',
+      'Detecting UI components on each page...',
+      'Classifying buttons, inputs, tables and charts...',
+      'Generating intelligence insights...',
+      'Scanning application... this may take 2–3 minutes',
+    ];
+
+    const METRICS = [
+      { key: 'total_routes',  label: 'Routes',  path: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7', bg: 'bg-blue-50',   icon: 'text-blue-600',   border: 'border-blue-100' },
+      { key: 'total_buttons', label: 'Buttons', path: 'M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122', bg: 'bg-violet-50',  icon: 'text-violet-600',  border: 'border-violet-100' },
+      { key: 'total_inputs',  label: 'Inputs',  path: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', bg: 'bg-emerald-50', icon: 'text-emerald-600', border: 'border-emerald-100' },
+      { key: 'total_tables',  label: 'Tables',  path: 'M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z', bg: 'bg-amber-50',   icon: 'text-amber-600',   border: 'border-amber-100' },
+    ];
+
+    // ── State ─────────────────────────────────────────────────────────────
+    let isMockMode  = true;
+    let msgTimer    = null;
+    let isScanning  = false;
+    let scanId      = 0;   // increments per scan; stale responses are ignored
+
+    // ── Mode switch ───────────────────────────────────────────────────────
+    function setMode(mock) {
+      isMockMode = mock;
+      const btnDemo  = document.getElementById('btn-demo');
+      const btnLive  = document.getElementById('btn-live');
+      const badge    = document.getElementById('mode-badge');
+      const badgeTxt = document.getElementById('mode-badge-text');
+      const hint     = document.getElementById('hint-text');
+      const credsBlock = document.getElementById('credentials-block');
+      const interactiveBlock = document.getElementById('interactive-block');
+      const userIn   = document.getElementById('username-input');
+      const passIn   = document.getElementById('password-input');
+      const credsWarn = document.getElementById('creds-warning');
+
+      if (mock) {
+        btnDemo.classList.add('active-demo');
+        btnLive.classList.remove('active-live');
+        badge.className = 'inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1 rounded-full';
+        badge.querySelector('span:first-child').className = 'w-1.5 h-1.5 bg-emerald-500 rounded-full pulse-dot';
+        badgeTxt.textContent = 'Demo Mode Active';
+        hint.className = 'text-xs flex items-center gap-1.5 text-emerald-600';
+        hint.querySelector('span').textContent = 'Demo mode returns instant results — no browser required.';
+        credsBlock.classList.add('hidden');
+        userIn.disabled = true;
+        passIn.disabled = true;
+        credsWarn.classList.add('hidden');
+        interactiveBlock.classList.add('hidden');
+        document.getElementById('interactive-input').checked = false;
+      } else {
+        btnDemo.classList.remove('active-demo');
+        btnLive.classList.add('active-live');
+        badge.className = 'inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-1 rounded-full';
+        badge.querySelector('span:first-child').className = 'w-1.5 h-1.5 bg-amber-500 rounded-full pulse-dot';
+        badgeTxt.textContent = 'Live Scan Mode';
+        hint.className = 'text-xs flex items-center gap-1.5 text-amber-600';
+        hint.querySelector('span').textContent = 'Live scan launches a real browser and may take several minutes.';
+        credsBlock.classList.remove('hidden');
+        credsBlock.classList.add('grid');
+        userIn.disabled = false;
+        passIn.disabled = false;
+        interactiveBlock.classList.remove('hidden');
+      }
+    }
+
+    // ── Panel helpers ─────────────────────────────────────────────────────
+    const PANELS = ['panel-input', 'panel-loading', 'panel-error', 'panel-results'];
+    function show(id) {
+      PANELS.forEach(p => document.getElementById(p).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById('back-btn').classList.toggle('hidden', id === 'panel-input');
+    }
+
+    function resetUI() {
+      stopMessages();
+      isScanning = false;
+      scanId++;   // invalidate any in-flight scan
+      show('panel-input');
+      document.getElementById('scan-btn').disabled = false;
+      document.getElementById('btn-label').textContent = 'Start Scan';
+      document.getElementById('demo-retry-btn').classList.add('hidden');
+    }
+
+    // ── Loading messages ──────────────────────────────────────────────────
+    function startMessages() {
+      let i = 0;
+      const el = document.getElementById('loading-msg');
+      el.textContent = LOADING_MSGS[0];
+      msgTimer = setInterval(() => {
+        i = Math.min(i + 1, LOADING_MSGS.length - 1);
+        el.style.opacity = '0';
+        setTimeout(() => { el.textContent = LOADING_MSGS[i]; el.style.opacity = '1'; }, 220);
+        if (i === LOADING_MSGS.length - 1) clearInterval(msgTimer);
+      }, 950);
+    }
+    function stopMessages() { if (msgTimer) { clearInterval(msgTimer); msgTimer = null; } }
+
+    // ── Cancel ────────────────────────────────────────────────────────────
+    function cancelScan() { resetUI(); }
+
+    // ── Scan ──────────────────────────────────────────────────────────────
+    async function startScan() {
+      const url  = document.getElementById('url-input').value.trim();
+      const user = document.getElementById('username-input').value.trim();
+      const pass = document.getElementById('password-input').value;
+
+      if (!url) { document.getElementById('url-input').focus(); return; }
+      if (!/^https?:\/\//i.test(url)) {
+        showError('Invalid URL', 'Please enter a valid URL starting with http:// or https://', false);
+        return;
+      }
+
+      // Block live scan if credentials missing.
+      if (!isMockMode && (!user || !pass)) {
+        document.getElementById('creds-warning').classList.remove('hidden');
+        document.getElementById((!user ? 'username-input' : 'password-input')).focus();
+        return;
+      }
+      document.getElementById('creds-warning').classList.add('hidden');
+
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('btn-label').textContent = 'Scanning...';
+      show('panel-loading');
+      startMessages();
+
+      isScanning = true;
+      const myScanId = ++scanId;
+
+      const minDisplayMs = isMockMode ? 3400 : 800;
+      const interactive = !isMockMode && document.getElementById('interactive-input').checked;
+      const body = isMockMode
+        ? { url, mock: true }
+        : { url, mock: false, username: user, password: pass,
+            interactive_mode: interactive, interactive_timeout: 45 };
+
+      try {
+        // No AbortController, no setTimeout — wait as long as the backend
+        // needs. Backend enforces its own 180 s budget and returns a
+        // structured { status: "timeout", ... } response on overrun, which
+        // renderStatusBanner displays above the results.
+        const [data] = await Promise.all([ callAPI(body), sleep(minDisplayMs) ]);
+        if (myScanId !== scanId) return;   // user cancelled / started new scan
+        stopMessages();
+        isScanning = false;
+        renderResults(data, url);
+      } catch (err) {
+        if (myScanId !== scanId) return;   // stale failure, ignore
+        stopMessages();
+        isScanning = false;
+        // Only true fetch/network failures land here.
+        showError(...mapError(err.message || ''));
+      }
+    }
+
+    async function callAPI(body) {
+      const res = await fetch(`${API_BASE}/scan`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        const e = new Error(d.detail || `Server returned ${res.status}`);
+        e.status = res.status;
+        throw e;
+      }
+      return res.json();
+    }
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    // ── Error mapping ─────────────────────────────────────────────────────
+    // Only network/connection failures and HTTP error responses reach here.
+    // Backend-side timeouts arrive as a 200 with status: "timeout" and are
+    // rendered via renderStatusBanner — never as an error.
+    function mapError(raw) {
+      const m = raw.toLowerCase();
+      if (m.includes('credential') || m.includes('authentic') || m.includes('login') || m.includes('password'))
+        return ['Login Required', 'Login required. Please enter valid credentials.', true];
+      if (m.includes('browser') || m.includes('playwright') || m.includes('chromium') || m.includes('firefox'))
+        return ['Live Scan Failed', 'Live scan failed. Try Demo Mode for an instant preview.', true];
+      if (m.includes('failed to fetch') || m.includes('network') || m.includes('networkerror'))
+        return ['Connection Failed', 'Could not reach the scan service. Check your connection and try again.', true];
+      return ['Scan Failed', 'Scan failed. Please try again.', true];
+    }
+
+    function showError(title, message, offerDemo) {
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-msg').textContent = message;
+      const demoBtn = document.getElementById('demo-retry-btn');
+      demoBtn.classList.toggle('hidden', !(offerDemo && !isMockMode));
+      show('panel-error');
+      document.getElementById('scan-btn').disabled = false;
+      document.getElementById('btn-label').textContent = 'Start Scan';
+    }
+
+    function switchToDemoAndRetry() {
+      setMode(true);
+      show('panel-input');
+      setTimeout(startScan, 100);
+    }
+
+    // ── Render results ────────────────────────────────────────────────────
+    let lastResult = null;   // cached for JSON / YAML download
+
+    function renderResults(data, url) {
+      // PHASE 3: Clear containers before rendering new scan
+      const results = document.getElementById('routes-list');
+      if (results) results.innerHTML = '';
+      const aiGen = document.getElementById('llm-test-script');
+      if (aiGen) aiGen.textContent = '';
+      const exec = document.getElementById('exec-results-body');
+      if (exec) exec.innerHTML = '';
+      lastResult = { data, url };
+      // Persist for refresh restoration (but not auto-load on page load)
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ data, url, ts: Date.now() })); } catch (_) {}
+      paintResults(data, url);
+      // No demo nav, navigation is now state-driven and handled by top bar/buttons
+    }
+
+    function paintResults(data, url) {
+      document.getElementById('result-url').textContent = url;
+      const summary = data.summary || {};
+      const routes  = data.routes  || [];
+      const status  = data.status  || 'success';
+
+      // Status-driven banner: partial_success / timeout / error
+      renderStatusBanner(status, data.message || '');
+
+      const cards = document.getElementById('metric-cards');
+      cards.innerHTML = '';
+      METRICS.forEach((m, i) => {
+        const val = summary[m.key] ?? 0;
+        const el  = document.createElement('div');
+        el.className = `metric-card bg-white rounded-2xl border ${m.border} shadow-sm p-5 fade-up d${i + 1}`;
+        el.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">${m.label}</span>
+            <div class="w-8 h-8 ${m.bg} rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 ${m.icon}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${m.path}"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-3xl font-bold text-slate-800">${val}</p>`;
+        cards.appendChild(el);
+      });
+
+      const list = document.getElementById('routes-list');
+      document.getElementById('route-badge').textContent = `${routes.length} routes`;
+      list.innerHTML = '';
+
+      if (routes.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-8 text-sm text-slate-400">
+            <svg class="w-10 h-10 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-3.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 007.586 13H4"/>
+            </svg>
+            <p class="font-semibold text-slate-500">No data available</p>
+            <p class="text-xs mt-1">No routes were discovered for this scan.</p>
+          </div>`;
+      } else {
+        routes.forEach(r => {
+          const comp = r.components || {};
+          const bCount = (comp.buttons || []).length;
+          const iCount = (comp.inputs  || []).length;
+          const el = document.createElement('div');
+          el.className = 'route-item cursor-pointer border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between group';
+          el.innerHTML = `
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-7 h-7 bg-slate-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0 transition">
+                <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm font-mono font-semibold text-slate-700 truncate">${r.path || ''}</p>
+                <p class="text-xs text-slate-400 truncate">${r.menu_name || ''}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+              <span class="text-xs text-slate-400">${bCount}b&nbsp;·&nbsp;${iCount}i</span>
+              <svg class="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </div>`;
+          el.addEventListener('click', () => openDetail(r, el));
+          list.appendChild(el);
+        });
+      }
+
+      const iList = document.getElementById('insights-list');
+      iList.innerHTML = '';
+      buildInsights(data).forEach(({ icon, text }) => {
+        const el = document.createElement('div');
+        el.className = 'flex items-start gap-2.5 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5';
+        el.innerHTML = `<span class="text-base leading-tight flex-shrink-0">${icon}</span><span class="text-sm text-slate-700">${text}</span>`;
+        iList.appendChild(el);
+      });
+
+      document.getElementById('route-detail').classList.add('hidden');
+      show('panel-results');
+
+      // Smooth scroll to results.
+      setTimeout(() => {
+        document.getElementById('panel-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+
+    // ── Route detail ──────────────────────────────────────────────────────
+    const DETAIL_BUCKETS = [
+      { id: 'detail-buttons',   key: 'buttons',   cls: 'bg-violet-50 text-violet-700' },
+      { id: 'detail-inputs',    key: 'inputs',    cls: 'bg-emerald-50 text-emerald-700' },
+      { id: 'detail-dropdowns', key: 'dropdowns', cls: 'bg-sky-50 text-sky-700' },
+      { id: 'detail-tables',    key: 'tables',    cls: 'bg-amber-50 text-amber-700' },
+      { id: 'detail-charts',    key: 'charts',    cls: 'bg-rose-50 text-rose-700' },
+      { id: 'detail-maps',      key: 'maps',      cls: 'bg-indigo-50 text-indigo-700' },
+    ];
+
+    function openDetail(route, itemEl) {
+      document.querySelectorAll('.route-item').forEach(e => e.classList.remove('active'));
+      itemEl.classList.add('active');
+
+      document.getElementById('detail-title').textContent = route.path || '';
+
+      const comp = route.components || {};
+      DETAIL_BUCKETS.forEach(({ id, key, cls }) => {
+        const items = comp[key] || [];
+        const target = document.getElementById(id);
+        target.innerHTML = items.length
+          ? items.map(v => `<div class="text-xs ${cls} px-2.5 py-1.5 rounded-lg font-medium truncate" title="${escapeAttr(v)}">${escapeHtml(v)}</div>`).join('')
+          : '<p class="text-xs text-slate-400">None detected</p>';
+      });
+
+      const purposeWrap = document.getElementById('detail-purpose-wrap');
+      if (route.purpose) {
+        document.getElementById('detail-purpose').textContent = route.purpose;
+        purposeWrap.classList.remove('hidden');
+      } else {
+        purposeWrap.classList.add('hidden');
+      }
+
+      // Interactive learning: render captured user interactions if any.
+      const interactions = Array.isArray(route.interactions) ? route.interactions : [];
+      const interWrap = document.getElementById('detail-interactions-wrap');
+      const interHost = document.getElementById('detail-interactions');
+      if (interactions.length) {
+        const palette = {
+          button:   'bg-violet-50 text-violet-700 border-violet-200',
+          input:    'bg-emerald-50 text-emerald-700 border-emerald-200',
+          dropdown: 'bg-sky-50 text-sky-700 border-sky-200',
+        };
+        interHost.innerHTML = interactions.map(it => {
+          const cls   = palette[it.component] || 'bg-slate-50 text-slate-700 border-slate-200';
+          const type  = escapeHtml((it.type || '').toUpperCase());
+          const label = escapeHtml(it.label || it.selector || '');
+          const sel   = escapeHtml(it.selector || '');
+          return `<div class="text-xs ${cls} border px-2.5 py-1.5 rounded-lg flex items-center justify-between gap-2">
+            <span class="font-mono font-bold text-[10px] tracking-wide">${type}</span>
+            <span class="flex-1 truncate font-medium" title="${sel}">${label}</span>
+          </div>`;
+        }).join('');
+        interWrap.classList.remove('hidden');
+      } else {
+        interWrap.classList.add('hidden');
+      }
+
+      const panel = document.getElementById('route-detail');
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    }
+    function escapeAttr(s) { return escapeHtml(s); }
+
+    // ── Status banner (partial_success / timeout / error) ────────────────
+    function renderStatusBanner(status, message) {
+      let banner = document.getElementById('status-banner');
+      if (banner) banner.remove();
+      if (status === 'success') return;
+
+      const palettes = {
+        partial_success: { bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800',  title: 'Partial results',
+                           fallback: 'Crawl was interrupted — showing routes collected so far.' },
+        timeout:         { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', title: 'Scan timed out',
+                           fallback: 'Scan exceeded the time budget. Try Demo Mode for an instant preview.' },
+        error:           { bg: 'bg-red-50',    border: 'border-red-200',    text: 'text-red-800',    title: 'Scan error',
+                           fallback: 'Something went wrong during the scan.' },
+      };
+      const p = palettes[status] || palettes.error;
+
+      banner = document.createElement('div');
+      banner.id = 'status-banner';
+      banner.className = `${p.bg} border ${p.border} ${p.text} rounded-xl px-4 py-3 text-sm fade-up`;
+      banner.innerHTML = `<span class="font-semibold">${p.title}:</span> ${escapeHtml(message || p.fallback)}`;
+
+      const results = document.getElementById('panel-results');
+      results.insertBefore(banner, results.firstChild);
+    }
+
+    // ── Download (JSON / YAML) ───────────────────────────────────────────
+    function downloadResult(format) {
+      if (!lastResult || !lastResult.data) return;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const base  = `scan-${stamp}`;
+      let blob, filename;
+
+      if (format === 'yaml') {
+        blob = new Blob([toYaml(lastResult.data)], { type: 'text/yaml;charset=utf-8' });
+        filename = `${base}.yaml`;
+      } else {
+        blob = new Blob([JSON.stringify(lastResult.data, null, 2)], { type: 'application/json;charset=utf-8' });
+        filename = `${base}.json`;
+      }
+
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 0);
+    }
+
+    // Tiny YAML serializer — sufficient for the scan response shape
+    // (objects, arrays of strings/objects, primitives). Avoids pulling in a
+    // YAML dependency for a feature this small.
+    function toYaml(value, indent = 0) {
+      const pad = '  '.repeat(indent);
+      if (value === null || value === undefined) return 'null';
+      if (typeof value === 'string')  return yamlScalar(value);
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      if (Array.isArray(value)) {
+        if (value.length === 0) return '[]';
+        return value.map(v => {
+          if (v && typeof v === 'object' && !Array.isArray(v)) {
+            const body = toYaml(v, indent + 1).replace(/^ {2}/, '');
+            return `${pad}- ${body}`;
+          }
+          return `${pad}- ${toYaml(v, indent + 1)}`;
+        }).join('\n');
+      }
+      if (typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return keys.map(k => {
+          const v = value[k];
+          if (v !== null && typeof v === 'object') {
+            const body = toYaml(v, indent + 1);
+            const sep  = (Array.isArray(v) && v.length === 0) || (!Array.isArray(v) && Object.keys(v).length === 0)
+              ? ' ' : '\n';
+            return `${pad}${k}:${sep}${body}`;
+          }
+          return `${pad}${k}: ${toYaml(v, indent + 1)}`;
+        }).join('\n');
+      }
+      return String(value);
+    }
+    function yamlScalar(s) {
+      if (s === '') return '""';
+      if (/[:#\-?&*!,\[\]{}|>'"%@`\n]/.test(s) || /^\s|\s$/.test(s)) {
+        return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+      }
+      return s;
+    }
+
+    function closeDetail() {
+      document.getElementById('route-detail').classList.add('hidden');
+      document.querySelectorAll('.route-item').forEach(e => e.classList.remove('active'));
+    }
+
+    // ── Insights ──────────────────────────────────────────────────────────
+    function buildInsights(data) {
+      const out   = [];
+      const paths = (data.routes || []).map(r => r.path.toLowerCase());
+      const s     = data.summary || {};
+      const has   = (...words) => paths.some(p => words.some(w => p.includes(w)));
+
+      if (has('login', 'auth', 'signin', 'sign-in'))   out.push({ icon: '🔐', text: 'Login / authentication flow detected' });
+      if (has('dashboard'))                            out.push({ icon: '📊', text: 'Dashboard with analytics identified' });
+      if (has('user', 'member', 'admin', 'team'))      out.push({ icon: '👥', text: 'User management module detected' });
+      if (has('report'))                               out.push({ icon: '📈', text: 'Reporting section found' });
+      if (has('analytic', 'metric', 'stat', 'insight'))out.push({ icon: '📉', text: 'Analytics and metrics tracking found' });
+      if (has('setting', 'config', 'preference'))      out.push({ icon: '⚙️', text: 'Configuration and settings panel found' });
+      if ((s.total_tables  || 0) > 1)                  out.push({ icon: '📋', text: `${s.total_tables} data tables found across routes` });
+      if ((s.total_buttons || 0) > 10)                 out.push({ icon: '🖱️', text: `Rich interactive UI — ${s.total_buttons} actionable controls detected` });
+      if ((s.total_inputs  || 0) > 8)                  out.push({ icon: '📝', text: 'Multiple data entry and filter forms identified' });
+      if (out.length === 0)                            out.push({ icon: '✅', text: 'Application structure successfully analyzed' });
+      return out;
+    }
+
+    // ── Restore last scan on load ─────────────────────────────────────────
+    (function restore() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (!saved || !saved.data) return;
+        // Pre-paint results without triggering new scan.
+        lastResult = { data: saved.data, url: saved.url || '' };
+        paintResults(saved.data, saved.url || '');
+      } catch (_) { /* ignore */ }
+    })();
+  </script>
+
+</body>
+</html>

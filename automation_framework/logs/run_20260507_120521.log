@@ -1,0 +1,40 @@
+2026-05-07 12:05:36 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_120521 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_120521.log | base_url=https://pione.zentri.cloud/
+2026-05-07 12:05:37 | INFO | __main__:main:62 | Login started
+2026-05-07 12:05:38 | WARNING | automation_framework.crawler.login_handler:login:48 | Standard username detection failed; switching to discovery mode
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:132 | Discovery mode: 3 total input element(s) found
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:148 |   Discovery input 0: type='email' placeholder='admin@company.com' name='email' id='email'
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:171 |     → score=20 selector=input[name="email"]
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:148 |   Discovery input 1: type='password' placeholder='••••••••' name='password' id='password'
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:148 |   Discovery input 2: type='checkbox' placeholder='' name='' id=''
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_discover_username_field:173 | Discovery mode: 3 visible input(s), 1 candidate(s)
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:login:54 | Username field detected using discovery=input[name="email"]
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:login:61 | Password field detected using input[type="password"]
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:login:72 | Login button detected using role=button[name~="sign in"]
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.login_handler:_wait_for_login_success:340 | Login confirmed via URL change
+2026-05-07 12:05:39 | INFO | __main__:main:65 | Login successful
+2026-05-07 12:05:39 | INFO | __main__:main:67 | Current URL after login: https://pione.zentri.cloud/login
+2026-05-07 12:05:39 | INFO | __main__:main:71 | Expanding navigation if needed
+2026-05-07 12:05:39 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-07 12:05:39 | INFO | __main__:main:74 | Crawler execution started
+2026-05-07 12:05:39 | WARNING | automation_framework.crawler.crawler_engine:_ensure_authenticated:307 | Authentication session appears to be lost. Attempting login recovery.
+2026-05-07 12:05:40 | WARNING | automation_framework.crawler.login_handler:login:48 | Standard username detection failed; switching to discovery mode
+2026-05-07 12:05:47 | WARNING | automation_framework.crawler.login_handler:_wait_for_inputs:241 | Discovery mode: timed out waiting for input elements
+2026-05-07 12:05:47 | INFO | automation_framework.crawler.login_handler:_discover_username_field:132 | Discovery mode: 0 total input element(s) found
+2026-05-07 12:05:47 | INFO | automation_framework.crawler.login_handler:_discover_username_field:173 | Discovery mode: 0 visible input(s), 0 candidate(s)
+2026-05-07 12:05:47 | WARNING | automation_framework.crawler.login_handler:_discover_username_field:177 | Discovery mode: no candidates found, waiting 2s and retrying
+2026-05-07 12:05:49 | INFO | automation_framework.crawler.login_handler:_discover_username_field_retry:190 | Discovery retry: 0 total input element(s)
+2026-05-07 12:05:49 | WARNING | automation_framework.crawler.login_handler:_discover_username_field_retry:222 | Discovery retry: still no candidates found
+2026-05-07 12:05:49 | WARNING | automation_framework.crawler.login_handler:_screenshot_failure:373 | Login failure screenshot saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\screenshots\login_failure.png
+2026-05-07 12:05:49 | ERROR | __main__:main:105 | Crawler execution failed
+Traceback (most recent call last):
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\main.py", line 80, in main
+    crawl_results = crawler.crawl(start_url=page.url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\crawler_engine.py", line 65, in crawl
+    self._ensure_authenticated()
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\crawler_engine.py", line 309, in _ensure_authenticated
+    login(self.page, username, password, self.base_url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\login_handler.py", line 53, in login
+    raise RuntimeError("Login failed: could not locate a username/email field")
+RuntimeError: Login failed: could not locate a username/email field
+2026-05-07 12:05:49 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 12:05:49 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_120521_metadata.json

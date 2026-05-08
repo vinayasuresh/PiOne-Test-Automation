@@ -1,0 +1,11 @@
+2026-05-07 14:50:38 | INFO | api.services.crawler_service:run_scan:35 | [API] Scan started | run_id=run_20260507_145038 | url=https://pione.zentri.cloud/login
+2026-05-07 14:50:39 | ERROR | api.services.crawler_service:run_scan:77 | [API] Scan failed after 1.02s | error=Browser.new_context: Error setting storage state:
+net::ERR_ABORTED; maybe frame was detached?
+Call log:
+  - navigating to "https://pione.zentri.cloud", waiting until "load"
+
+2026-05-07 14:50:39 | ERROR | api.routers.scan:scan:75 | [API] Unexpected scan error: Browser.new_context: Error setting storage state:
+net::ERR_ABORTED; maybe frame was detached?
+Call log:
+  - navigating to "https://pione.zentri.cloud", waiting until "load"
+

@@ -1,0 +1,10 @@
+{
+    "run_id": "run_20260507_110351",
+    "timestamp": "2026-05-07T11:03:51",
+    "platform": "Windows 10",
+    "python_version": "3.11.9",
+    "base_url": null,
+    "total_routes_scanned": 0,
+    "total_components_detected": 0,
+    "execution_duration_seconds": 4.78
+}

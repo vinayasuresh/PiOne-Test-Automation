@@ -1,0 +1,26 @@
+2026-05-07 00:55:33 | INFO | __main__:main:39 | Framework startup | run_id=run_20260507_005457 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_005457.log
+2026-05-07 00:55:56 | INFO | __main__:main:42 | Login started
+2026-05-07 00:56:04 | ERROR | __main__:main:87 | Framework execution failed
+Traceback (most recent call last):
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\main.py", line 43, in main
+    login(page, username, password)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\login_handler.py", line 14, in login
+    expect(page).not_to_have_url(login_page_url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\sync_api\_generated.py", line 19812, in not_to_have_url
+    self._sync(
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_assertions.py", line 162, in not_to_have_url
+    await self._not.to_have_url(urlOrRegExp, timeout, ignoreCase)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_assertions.py", line 147, in to_have_url
+    await self._expect_impl(
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_assertions.py", line 85, in _expect_impl
+    raise AssertionError(
+AssertionError: Page URL expected not to be 'https://catsentinel.rpiinfo.com/login'
+Actual value: https://catsentinel.rpiinfo.com/login 
+Call log:
+  - Expect "to_have_url" with timeout 5000ms
+    9 × unexpected value "https://catsentinel.rpiinfo.com/login"
+
+2026-05-07 00:56:04 | INFO | __main__:main:94 | Browser shutdown
+2026-05-07 00:56:04 | INFO | automation_framework.utils.metadata_collector:save_metadata:44 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_005457_metadata.json

@@ -1,0 +1,28 @@
+2026-05-07 11:11:27 | INFO | __main__:main:57 | Framework startup | run_id=run_20260507_110521 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_110521.log | base_url=https://pione.zentri.cloud
+2026-05-07 11:11:37 | INFO | __main__:main:62 | Login started
+2026-05-07 11:12:08 | ERROR | __main__:main:109 | Framework execution failed
+Traceback (most recent call last):
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\main.py", line 63, in main
+    login(page, username, password, base_url)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\crawler\login_handler.py", line 8, in login
+    page.get_by_placeholder("Enter your email").fill(username)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\sync_api\_generated.py", line 16548, in fill
+    self._sync(
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_locator.py", line 215, in fill
+    return await self._frame.fill(self._selector, strict=True, **params)
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_frame.py", line 607, in fill
+    await self._fill(**locals_to_params(locals()))
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_frame.py", line 619, in _fill
+    await self._channel.send("fill", self._timeout, locals_to_params(locals()))
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+  File "C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\venv\Lib\site-packages\playwright\_impl\_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Locator.fill: Timeout 30000ms exceeded.
+Call log:
+  - waiting for get_by_placeholder("Enter your email")
+
+2026-05-07 11:12:09 | INFO | __main__:main:116 | Browser shutdown
+2026-05-07 11:12:09 | INFO | automation_framework.utils.metadata_collector:save_metadata:45 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_110521_metadata.json

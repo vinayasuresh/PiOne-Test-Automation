@@ -1,0 +1,3168 @@
+application_shell:
+  current_url: https://catsentinel.rpiinfo.com/live-events
+  global_navigation:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+feature_routes:
+  https://catsentinel.rpiinfo.com/live-events:
+    label: Live Events
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/cat-history:
+    label: CAT History
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/risk-map:
+    label: Risk Map
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/action-queue-module:
+    label: Action Queue
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/micro-sites:
+    label: Microsites
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/event-book:
+    label: CAT Event Book
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/knowledge-base:
+    label: Knowledge Base
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/policyholder-risk:
+    label: Policyholder Risk Profile
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/geo-spatial:
+    label: Geo Spatial
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/alert-event-monitor:
+    label: Risk Analyzer
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/prompt-master:
+    label: CAT Synapse
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/template/checklist:
+    label: CheckList Templates
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/risk-insights:
+    label: Risk Insights
+    source: top_navigation_menus
+  https://catsentinel.rpiinfo.com/command-center:
+    label: Command Center
+    source: top_navigation_menus
+page_sections: &id001
+  https://catsentinel.rpiinfo.com/live-events:
+    sections:
+      ________300_km_1:
+        type: map_container
+        components:
+          buttons:
+          - title: Zoom In
+          - title: Zoom Out
+          - title: Reset Bearing to North
+          - title: Reset Map View
+          - title: Street View
+          - title: Satellite View
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - role: region
+            aria_label: Map
+        text: '! ! ! ! 300 km'
+      map_container_2:
+        type: map_container
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      map_toolbar_3:
+        type: map_toolbar
+        components:
+          buttons:
+          - title: Zoom In
+          - title: Zoom Out
+          - title: Reset Bearing to North
+          - title: Reset Map View
+          - title: Street View
+          - title: Satellite View
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      state_all_states_alabama_alaska_american_4:
+        type: table_grid
+        components:
+          buttons:
+          - text: Live
+          - text: Forecast
+          - text: Both
+          - text: Show
+          - title: Load More Alerts
+          - text: Hide
+          - title: Reset All Filters
+          links: []
+          inputs: []
+          dropdowns:
+          - text: All States Alabama Alaska American Samoa Arizona Arkansas California
+              Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+              Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+              Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska
+              Nevada New Hampshire New Jersey New Mexico New York North Carolina North
+              Dakota Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto
+              Rico Rhode Island South Carolina South Dakota Tennessee Texas Utah Vermont
+              Virginia Virgin Islands Washington West Virginia Wisconsin Wyoming
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: STATE All States Alabama Alaska American Samoa Arizona Arkansas California
+          Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+          Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+          Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada
+          New Hampshire New Jersey New Mexico New York North Carolina North Dakota
+          Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode
+          Island South Carolina South Dakota Tennessee Texas Utah Vermont Virginia
+          Virgin Islands Washington West Virginia Wisconsin Wyoming EVENT TYPE Live
+          Forecast Both ALERTS Show POLICYHOLDERS Show Hide RESOURCES Show Resources
+          Show Hide RESET DEFAULT
+      aging_analysis_7_days_10_days_30_days____5:
+        type: table_grid
+        components:
+          buttons:
+          - text: "\u2039 Prev"
+          - text: "Next \u203A"
+          - text: Clear Filters
+            title: Clear All Filters
+          links: []
+          inputs:
+          - type: radio
+            name: agingRange
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Aging Analysis 7 days 10 days 30 days \u2039 Prev Next \u203A Severity\
+          \ Analysis Clear Filters"
+      __ref_id_uid_category_event_state_severi_6:
+        type: table_grid
+        components:
+          buttons:
+          - title: Add to bookmarks
+          - title: View on Map - Zoom to Location
+          - title: View Details
+          links:
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: '# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS EVENT TIMELINE
+          ACTIONS 1 REFID-253335 Immediate Action Required urn:oid:2.49.0.1.840...
+          Thunderstorms Severe Thunderstorm Warning Kansas, KS Severe 1832 0 hrs 8
+          mins ago Processed: 05/05/2026, 02:55:03 AM Start: 05/05/2026, 02:50:00
+          AM End: 05/05/2026, 03:30:00 AM 2 REFID-253332 Immediate Action Required
+          urn:oid:2.49.0.1.840... Thunderstorms Severe Thunderstorm Warning Kansas,
+          KS Severe 1832 0 hrs 20 mins ago Processed: 05/05/2026, 02:39:46 AM Start:
+          05/05/2026, 02:38:00 AM End: 05/05/2026, 03:30:00 AM 3 REFID-253325 Immediate
+          Action Required urn:oid:2.49.0.1.840... Winter Storms / Blizzards Freeze
+          Watch Colorado, CO Severe 593 In 1 day Processed: 05/05/2026, 02:24:26 AM
+          Start: 05/06/2026, 11:00:00 PM End: 05/07/2026, 10:00:00 AM 4 REFID-253297
+          Immediate Action Required urn:oid:2.49.0.1.840... Winter Storms / Blizzards
+          Winter Storm Warning Colorado, CO Severe 3820 19 hrs 1 mins from now Processed:
+          05/05/2026, 01:53:52 AM Start: 05/05/2026, 10:00:00 PM End: 05/06/2026,
+          05:00:00 PM 5 REFID-253296 Immediate Action Required urn:oid:2.49.0.1.840...
+          Winter Storms / Blizzards Winter Storm Warning Colorado, CO Severe 790 0
+          hrs 58 mins ago Processed: 05/05/2026, 01:53:52 AM Start: 05/05/2026, 02:00:00
+          AM End: 05/06/2026, 05:00:00 PM 6 REFID-253267 Immediate Action Required
+          urn:oid:2.49.0.1.840... Winter Storms / Blizzards Freeze Watch Colorado,
+          CO Severe 2403 23 hrs 1 mins from now Processed: 05/05/2026, 12:27:02 AM
+          Start: 05/06/2026, 02:00:00 AM End: 05/06/2026, 11:00:00 AM 7 REFID-253210
+          Immediate Action Required urn:oid:2.49.0.1.840... Floods Flood Warning Illinois,
+          IL Severe 1855 4 hrs 40 mins ago Processed: 05/04/2026, 10:19:34 PM Start:
+          05/04/2026, 10:18:00 PM End: 05/07/2026, 02:00:00 PM 8 REFID-253209 Immediate
+          Action Required urn:oid:2.49.0.1.840... Floods Flood Warning Wisconsin,
+          WI Severe 205 4 hrs 40 mins ago Processed: 05/04/2026, 10:19:34 PM Start:
+          05/04/2026, 10:18:00 PM End: N/A 9 REFID-253208 Immediate Action Required
+          urn:oid:2.49.0.1.840... Floods Flood Warning Wisconsin, WI Severe 606 4
+          hrs 40 mins ago Processed: 05/04/2026, 10:19:34 PM Start: 05/04/2026, 10:18:00
+          PM End: 05/06/2026, 02:00:00 PM 10 REFID-253205 Immediate Action Required
+          urn:oid:2.49.0.1.840... Floods Flood Warning Illinois, IL Severe 2021 4
+          hrs 48 mins ago Processed: 05/04/2026, 10:14:29 PM Start: 05/04/2026, 10:10:00
+          PM End: 05/05/2026, 08:00:00 AM'
+      filters___legend_7:
+        type: dropdown_group
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: Filters & Legend
+      dropdown_group_8:
+        type: dropdown_group
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      filters___legend_filter_by_categories_th_9:
+        type: card_panel
+        components:
+          buttons:
+          - title: Collapse
+          links: []
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Filters & Legend Filter by Categories Thunderstorms 2 / 2 Wildfire\
+          \ 0 / 11 Winter Storms / Blizzards 4 / 15 Tornadoes 0 / 0 Earth Quake 0\
+          \ / 0 Fire / Explosions 0 / 0 Hurricane / Cyclones 0 / 0 Floods 4 / 687\
+          \ Air Quality / Visibility Hazards 0 / 0 Dust Storms 0 / 0 Coastal Hazards\
+          \ 0 / 0 Wind Hazards 0 / 0 Civil / Public Safety Emergencies 0 / 0 Heat\
+          \ Wave 0 / 0 Severity Severe Moderate Minor Resources \U0001F692 Fire Stations\
+          \ \U0001F46E Police Stations \U0001F3E5 Hospitals"
+  https://catsentinel.rpiinfo.com/cat-history:
+    sections:
+      page_content_1:
+        type: content_region
+        components:
+          buttons:
+          - text: All Categories
+          - text: Recently Viewed
+          - text: Data Sync Alert
+          - title: Search
+            type: button
+          - text: Filters
+            type: button
+          - title: Grid View
+          - title: List View
+          links: []
+          inputs:
+          - type: text
+            placeholder: Search risk events...
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Cat Risk Dashboard All Categories Recently Viewed Data Sync Alert Filters
+          0 events Hurricane / Cyclones High winds, storm surges, and heavy rainfall
+          leading to flooding and property damage. Affected Areas: GU, MP Severe 0
+          Moderate 0 Minor 0 Live 0 Forecasted 0 Past events 0 4185 events Floods
+          Riverine, flash, or coastal flooding due to heavy rain, storm surges, or
+          snowmelt. Affected Areas: AK, AL, AR and 48 more states Severe 2831 Moderate
+          12 Minor 1342 Live 738 Forecasted 0 Past events 3447 8919 events Thunderstorms
+          Including hail, lightning, and straight-line winds, often triggering property
+          and crop losses. Affected Areas: AK, AL, AR and 48 more states Severe 4273
+          Moderate 4643 Minor 3 Live 3984 Forecasted 0 Past events 4935 5463 events
+          Wildfire Uncontrolled fires spreading quickly through vegetated areas, endangering
+          properties and ecosystems. Affected Areas: AK, AL, AR and 44 more states
+          Severe 717 Moderate 78 Minor 4668 Live 4253 Forecasted 0 Past events 1210
+          5770 events Winter Storms / Blizzards Snow accumulation, ice storms, and
+          extreme cold impacting infrastructure and transportation. Affected Areas:
+          AK, AL, AR and 48 more states Severe 2300 Moderate 2994 Minor 476 Live 22
+          Forecasted 16 Past events 5732 929 events Tornadoes Localized but intense
+          wind events causing structural damage and debris hazards. Affected Areas:
+          AL, AR, CA and 28 more states Severe 929 Moderate 0 Minor 0 Live 0 Forecasted
+          0 Past events 929 0 events Earth Quake Sudden ground shaking caused by tectonic
+          movement, damaging structures and infrastructure. Affected Areas: No affected
+          states Severe 0 Moderate 0 Minor 0 Live 0 Forecasted 0 Past events 0 0 events
+          Fire / Explosions Structural fires or industrial explosions causing property
+          damage and potential casualties. Affected Areas: No affected states Severe
+          0 Moderate 0 Minor 0 Live 0 Forecasted 0 Past events 0 1319 events Air Quality
+          / Visibility Hazards Impaired atmospheric conditions characterized by reduced
+          visibility and poor air quality affecting human health and operations. Affected
+          Areas: AK, AL, AR and 41 more states Severe 0 Moderate 1192 Minor 127 Live
+          93 Forecasted 0 Past events 1226 88 events Dust Storms A significant weather
+          phenomenon characterized by strong winds and large amounts of suspended
+          dust particles reducing visibility. Affected Areas: AR, AZ, CA and 14 more
+          states Severe 32 Moderate 56 Minor 0 Live 0 Forecasted 0 Past events 88
+          291 events Coastal Hazards The category encompasses natural and human-induced
+          threats to coastal environments, including erosion, flooding, storm surges,
+          and infrastructure damage. Affected Areas: AK, AL, AZ and 26 more states
+          Severe 0 Moderate 227 Minor 64 Live 0 Forecasted 0 Past events 291 12 events
+          Civil / Public Safety Emergencies The prompt refers to unexpected events
+          or crises that threaten public health, safety, and well-being on a large
+          scale. Affected Areas: AK, AR, CO and 10 more states Severe 0 Moderate 0
+          Minor 12 Live 11 Forecasted 0 Past events 1 24 events Heat Wave A prolonged
+          period of abnormally hot weather with temperatures significantly above normal
+          averages, posing health risks and discomfort. Affected Areas: AK, AZ, CA
+          and 5 more states Severe 14 Moderate 10 Minor 0 Live 0 Forecasted 0 Past
+          events 24 1231 events Wind Hazards Strong and gusty winds that can cause
+          damage to structures, disrupt operations, and pose a risk to personnel and
+          equipment. Affected Areas: AK, AL, AR and 48 more states Severe 173 Moderate
+          1050 Minor 8 Live 0 Forecasted 2 Past events 1229'
+  https://catsentinel.rpiinfo.com/risk-map:
+    sections:
+      300_km_____________300_km_1:
+        type: map_container
+        components:
+          buttons: []
+          links:
+          - aria_label: Mapbox homepage
+            href: https://www.mapbox.com/
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - role: region
+            aria_label: Map
+        text: 300 km ! ! ! ! ! ! 300 km
+      map_container_2:
+        type: map_container
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      state_all_states_alabama_alaska_american_3:
+        type: table_grid
+        components:
+          buttons:
+          - text: Show
+          - title: Load More Alerts
+          - text: Hide
+          - title: Reset All Filters
+          links: []
+          inputs: []
+          dropdowns:
+          - text: All States Alabama Alaska American Samoa Arizona Arkansas California
+              Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+              Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+              Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska
+              Nevada New Hampshire New Jersey New Mexico New York North Carolina North
+              Dakota Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto
+              Rico Rhode Island South Carolina South Dakota Tennessee Texas Utah Vermont
+              Virginia Virgin Islands Washington West Virginia Wisconsin Wyoming
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: STATE All States Alabama Alaska American Samoa Arizona Arkansas California
+          Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+          Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+          Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada
+          New Hampshire New Jersey New Mexico New York North Carolina North Dakota
+          Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode
+          Island South Carolina South Dakota Tennessee Texas Utah Vermont Virginia
+          Virgin Islands Washington West Virginia Wisconsin Wyoming ALERTS Show POLICYHOLDERS
+          Show Hide RESET DEFAULT
+  https://catsentinel.rpiinfo.com/action-queue-module:
+    sections:
+      __ref_id_task_id_task_name_documents_sev_1:
+        type: table_grid
+        components:
+          buttons:
+          - title: Edit Task
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: '# REF ID TASK ID TASK NAME DOCUMENTS SEVERITY RISK SCORE STATUS TASK
+          TIMELINE ACTION 1 REFID-238900 226869 test-007-check for policy holder health
+          and safety N/A Severe 9.5/10 Completed Start date : 04/20/2026, 04:23:45
+          PM End date : 04/21/2026, 04:23:45 PM Completion date : 05/04/2026, 06:42:03
+          AM 2 REFID-238900 226868 Test 003 - Save Animals N/A Severe 9.5/10 New Start
+          date : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45 PM Completion
+          date : N/A 3 REFID-238900 226867 Documentation and Reporting N/A Severe
+          9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45
+          PM Completion date : N/A 4 REFID-238900 226866 Continuous Monitoring N/A
+          Severe 9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date : 04/21/2026,
+          04:23:45 PM Completion date : N/A 5 REFID-238900 226865 Assess Field Operations
+          Needs N/A Severe 9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date
+          : 04/21/2026, 04:23:45 PM Completion date : N/A 6 REFID-238900 226864 Verify
+          Event Microsite Content N/A Severe 9.5/10 New Start date : 04/20/2026, 04:23:45
+          PM End date : 04/21/2026, 04:23:45 PM Completion date : N/A 7 REFID-238900
+          226863 Review Policyholder Communications N/A Severe 9.5/10 New Start date
+          : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45 PM Completion
+          date : N/A 8 REFID-238900 226862 Support Claims Preparedness N/A Severe
+          9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45
+          PM Completion date : N/A 9 REFID-238900 226861 Validate Data N/A Severe
+          9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45
+          PM Completion date : N/A 10 REFID-238900 226860 Calculate Exposure N/A Severe
+          9.5/10 New Start date : 04/20/2026, 04:23:45 PM End date : 04/21/2026, 04:23:45
+          PM Completion date : N/A'
+  https://catsentinel.rpiinfo.com/micro-sites:
+    sections:
+      flood_warning_risk_score__8_5_10_ref_id__1:
+        type: table_grid
+        components:
+          buttons:
+          - title: Preview Microsite
+          - text: Edit Resources
+            title: Edit Resources
+          - text: Engagement Rules
+            title: Communication Policy
+          links:
+          - text: https://ms.catsentinel.ai/242271
+            href: https://ms.catsentinel.ai/242271
+          - text: https://ms.catsentinel.ai/242255
+            href: https://ms.catsentinel.ai/242255
+          - text: https://ms.catsentinel.ai/241298
+            href: https://ms.catsentinel.ai/241298
+          - text: https://ms.catsentinel.ai/241277
+            href: https://ms.catsentinel.ai/241277
+          - text: https://ms.catsentinel.ai/240157
+            href: https://ms.catsentinel.ai/240157
+          - text: https://ms.catsentinel.ai/239988
+            href: https://ms.catsentinel.ai/239988
+          - text: https://ms.catsentinel.ai/239935
+            href: https://ms.catsentinel.ai/239935
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables:
+          - text: 'REF ID : REFID-242271 Status : Published State : Wisconsin - WI
+              Microsite : https://ms.catsentinel.ai/242271 Live until : 05/23/2026,
+              10:33:00 PM Communication : (Assisted Mode)'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-242255 Status : Published State : New York - NY
+              Microsite : https://ms.catsentinel.ai/242255 Live until : 05/23/2026,
+              10:36:00 PM Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-241298 Status : Published State : Wisconsin - WI
+              Microsite : https://ms.catsentinel.ai/241298 Live until : 05/23/2026,
+              11:23:00 AM Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-241277 Status : Published State : Wisconsin - WI
+              Microsite : https://ms.catsentinel.ai/241277 Live until : 05/23/2026,
+              11:19:00 AM Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-240157 Status : Published State : Illinois - IL
+              Microsite : https://ms.catsentinel.ai/240157 Live until : 05/22/2026,
+              06:19:00 AM Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239988 Status : Published State : Wisconsin - WI
+              Microsite : https://ms.catsentinel.ai/239988 Live until : 05/21/2026,
+              10:42:00 PM Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239935 Status : Published State : Illinois - IL
+              Microsite : https://ms.catsentinel.ai/239935 Live until : 05/21/2026,
+              09:39:00 PM Communication : (Assisted Mode)'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239930 Status : Draft State : Illinois - IL Microsite
+              : N/A Live until : N/A Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239484 Status : Draft State : Illinois - IL Microsite
+              : N/A Live until : N/A Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239473 Status : Draft State : Illinois - IL Microsite
+              : N/A Live until : N/A Communication : N/A'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite
+              : N/A Live until : N/A Communication : (Assisted Mode)'
+            row_count: 6
+            column_count: 3
+          - text: 'REF ID : REFID-239371 Status : Draft State : Michigan - MI Microsite
+              : N/A Live until : N/A Communication : N/A'
+            row_count: 6
+            column_count: 3
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Flood Warning Risk Score: 8.5/10 REF ID : REFID-242271 Status : Published
+          State : Wisconsin - WI Microsite : https://ms.catsentinel.ai/242271 Live
+          until : 05/23/2026, 10:33:00 PM Communication : (Assisted Mode) Total Policy:
+          606 Delivery: 100% Read: 0% Pre-event: 0% Edit Resources Engagement Rules
+          Flood Warning Risk Score: 8.5/10 REF ID : REFID-242255 Status : Published
+          State : New York - NY Microsite : https://ms.catsentinel.ai/242255 Live
+          until : 05/23/2026, 10:36:00 PM Communication : N/A Total Policy: 197 Delivery:
+          0% Read: 0% Pre-event: 0% Edit Resources Engagement Rules Flood Warning
+          Risk Score: 8.5/10 REF ID : REFID-241298 Status : Published State : Wisconsin
+          - WI Microsite : https://ms.catsentinel.ai/241298 Live until : 05/23/2026,
+          11:23:00 AM Communication : N/A Total Policy: 818 Delivery: 0% Read: 0%
+          Pre-event: 0% Edit Resources Engagement Rules Flood Warning Risk Score:
+          8.5/10 REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+          : https://ms.catsentinel.ai/241277 Live until : 05/23/2026, 11:19:00 AM
+          Communication : N/A Total Policy: 383 Delivery: 0% Read: 0% Pre-event: 0%
+          Edit Resources Engagement Rules Flood Warning Risk Score: 8.5/10 REF ID
+          : REFID-240157 Status : Published State : Illinois - IL Microsite : https://ms.catsentinel.ai/240157
+          Live until : 05/22/2026, 06:19:00 AM Communication : N/A Total Policy: 1855
+          Delivery: 0% Read: 0% Pre-event: 0% Edit Resources Engagement Rules Flood
+          Warning Risk Score: 8.5/10 REF ID : REFID-239988 Status : Published State
+          : Wisconsin - WI Microsite : https://ms.catsentinel.ai/239988 Live until
+          : 05/21/2026, 10:42:00 PM Communication : N/A Total Policy: 205 Delivery:
+          0% Read: 0% Pre-event: 0% Edit Resources Engagement Rules Flood Warning
+          Risk Score: 8.5/10 REF ID : REFID-239935 Status : Published State : Illinois
+          - IL Microsite : https://ms.catsentinel.ai/239935 Live until : 05/21/2026,
+          09:39:00 PM Communication : (Assisted Mode) Total Policy: 577 Delivery:
+          100% Read: 0% Pre-event: 0% Edit Resources Engagement Rules Flood Warning
+          Risk Score: 8.5/10 REF ID : REFID-239930 Status : Draft State : Illinois
+          - IL Microsite : N/A Live until : N/A Communication : N/A Total Policy:
+          362 Delivery: 0% Read: 0% Pre-event: 0% Edit Resources Engagement Rules
+          Flood Warning Risk Score: 8.5/10 REF ID : REFID-239484 Status : Draft State
+          : Illinois - IL Microsite : N/A Live until : N/A Communication : N/A Total
+          Policy: 1024 Delivery: 0% Read: 0% Pre-event: 0% Edit Resources Engagement
+          Rules Flood Warning Risk Score: 8.5/10 REF ID : REFID-239473 Status : Draft
+          State : Illinois - IL Microsite : N/A Live until : N/A Communication : N/A
+          Total Policy: 2021 Delivery: 0% Read: 0% Pre-event: 0% Edit Resources Engagement
+          Rules Flood Warning Risk Score: 8.5/10 REF ID : REFID-239444 Status : Draft
+          State : Iowa - IA Microsite : N/A Live until : N/A Communication : (Assisted
+          Mode) Total Policy: 213 Delivery: 0% Read: 0% Pre-event: 0% Edit Resources
+          Engagement Rules Flood Warning Risk Score: 8.5/10 REF ID : REFID-239371
+          Status : Draft State : Michigan - MI Microsite : N/A Live until : N/A Communication
+          : N/A Total Policy: 630 Delivery: 0% Read: 0% Pre-event: 0% Edit Resources
+          Engagement Rules'
+      ref_id___refid_242271_status___published_2:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/242271
+            href: https://ms.catsentinel.ai/242271
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-242271 Status : Published State : Wisconsin - WI Microsite
+          : https://ms.catsentinel.ai/242271 Live until : 05/23/2026, 10:33:00 PM
+          Communication : (Assisted Mode)'
+      ref_id___refid_242255_status___published_3:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/242255
+            href: https://ms.catsentinel.ai/242255
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-242255 Status : Published State : New York - NY Microsite
+          : https://ms.catsentinel.ai/242255 Live until : 05/23/2026, 10:36:00 PM
+          Communication : N/A'
+      ref_id___refid_241298_status___published_4:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/241298
+            href: https://ms.catsentinel.ai/241298
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-241298 Status : Published State : Wisconsin - WI Microsite
+          : https://ms.catsentinel.ai/241298 Live until : 05/23/2026, 11:23:00 AM
+          Communication : N/A'
+      ref_id___refid_241277_status___published_5:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/241277
+            href: https://ms.catsentinel.ai/241277
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+          : https://ms.catsentinel.ai/241277 Live until : 05/23/2026, 11:19:00 AM
+          Communication : N/A'
+      ref_id___refid_240157_status___published_6:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/240157
+            href: https://ms.catsentinel.ai/240157
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-240157 Status : Published State : Illinois - IL Microsite
+          : https://ms.catsentinel.ai/240157 Live until : 05/22/2026, 06:19:00 AM
+          Communication : N/A'
+      ref_id___refid_239988_status___published_7:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/239988
+            href: https://ms.catsentinel.ai/239988
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-239988 Status : Published State : Wisconsin - WI Microsite
+          : https://ms.catsentinel.ai/239988 Live until : 05/21/2026, 10:42:00 PM
+          Communication : N/A'
+      ref_id___refid_239935_status___published_8:
+        type: table_grid
+        components:
+          buttons: []
+          links:
+          - text: https://ms.catsentinel.ai/239935
+            href: https://ms.catsentinel.ai/239935
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-239935 Status : Published State : Illinois - IL Microsite
+          : https://ms.catsentinel.ai/239935 Live until : 05/21/2026, 09:39:00 PM
+          Communication : (Assisted Mode)'
+      ref_id___refid_239444_status___draft_sta_9:
+        type: table_grid
+        components:
+          buttons: []
+          links: []
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite :
+          N/A Live until : N/A Communication : (Assisted Mode)'
+  https://catsentinel.rpiinfo.com/event-book:
+    sections:
+      ____leaflet_____esri_1:
+        type: map_container
+        components:
+          buttons:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          links:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          - text: Leaflet
+            title: A JavaScript library for interactive maps
+            href: https://leafletjs.com
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - {}
+        text: "+ \u2212 Leaflet | \xA9 Esri"
+      ____2:
+        type: map_container
+        components:
+          buttons:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          links:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "+ \u2212"
+      leaflet_____esri_3:
+        type: map_container
+        components:
+          buttons: []
+          links:
+          - text: Leaflet
+            title: A JavaScript library for interactive maps
+            href: https://leafletjs.com
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Leaflet | \xA9 Esri"
+      ____4:
+        type: map_toolbar
+        components:
+          buttons:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          links:
+          - text: +
+            title: Zoom in
+            role: button
+            aria_label: Zoom in
+            href: '#'
+          - text: "\u2212"
+            title: Zoom out
+            role: button
+            aria_label: Zoom out
+            href: '#'
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "+ \u2212"
+      leaflet_____esri_5:
+        type: map_toolbar
+        components:
+          buttons: []
+          links:
+          - text: Leaflet
+            title: A JavaScript library for interactive maps
+            href: https://leafletjs.com
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Leaflet | \xA9 Esri"
+  https://catsentinel.rpiinfo.com/knowledge-base:
+    sections: {}
+  https://catsentinel.rpiinfo.com/policyholder-risk:
+    sections:
+      page_content_1:
+        type: content_region
+        components:
+          buttons:
+          - text: Filters
+            type: button
+          - text: Next
+          links: []
+          inputs:
+          - type: text
+            placeholder: Search by name, policy, address, or zip code...
+          dropdowns: []
+          forms: []
+          tables:
+          - text: '# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron Alce 24770
+              AZ - Arizona 48132 Coit Rd, Phoenix, Arizona, USA 0 0 2 Aaron Almonte
+              739108 NY - New York 63 Morgan Ave #1, Rochester, New York, USA 0 0
+              3 Aaron Amati 383456 LA - Louisiana 53494 Steel Ct, Golden Meadow, Louisiana,
+              USA 12032 0 4 Aaron Ament 180770 CA - California 3 Franklin Blvd, Stockton,
+              California, USA 0 0 5 Aaron Awtrey 262022 FL - Florida 7 Reidhurst Ave,
+              Hialeah, Florida, USA 0 0 6 Aaron Ayala 475111 MI - Michigan 34 Adams
+              St #2058, Grand Rapids, Michigan, USA 0 0 7 Aaron Baitg 333201 IL -
+              Illinois 27442 Spencerville Ct #8, Chicago, Illinois, USA 0 0 8 Aaron
+              Barrow 457656 MI - Michigan 635 5th Ave, Detroit, Michigan, USA 0 0
+              9 Aaron Bartek 828333 PA - Pennsylvania 446 S Michigan Ave, Perkasie,
+              Pennsylvania, USA 0 0 10 Aaron Beath 39618 CA - California 88 Goldenwest
+              St, Los Angeles, California, USA 0 0'
+            row_count: 11
+            column_count: 7
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Policyholders Risk Distribution High Risk 29 Medium Risk 31 Low Risk
+          40 Premium Overview Total Premium Value: $1784112415 Average Premium Per
+          Policyholder: $2143 Coverage Details Total Coverage Amount: $24,000,000
+          policyholders With claims: 0 Filters # NAME POLICY ID STATE ADDRESS PREMIUM
+          CLAIMS 1 Aaron Alce 24770 AZ - Arizona 48132 Coit Rd, Phoenix, Arizona,
+          USA 0 0 2 Aaron Almonte 739108 NY - New York 63 Morgan Ave #1, Rochester,
+          New York, USA 0 0 3 Aaron Amati 383456 LA - Louisiana 53494 Steel Ct, Golden
+          Meadow, Louisiana, USA 12032 0 4 Aaron Ament 180770 CA - California 3 Franklin
+          Blvd, Stockton, California, USA 0 0 5 Aaron Awtrey 262022 FL - Florida 7
+          Reidhurst Ave, Hialeah, Florida, USA 0 0 6 Aaron Ayala 475111 MI - Michigan
+          34 Adams St #2058, Grand Rapids, Michigan, USA 0 0 7 Aaron Baitg 333201
+          IL - Illinois 27442 Spencerville Ct #8, Chicago, Illinois, USA 0 0 8 Aaron
+          Barrow 457656 MI - Michigan 635 5th Ave, Detroit, Michigan, USA 0 0 9 Aaron
+          Bartek 828333 PA - Pennsylvania 446 S Michigan Ave, Perkasie, Pennsylvania,
+          USA 0 0 10 Aaron Beath 39618 CA - California 88 Goldenwest St, Los Angeles,
+          California, USA 0 0 Showing 1 to 10 of 832445 results Previous Page 1 of
+          83245 Next'
+  https://catsentinel.rpiinfo.com/geo-spatial:
+    sections:
+      high_risk_wildfire_cat_sentinel_geo_spat_1:
+        type: table_grid
+        components:
+          buttons:
+          - text: View Events
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - text: High Risk Wildfire CAT Sentinel Geo-Spatial Intelligence - Wildfire
+              Last viewed 90w ago View Events
+          - text: Extreme Risk Tornado Tracking CAT Sentinel Geo-Spatial Intelligence
+              - Tornado Last viewed 90w ago View Events
+          - text: High Risk Hurricane/Cyclone CAT Sentinel Geo-Spatial Intelligence
+              - Hurricane/Cyclone Last viewed 90w ago View Events
+        text: High Risk Wildfire CAT Sentinel Geo-Spatial Intelligence - Wildfire
+          Last viewed 90w ago View Events Extreme Risk Tornado Tracking CAT Sentinel
+          Geo-Spatial Intelligence - Tornado Last viewed 90w ago View Events High
+          Risk Hurricane/Cyclone CAT Sentinel Geo-Spatial Intelligence - Hurricane/Cyclone
+          Last viewed 90w ago View Events
+      high_risk_wildfire_cat_sentinel_geo_spat_2:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Events
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: High Risk Wildfire CAT Sentinel Geo-Spatial Intelligence - Wildfire
+          Last viewed 90w ago View Events
+      extreme_risk_tornado_tracking_cat_sentin_3:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Events
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: Extreme Risk Tornado Tracking CAT Sentinel Geo-Spatial Intelligence
+          - Tornado Last viewed 90w ago View Events
+      high_risk_hurricane_cyclone_cat_sentinel_4:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Events
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: High Risk Hurricane/Cyclone CAT Sentinel Geo-Spatial Intelligence -
+          Hurricane/Cyclone Last viewed 90w ago View Events
+  https://catsentinel.rpiinfo.com/alert-event-monitor:
+    sections:
+      ________________________300_km_1:
+        type: map_container
+        components:
+          buttons:
+          - title: Zoom In
+          - title: Zoom Out
+          - title: Reset Bearing to North
+          - title: Reset Map View
+          - title: Street View
+          - title: Satellite View
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - role: region
+            aria_label: Map
+        text: '! ! ! ! ! ! ! ! ! ! ! ! 300 km'
+      map_container_2:
+        type: map_container
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      map_toolbar_3:
+        type: map_toolbar
+        components:
+          buttons:
+          - title: Zoom In
+          - title: Zoom Out
+          - title: Reset Bearing to North
+          - title: Reset Map View
+          - title: Street View
+          - title: Satellite View
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      state_all_states_alabama_alaska_american_4:
+        type: table_grid
+        components:
+          buttons:
+          - text: Live
+          - text: Forecast
+          - text: Both
+          - text: Show
+          - title: Load More Alerts
+          - text: Hide
+          - title: Reset All Filters
+          links: []
+          inputs: []
+          dropdowns:
+          - text: All States Alabama Alaska American Samoa Arizona Arkansas California
+              Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+              Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+              Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska
+              Nevada New Hampshire New Jersey New Mexico New York North Carolina North
+              Dakota Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto
+              Rico Rhode Island South Carolina South Dakota Tennessee Texas Utah Vermont
+              Virginia Virgin Islands Washington West Virginia Wisconsin Wyoming
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: STATE All States Alabama Alaska American Samoa Arizona Arkansas California
+          Colorado Connecticut Delaware District of Columbia Florida Georgia Guam
+          Hawaii Idaho Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland
+          Massachusetts Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada
+          New Hampshire New Jersey New Mexico New York North Carolina North Dakota
+          Northern Mariana Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode
+          Island South Carolina South Dakota Tennessee Texas Utah Vermont Virginia
+          Virgin Islands Washington West Virginia Wisconsin Wyoming EVENT TYPE Live
+          Forecast Both ALERTS Show POLICYHOLDERS Show Hide RESOURCES Show Resources
+          Show Hide RESET DEFAULT
+      aging_analysis_7_days_10_days_30_days____5:
+        type: table_grid
+        components:
+          buttons:
+          - text: "\u2039 Prev"
+          - text: "Next \u203A"
+          - text: Clear Filters
+            title: Clear All Filters
+          links: []
+          inputs:
+          - type: radio
+            name: agingRange
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Aging Analysis 7 days 10 days 30 days \u2039 Prev Next \u203A Severity\
+          \ Analysis Clear Filters"
+      __ref_id_uid_category_event_state_severi_6:
+        type: table_grid
+        components:
+          buttons:
+          - title: Add to bookmarks
+          - title: View on Map - Zoom to Location
+          - title: View Details
+          links:
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+          - text: urn:oid:2.49.0.1.840...
+            title: urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+            href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: '# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS EVENT TIMELINE
+          ACTIONS 1 REFID-253335 Immediate Action Required urn:oid:2.49.0.1.840...
+          Thunderstorms Severe Thunderstorm Warning Kansas, KS Severe 1832 0 hrs 9
+          mins ago Processed: 05/05/2026, 02:55:03 AM Start: 05/05/2026, 02:50:00
+          AM End: 05/05/2026, 03:30:00 AM 2 REFID-253332 Immediate Action Required
+          urn:oid:2.49.0.1.840... Thunderstorms Severe Thunderstorm Warning Kansas,
+          KS Severe 1832 0 hrs 21 mins ago Processed: 05/05/2026, 02:39:46 AM Start:
+          05/05/2026, 02:38:00 AM End: 05/05/2026, 03:30:00 AM 3 REFID-253325 Immediate
+          Action Required urn:oid:2.49.0.1.840... Winter Storms / Blizzards Freeze
+          Watch Colorado, CO Severe 593 In 1 day Processed: 05/05/2026, 02:24:26 AM
+          Start: 05/06/2026, 11:00:00 PM End: 05/07/2026, 10:00:00 AM 4 REFID-253297
+          Immediate Action Required urn:oid:2.49.0.1.840... Winter Storms / Blizzards
+          Winter Storm Warning Colorado, CO Severe 3820 19 hrs 0 mins from now Processed:
+          05/05/2026, 01:53:52 AM Start: 05/05/2026, 10:00:00 PM End: 05/06/2026,
+          05:00:00 PM 5 REFID-253296 Immediate Action Required urn:oid:2.49.0.1.840...
+          Winter Storms / Blizzards Winter Storm Warning Colorado, CO Severe 790 0
+          hrs 59 mins ago Processed: 05/05/2026, 01:53:52 AM Start: 05/05/2026, 02:00:00
+          AM End: 05/06/2026, 05:00:00 PM 6 REFID-253267 Immediate Action Required
+          urn:oid:2.49.0.1.840... Winter Storms / Blizzards Freeze Watch Colorado,
+          CO Severe 2403 23 hrs 0 mins from now Processed: 05/05/2026, 12:27:02 AM
+          Start: 05/06/2026, 02:00:00 AM End: 05/06/2026, 11:00:00 AM 7 REFID-253210
+          Immediate Action Required urn:oid:2.49.0.1.840... Floods Flood Warning Illinois,
+          IL Severe 1855 4 hrs 41 mins ago Processed: 05/04/2026, 10:19:34 PM Start:
+          05/04/2026, 10:18:00 PM End: 05/07/2026, 02:00:00 PM 8 REFID-253209 Immediate
+          Action Required urn:oid:2.49.0.1.840... Floods Flood Warning Wisconsin,
+          WI Severe 205 4 hrs 41 mins ago Processed: 05/04/2026, 10:19:34 PM Start:
+          05/04/2026, 10:18:00 PM End: N/A 9 REFID-253208 Immediate Action Required
+          urn:oid:2.49.0.1.840... Floods Flood Warning Wisconsin, WI Severe 606 4
+          hrs 41 mins ago Processed: 05/04/2026, 10:19:34 PM Start: 05/04/2026, 10:18:00
+          PM End: 05/06/2026, 02:00:00 PM 10 REFID-253205 Immediate Action Required
+          urn:oid:2.49.0.1.840... Floods Flood Warning Illinois, IL Severe 2021 4
+          hrs 49 mins ago Processed: 05/04/2026, 10:14:29 PM Start: 05/04/2026, 10:10:00
+          PM End: 05/05/2026, 08:00:00 AM'
+      filters___legend_7:
+        type: dropdown_group
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: Filters & Legend
+      dropdown_group_8:
+        type: dropdown_group
+        components:
+          buttons: []
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+      filters___legend_filter_by_categories_th_9:
+        type: card_panel
+        components:
+          buttons:
+          - title: Collapse
+          links: []
+          inputs:
+          - type: checkbox
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "Filters & Legend Filter by Categories Thunderstorms 2 / 2 Wildfire\
+          \ 0 / 11 Winter Storms / Blizzards 4 / 15 Tornadoes 0 / 0 Earth Quake 0\
+          \ / 0 Fire / Explosions 0 / 0 Hurricane / Cyclones 0 / 0 Floods 4 / 687\
+          \ Air Quality / Visibility Hazards 0 / 0 Dust Storms 0 / 0 Coastal Hazards\
+          \ 0 / 0 Wind Hazards 0 / 0 Civil / Public Safety Emergencies 0 / 0 Heat\
+          \ Wave 0 / 0 Severity Severe Moderate Minor Resources \U0001F692 Fire Stations\
+          \ \U0001F46E Police Stations \U0001F3E5 Hospitals"
+  https://catsentinel.rpiinfo.com/prompt-master:
+    sections:
+      page_content_1:
+        type: content_region
+        components:
+          buttons:
+          - type: button
+          links: []
+          inputs:
+          - type: text
+            placeholder: Search items by title, description...
+          - type: date
+            placeholder: dd/mm/yyyy
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: "CAT Synapse The intelligent connections between data, context, and\
+          \ actionable insights. Risk Management Comprehensive risk analysis and mitigation.\
+          \ Created At - EST(Zone): 08/25/2025, 06:21:00 AM Management Reporting Executive\
+          \ dashboards and analytics. Created At - EST(Zone): 08/25/2025, 06:21:00\
+          \ AM Peril Hazard and peril risk assessment and monitoring. Created At -\
+          \ EST(Zone): 08/25/2025, 06:21:00 AM \xAB First \u2039 Prev Page 1 of 1\
+          \ Next \u203A Last \xBB"
+  https://catsentinel.rpiinfo.com/template/checklist:
+    sections:
+      floods_template__immediate_actions__next_1:
+        type: table_grid
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards:
+          - text: 'Floods Template: Immediate Actions (Next 6 Hours) Last Updated
+              5d ago View Templates'
+          - text: 'Thunderstorms Template: Emergency Actions Immediate Actions Property
+              Protection Last Updated 8w ago View Templates'
+          - text: 'Wildfire Template: Emergency Actions Immediate Actions Property
+              Protection Last Updated 8w ago View Templates'
+          - text: 'Winter Storms / Blizzards Template: Emergency Actions Property
+              Protection Immediate Actions (Next 6 Hours) Last Updated 8w ago View
+              Templates'
+          - text: 'Fire / Explosions Template: Emergency Actions Immediate Actions
+              Property Protection Last Updated 8w ago View Templates'
+          - text: 'Air Quality / Visibility Hazards Template: Emergency Actions Immediate
+              Actions Property Protection Last Updated 8w ago View Templates'
+          - text: 'Dust Storms Template: Emergency Actions Immediate Actions Property
+              Protection Last Updated 8w ago View Templates'
+          - text: 'Wind Hazards Template: Emergency Actions Immediate Actions Property
+              Protection Last Updated 8w ago View Templates'
+        text: 'Floods Template: Immediate Actions (Next 6 Hours) Last Updated 5d ago
+          View Templates Thunderstorms Template: Emergency Actions Immediate Actions
+          Property Protection Last Updated 8w ago View Templates Wildfire Template:
+          Emergency Actions Immediate Actions Property Protection Last Updated 8w
+          ago View Templates Winter Storms / Blizzards Template: Emergency Actions
+          Property Protection Immediate Actions (Next 6 Hours) Last Updated 8w ago
+          View Templates Fire / Explosions Template: Emergency Actions Immediate Actions
+          Property Protection Last Updated 8w ago View Templates Air Quality / Visibility
+          Hazards Template: Emergency Actions Immediate Actions Property Protection
+          Last Updated 8w ago View Templates Dust Storms Template: Emergency Actions
+          Immediate Actions Property Protection Last Updated 8w ago View Templates
+          Wind Hazards Template: Emergency Actions Immediate Actions Property Protection
+          Last Updated 8w ago View Templates'
+      add_alert_template_2:
+        type: card_panel
+        components:
+          buttons:
+          - text: Add Alert Template
+            title: Edit Resources
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: Add Alert Template
+      floods_template__immediate_actions__next_3:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Floods Template: Immediate Actions (Next 6 Hours) Last Updated 5d ago
+          View Templates'
+      thunderstorms_template__emergency_action_4:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Thunderstorms Template: Emergency Actions Immediate Actions Property
+          Protection Last Updated 8w ago View Templates'
+      wildfire_template__emergency_actions_imm_5:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Wildfire Template: Emergency Actions Immediate Actions Property Protection
+          Last Updated 8w ago View Templates'
+      winter_storms___blizzards_template__emer_6:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Winter Storms / Blizzards Template: Emergency Actions Property Protection
+          Immediate Actions (Next 6 Hours) Last Updated 8w ago View Templates'
+      fire___explosions_template__emergency_ac_7:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Fire / Explosions Template: Emergency Actions Immediate Actions Property
+          Protection Last Updated 8w ago View Templates'
+      air_quality___visibility_hazards_templat_8:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Air Quality / Visibility Hazards Template: Emergency Actions Immediate
+          Actions Property Protection Last Updated 8w ago View Templates'
+      dust_storms_template__emergency_actions__9:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Dust Storms Template: Emergency Actions Immediate Actions Property
+          Protection Last Updated 8w ago View Templates'
+      wind_hazards_template__emergency_actions_10:
+        type: card_panel
+        components:
+          buttons:
+          - text: View Templates
+          links: []
+          inputs: []
+          dropdowns: []
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: 'Wind Hazards Template: Emergency Actions Immediate Actions Property
+          Protection Last Updated 8w ago View Templates'
+  https://catsentinel.rpiinfo.com/risk-insights:
+    sections: {}
+  https://catsentinel.rpiinfo.com/command-center:
+    sections:
+      page_content_1:
+        type: content_region
+        components:
+          buttons:
+          - text: Overview
+          - text: Batch Details
+          - text: Line
+          - text: Bar
+          links: []
+          inputs: []
+          dropdowns:
+          - text: Last 24 Hours Last 2 Days Last 7 Days Last 30 Days Custom Range
+          - text: Policy Sync Event Response PolicyHolder RiskProfile Microsite Engagement
+              Rules Engagement Trigger Server Details OpenAi vs Llama
+          forms: []
+          tables: []
+          tabs: []
+          dialogs: []
+          cards: []
+        text: Command Center CAT Analyst 05/05/2026, 02:59:57 Live Overview Batch
+          Details Date Selection Last 24 Hours Last 2 Days Last 7 Days Last 30 Days
+          Custom Range Process Policy Sync Event Response PolicyHolder RiskProfile
+          Microsite Engagement Rules Engagement Trigger Server Details OpenAi vs Llama
+          TOTAL SYNC 5887 SUCCESS / FAILED 5887 0 AVG PROCESSING TIME 0.24 Multi-Metric
+          Performance Trends Real-time monitoring and analytics overview Line Bar
+          AI-Powered Insights Processing time has been steadily increasing, indicating
+          a growing demand on system resources. The average processing duration is
+          relatively consistent, with minor fluctuations. There is no indication of
+          failure or partial success rates, suggesting the system is performing well.
+          The total count and success rate are strongly correlated, with an average
+          success rate of 1.
+manual_interactions: []
+component_registry:
+  buttons:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Zoom In
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Zoom Out
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Reset Bearing to North
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Reset Map View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Street View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    title: Satellite View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Zoom In
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Zoom Out
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Reset Bearing to North
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Reset Map View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Street View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Satellite View
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Live
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Forecast
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Both
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Show
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    title: Load More Alerts
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Hide
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    title: Reset All Filters
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: "\u2039 Prev"
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: "Next \u203A"
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: Clear Filters
+    title: Clear All Filters
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: Add to bookmarks
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: View on Map - Zoom to Location
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: View Details
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: filters___legend_filter_by_categories_th_9
+    section_type: card_panel
+    title: Collapse
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    text: All Categories
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    text: Recently Viewed
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    text: Data Sync Alert
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    title: Search
+    type: button
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    text: Filters
+    type: button
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    title: Grid View
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    title: List View
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: state_all_states_alabama_alaska_american_3
+    section_type: table_grid
+    text: Show
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: state_all_states_alabama_alaska_american_3
+    section_type: table_grid
+    title: Load More Alerts
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: state_all_states_alabama_alaska_american_3
+    section_type: table_grid
+    text: Hide
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: state_all_states_alabama_alaska_american_3
+    section_type: table_grid
+    title: Reset All Filters
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    feature: Action Queue
+    section: __ref_id_task_id_task_name_documents_sev_1
+    section_type: table_grid
+    title: Edit Task
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    title: Preview Microsite
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: Edit Resources
+    title: Edit Resources
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: Engagement Rules
+    title: Communication Policy
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____2
+    section_type: map_container
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____2
+    section_type: map_container
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____4
+    section_type: map_toolbar
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____4
+    section_type: map_toolbar
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    feature: Policyholder Risk Profile
+    section: page_content_1
+    section_type: content_region
+    text: Filters
+    type: button
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    feature: Policyholder Risk Profile
+    section: page_content_1
+    section_type: content_region
+    text: Next
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_wildfire_cat_sentinel_geo_spat_1
+    section_type: table_grid
+    text: View Events
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_wildfire_cat_sentinel_geo_spat_2
+    section_type: card_panel
+    text: View Events
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: extreme_risk_tornado_tracking_cat_sentin_3
+    section_type: card_panel
+    text: View Events
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_hurricane_cyclone_cat_sentinel_4
+    section_type: card_panel
+    text: View Events
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Zoom In
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Zoom Out
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Reset Bearing to North
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Reset Map View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Street View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    title: Satellite View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Zoom In
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Zoom Out
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Reset Bearing to North
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Reset Map View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Street View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: map_toolbar_3
+    section_type: map_toolbar
+    title: Satellite View
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Live
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Forecast
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Both
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Show
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    title: Load More Alerts
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: Hide
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    title: Reset All Filters
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: "\u2039 Prev"
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: "Next \u203A"
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    text: Clear Filters
+    title: Clear All Filters
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: Add to bookmarks
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: View on Map - Zoom to Location
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    title: View Details
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: filters___legend_filter_by_categories_th_9
+    section_type: card_panel
+    title: Collapse
+  - route: https://catsentinel.rpiinfo.com/prompt-master
+    feature: CAT Synapse
+    section: page_content_1
+    section_type: content_region
+    type: button
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: add_alert_template_2
+    section_type: card_panel
+    text: Add Alert Template
+    title: Edit Resources
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_3
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: thunderstorms_template__emergency_action_4
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: wildfire_template__emergency_actions_imm_5
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: winter_storms___blizzards_template__emer_6
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: fire___explosions_template__emergency_ac_7
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: air_quality___visibility_hazards_templat_8
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: dust_storms_template__emergency_actions__9
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: wind_hazards_template__emergency_actions_10
+    section_type: card_panel
+    text: View Templates
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Overview
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Batch Details
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Line
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Bar
+  links:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: 300_km_____________300_km_1
+    section_type: map_container
+    aria_label: Mapbox homepage
+    href: https://www.mapbox.com/
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/242271
+    href: https://ms.catsentinel.ai/242271
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/242255
+    href: https://ms.catsentinel.ai/242255
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/241298
+    href: https://ms.catsentinel.ai/241298
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/241277
+    href: https://ms.catsentinel.ai/241277
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/240157
+    href: https://ms.catsentinel.ai/240157
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/239988
+    href: https://ms.catsentinel.ai/239988
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/239935
+    href: https://ms.catsentinel.ai/239935
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_242271_status___published_2
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/242271
+    href: https://ms.catsentinel.ai/242271
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_242255_status___published_3
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/242255
+    href: https://ms.catsentinel.ai/242255
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_241298_status___published_4
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/241298
+    href: https://ms.catsentinel.ai/241298
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_241277_status___published_5
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/241277
+    href: https://ms.catsentinel.ai/241277
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_240157_status___published_6
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/240157
+    href: https://ms.catsentinel.ai/240157
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_239988_status___published_7
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/239988
+    href: https://ms.catsentinel.ai/239988
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_239935_status___published_8
+    section_type: table_grid
+    text: https://ms.catsentinel.ai/239935
+    href: https://ms.catsentinel.ai/239935
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+    text: Leaflet
+    title: A JavaScript library for interactive maps
+    href: https://leafletjs.com
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____2
+    section_type: map_container
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____2
+    section_type: map_container
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: leaflet_____esri_3
+    section_type: map_container
+    text: Leaflet
+    title: A JavaScript library for interactive maps
+    href: https://leafletjs.com
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____4
+    section_type: map_toolbar
+    text: +
+    title: Zoom in
+    role: button
+    aria_label: Zoom in
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____4
+    section_type: map_toolbar
+    text: "\u2212"
+    title: Zoom out
+    role: button
+    aria_label: Zoom out
+    href: '#'
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: leaflet_____esri_5
+    section_type: map_toolbar
+    text: Leaflet
+    title: A JavaScript library for interactive maps
+    href: https://leafletjs.com
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.2b3453f8e334a8519cfbc2227b8215462957ee43.001.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.e36f275296f1369e84553344db7027640f47d638.001.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.9ddf85c4c31671d0c81595f1575e2052c3e59e41.001.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.001.2
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.fa0e76299effae5db7c548123a28d7e2b65c4d01.002.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.abfe34656449a472502163f2f4bbc79db38b9594.001.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.002.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.003.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.4c08ff27220f79da76edbce1c904e3dd7e1cbd4b.001.1
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: __ref_id_uid_category_event_state_severi_6
+    section_type: table_grid
+    text: urn:oid:2.49.0.1.840...
+    title: urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+    href: https://api.weather.gov/alerts/urn:oid:2.49.0.1.840.0.1741e5b92d7a5dff41fc5181ad8c7c471c77bba3.001.1
+  inputs:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    type: radio
+    name: agingRange
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: filters___legend_filter_by_categories_th_9
+    section_type: card_panel
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    feature: CAT History
+    section: page_content_1
+    section_type: content_region
+    type: text
+    placeholder: Search risk events...
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_242271_status___published_2
+    section_type: table_grid
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_239935_status___published_8
+    section_type: table_grid
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: ref_id___refid_239444_status___draft_sta_9
+    section_type: table_grid
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    feature: Policyholder Risk Profile
+    section: page_content_1
+    section_type: content_region
+    type: text
+    placeholder: Search by name, policy, address, or zip code...
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: aging_analysis_7_days_10_days_30_days____5
+    section_type: table_grid
+    type: radio
+    name: agingRange
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: filters___legend_filter_by_categories_th_9
+    section_type: card_panel
+    type: checkbox
+  - route: https://catsentinel.rpiinfo.com/prompt-master
+    feature: CAT Synapse
+    section: page_content_1
+    section_type: content_region
+    type: text
+    placeholder: Search items by title, description...
+  - route: https://catsentinel.rpiinfo.com/prompt-master
+    feature: CAT Synapse
+    section: page_content_1
+    section_type: content_region
+    type: date
+    placeholder: dd/mm/yyyy
+  dropdowns:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: All States Alabama Alaska American Samoa Arizona Arkansas California Colorado
+      Connecticut Delaware District of Columbia Florida Georgia Guam Hawaii Idaho
+      Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland Massachusetts
+      Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada New Hampshire
+      New Jersey New Mexico New York North Carolina North Dakota Northern Mariana
+      Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode Island South Carolina
+      South Dakota Tennessee Texas Utah Vermont Virginia Virgin Islands Washington
+      West Virginia Wisconsin Wyoming
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: state_all_states_alabama_alaska_american_3
+    section_type: table_grid
+    text: All States Alabama Alaska American Samoa Arizona Arkansas California Colorado
+      Connecticut Delaware District of Columbia Florida Georgia Guam Hawaii Idaho
+      Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland Massachusetts
+      Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada New Hampshire
+      New Jersey New Mexico New York North Carolina North Dakota Northern Mariana
+      Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode Island South Carolina
+      South Dakota Tennessee Texas Utah Vermont Virginia Virgin Islands Washington
+      West Virginia Wisconsin Wyoming
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: state_all_states_alabama_alaska_american_4
+    section_type: table_grid
+    text: All States Alabama Alaska American Samoa Arizona Arkansas California Colorado
+      Connecticut Delaware District of Columbia Florida Georgia Guam Hawaii Idaho
+      Illinois Indiana Iowa Kansas Kentucky Louisiana Maine Maryland Massachusetts
+      Michigan Minnesota Mississippi Missouri Montana Nebraska Nevada New Hampshire
+      New Jersey New Mexico New York North Carolina North Dakota Northern Mariana
+      Islands Ohio Oklahoma Oregon Pennsylvania Puerto Rico Rhode Island South Carolina
+      South Dakota Tennessee Texas Utah Vermont Virginia Virgin Islands Washington
+      West Virginia Wisconsin Wyoming
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Last 24 Hours Last 2 Days Last 7 Days Last 30 Days Custom Range
+  - route: https://catsentinel.rpiinfo.com/command-center
+    feature: Command Center
+    section: page_content_1
+    section_type: content_region
+    text: Policy Sync Event Response PolicyHolder RiskProfile Microsite Engagement
+      Rules Engagement Trigger Server Details OpenAi vs Llama
+  forms: []
+  tables:
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-242271 Status : Published State : Wisconsin - WI Microsite
+      : https://ms.catsentinel.ai/242271 Live until : 05/23/2026, 10:33:00 PM Communication
+      : (Assisted Mode)'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-242255 Status : Published State : New York - NY Microsite
+      : https://ms.catsentinel.ai/242255 Live until : 05/23/2026, 10:36:00 PM Communication
+      : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-241298 Status : Published State : Wisconsin - WI Microsite
+      : https://ms.catsentinel.ai/241298 Live until : 05/23/2026, 11:23:00 AM Communication
+      : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+      : https://ms.catsentinel.ai/241277 Live until : 05/23/2026, 11:19:00 AM Communication
+      : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-240157 Status : Published State : Illinois - IL Microsite
+      : https://ms.catsentinel.ai/240157 Live until : 05/22/2026, 06:19:00 AM Communication
+      : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239988 Status : Published State : Wisconsin - WI Microsite
+      : https://ms.catsentinel.ai/239988 Live until : 05/21/2026, 10:42:00 PM Communication
+      : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239935 Status : Published State : Illinois - IL Microsite
+      : https://ms.catsentinel.ai/239935 Live until : 05/21/2026, 09:39:00 PM Communication
+      : (Assisted Mode)'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239930 Status : Draft State : Illinois - IL Microsite :
+      N/A Live until : N/A Communication : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239484 Status : Draft State : Illinois - IL Microsite :
+      N/A Live until : N/A Communication : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239473 Status : Draft State : Illinois - IL Microsite :
+      N/A Live until : N/A Communication : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite : N/A
+      Live until : N/A Communication : (Assisted Mode)'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    feature: Microsites
+    section: flood_warning_risk_score__8_5_10_ref_id__1
+    section_type: table_grid
+    text: 'REF ID : REFID-239371 Status : Draft State : Michigan - MI Microsite :
+      N/A Live until : N/A Communication : N/A'
+    row_count: 6
+    column_count: 3
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    feature: Policyholder Risk Profile
+    section: page_content_1
+    section_type: content_region
+    text: '# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron Alce 24770 AZ - Arizona
+      48132 Coit Rd, Phoenix, Arizona, USA 0 0 2 Aaron Almonte 739108 NY - New York
+      63 Morgan Ave #1, Rochester, New York, USA 0 0 3 Aaron Amati 383456 LA - Louisiana
+      53494 Steel Ct, Golden Meadow, Louisiana, USA 12032 0 4 Aaron Ament 180770 CA
+      - California 3 Franklin Blvd, Stockton, California, USA 0 0 5 Aaron Awtrey 262022
+      FL - Florida 7 Reidhurst Ave, Hialeah, Florida, USA 0 0 6 Aaron Ayala 475111
+      MI - Michigan 34 Adams St #2058, Grand Rapids, Michigan, USA 0 0 7 Aaron Baitg
+      333201 IL - Illinois 27442 Spencerville Ct #8, Chicago, Illinois, USA 0 0 8
+      Aaron Barrow 457656 MI - Michigan 635 5th Ave, Detroit, Michigan, USA 0 0 9
+      Aaron Bartek 828333 PA - Pennsylvania 446 S Michigan Ave, Perkasie, Pennsylvania,
+      USA 0 0 10 Aaron Beath 39618 CA - California 88 Goldenwest St, Los Angeles,
+      California, USA 0 0'
+    row_count: 11
+    column_count: 7
+  tabs: []
+  dialogs: []
+  cards:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    feature: current_page
+    section: ________300_km_1
+    section_type: map_container
+    role: region
+    aria_label: Map
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    feature: Risk Map
+    section: 300_km_____________300_km_1
+    section_type: map_container
+    role: region
+    aria_label: Map
+  - route: https://catsentinel.rpiinfo.com/event-book
+    feature: CAT Event Book
+    section: ____leaflet_____esri_1
+    section_type: map_container
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_wildfire_cat_sentinel_geo_spat_1
+    section_type: table_grid
+    text: High Risk Wildfire CAT Sentinel Geo-Spatial Intelligence - Wildfire Last
+      viewed 90w ago View Events
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_wildfire_cat_sentinel_geo_spat_1
+    section_type: table_grid
+    text: Extreme Risk Tornado Tracking CAT Sentinel Geo-Spatial Intelligence - Tornado
+      Last viewed 90w ago View Events
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    feature: Geo Spatial
+    section: high_risk_wildfire_cat_sentinel_geo_spat_1
+    section_type: table_grid
+    text: High Risk Hurricane/Cyclone CAT Sentinel Geo-Spatial Intelligence - Hurricane/Cyclone
+      Last viewed 90w ago View Events
+  - route: https://catsentinel.rpiinfo.com/alert-event-monitor
+    feature: Risk Analyzer
+    section: ________________________300_km_1
+    section_type: map_container
+    role: region
+    aria_label: Map
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Floods Template: Immediate Actions (Next 6 Hours) Last Updated 5d ago View
+      Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Thunderstorms Template: Emergency Actions Immediate Actions Property Protection
+      Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Wildfire Template: Emergency Actions Immediate Actions Property Protection
+      Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Winter Storms / Blizzards Template: Emergency Actions Property Protection
+      Immediate Actions (Next 6 Hours) Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Fire / Explosions Template: Emergency Actions Immediate Actions Property
+      Protection Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Air Quality / Visibility Hazards Template: Emergency Actions Immediate
+      Actions Property Protection Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Dust Storms Template: Emergency Actions Immediate Actions Property Protection
+      Last Updated 8w ago View Templates'
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    feature: CheckList Templates
+    section: floods_template__immediate_actions__next_1
+    section_type: table_grid
+    text: 'Wind Hazards Template: Emergency Actions Immediate Actions Property Protection
+      Last Updated 8w ago View Templates'
+routes:
+- https://catsentinel.rpiinfo.com/action-queue-module
+- https://catsentinel.rpiinfo.com/alert-event-monitor
+- https://catsentinel.rpiinfo.com/cat-history
+- https://catsentinel.rpiinfo.com/command-center
+- https://catsentinel.rpiinfo.com/event-book
+- https://catsentinel.rpiinfo.com/geo-spatial
+- https://catsentinel.rpiinfo.com/knowledge-base
+- https://catsentinel.rpiinfo.com/live-events
+- https://catsentinel.rpiinfo.com/micro-sites
+- https://catsentinel.rpiinfo.com/policyholder-risk
+- https://catsentinel.rpiinfo.com/prompt-master
+- https://catsentinel.rpiinfo.com/risk-insights
+- https://catsentinel.rpiinfo.com/risk-map
+- https://catsentinel.rpiinfo.com/template/checklist
+parent_child_hierarchy: {}
+detected_menus:
+  https://catsentinel.rpiinfo.com/live-events:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/cat-history:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/risk-map:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/action-queue-module:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/micro-sites:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/event-book:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Geospatial Data
+        href: null
+      - text: Policyholders
+        href: null
+      - text: Claims Data
+        href: null
+      - text: Pre-Event Compliance
+        href: null
+  https://catsentinel.rpiinfo.com/knowledge-base:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/policyholder-risk:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/geo-spatial:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/alert-event-monitor:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/prompt-master:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/template/checklist:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/risk-insights:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+  https://catsentinel.rpiinfo.com/command-center:
+    sidebar_menus: []
+    top_navigation_menus:
+    - type: top_navigation
+      selector: nav
+      items:
+      - text: Live Events
+        href: /live-events
+      - text: CAT History
+        href: /cat-history
+      - text: Risk Map
+        href: /risk-map
+      - text: Action Queue
+        href: /action-queue-module
+      - text: Microsites
+        href: /micro-sites
+      - text: CAT Event Book
+        href: /event-book
+      - text: Knowledge Base
+        href: /knowledge-base
+      - text: Policyholder Risk Profile
+        href: /policyholder-risk
+      - text: Geo Spatial
+        href: /geo-spatial
+      - text: Risk Analyzer
+        href: /alert-event-monitor
+      - text: CAT Synapse
+        href: /prompt-master
+      - text: CheckList Templates
+        href: /template/checklist
+      - text: Risk Insights
+        href: /risk-insights
+      - text: Command Center
+        href: /command-center
+      - text: Contact Support
+        href: null
+page_components: *id001

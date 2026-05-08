@@ -1,0 +1,21 @@
+2026-05-08 13:29:34 | INFO | api.services.crawler_service:run_scan:43 | [API] Scan started | run_id=run_20260508_132934 | url=https://catsentinel.pionedata.com
+2026-05-08 13:29:36 | INFO | api.services.crawler_service:run_scan:65 | [API] No credentials provided — navigating directly
+2026-05-08 13:29:38 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-08 13:29:38 | INFO | api.services.crawler_service:run_scan:89 | [API] Crawler started
+2026-05-08 13:29:38 | INFO | automation_framework.crawler.crawler_engine:_progress:49 | [progress] Scanning...
+2026-05-08 13:29:38 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:36 | Waiting for UI stability on page: https://catsentinel.pionedata.com/login
+2026-05-08 13:29:39 | INFO | automation_framework.crawler.crawler_engine:crawl:137 | INPUT COUNT: 3 | BUTTON COUNT: 2 | LINK COUNT: 2
+2026-05-08 13:29:39 | INFO | automation_framework.crawler.crawler_engine:_scan_route:311 | Scanning route: https://catsentinel.pionedata.com/login (menu: login)
+2026-05-08 13:29:46 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/login
+2026-05-08 13:29:49 | WARNING | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:352 | Elements not detected — possible dynamic rendering issue. Using fallback extraction.
+2026-05-08 13:29:49 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:360 | Fallback extraction: buttons=2, inputs=3, links=2
+2026-05-08 13:29:49 | INFO | automation_framework.crawler.crawler_engine:_scan_route:326 | Empty scan on https://catsentinel.pionedata.com/login, retrying after domcontentloaded
+2026-05-08 13:29:49 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:259 | Building UI intelligence for route: https://catsentinel.pionedata.com/login
+2026-05-08 13:29:52 | WARNING | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:352 | Elements not detected — possible dynamic rendering issue. Using fallback extraction.
+2026-05-08 13:29:52 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:360 | Fallback extraction: buttons=2, inputs=3, links=2
+2026-05-08 13:29:52 | WARNING | automation_framework.crawler.crawler_engine:_scan_route:338 | low confidence scan: no automation targets detected on https://catsentinel.pionedata.com/login
+2026-05-08 13:29:52 | INFO | automation_framework.crawler.crawler_engine:_scan_route:356 | Scan complete: https://catsentinel.pionedata.com/login | 0 targets | 13.34s
+2026-05-08 13:29:52 | INFO | automation_framework.crawler.crawler_engine:crawl:148 | Discovered 0 menu items to explore
+2026-05-08 13:29:52 | INFO | api.services.crawler_service:run_scan:111 | [API] Scan completed successfully
+2026-05-08 13:29:52 | INFO | api.services.crawler_service:run_scan:112 | [API] Total routes scanned: 1
+2026-05-08 13:29:52 | INFO | api.services.crawler_service:run_scan:113 | [API] Duration: 17.80s

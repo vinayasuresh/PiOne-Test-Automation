@@ -1,0 +1,5 @@
+2026-05-07 14:46:24 | INFO | api.services.crawler_service:run_scan:35 | [API] Scan started | run_id=run_20260507_144624 | url=https://pione.zentri.cloud/login
+2026-05-07 14:46:47 | INFO | api.services.crawler_service:run_scan:52 | [API] No credentials provided — navigating directly
+2026-05-07 14:46:48 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-07 14:46:48 | INFO | api.services.crawler_service:run_scan:64 | [API] Crawler started
+2026-05-07 14:46:48 | ERROR | api.services.crawler_service:run_scan:77 | [API] Scan failed after 24.14s | error=Authentication session lost and no credentials are available

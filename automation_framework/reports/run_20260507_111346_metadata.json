@@ -1,0 +1,10 @@
+{
+    "run_id": "run_20260507_111346",
+    "timestamp": "2026-05-07T11:13:46",
+    "platform": "Windows 10",
+    "python_version": "3.11.9",
+    "base_url": "https://catsentinel.pionedata.com",
+    "total_routes_scanned": 14,
+    "total_components_detected": 41,
+    "execution_duration_seconds": 707.97
+}

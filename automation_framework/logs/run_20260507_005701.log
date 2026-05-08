@@ -1,0 +1,58 @@
+2026-05-07 00:57:17 | INFO | __main__:main:39 | Framework startup | run_id=run_20260507_005701 | log_file=C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\logs\run_20260507_005701.log
+2026-05-07 00:57:18 | INFO | __main__:main:42 | Login started
+2026-05-07 00:57:20 | INFO | __main__:main:45 | Login successful
+2026-05-07 00:57:20 | INFO | __main__:main:47 | Current URL after login: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:57:20 | INFO | __main__:main:51 | Expanding navigation if needed
+2026-05-07 00:57:20 | INFO | automation_framework.crawler.navigation_expander:ensure_navigation_expanded:25 | Sidebar navigation not detected
+2026-05-07 00:57:20 | INFO | __main__:main:54 | Crawler execution started
+2026-05-07 00:57:20 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:57:23 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:57:24 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:57:27 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:57:34 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/cat-history
+2026-05-07 00:57:35 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/cat-history
+2026-05-07 00:57:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/cat-history
+2026-05-07 00:57:37 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/risk-map
+2026-05-07 00:57:39 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/risk-map
+2026-05-07 00:57:41 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/risk-map
+2026-05-07 00:57:44 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/action-queue-module
+2026-05-07 00:57:45 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/action-queue-module
+2026-05-07 00:57:55 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_loaders_to_disappear:48 | Loader timeout during UI stabilization
+2026-05-07 00:57:56 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/action-queue-module
+2026-05-07 00:57:58 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/micro-sites
+2026-05-07 00:58:01 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/micro-sites
+2026-05-07 00:58:01 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/micro-sites
+2026-05-07 00:58:06 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/event-book
+2026-05-07 00:58:07 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/event-book
+2026-05-07 00:58:07 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/event-book
+2026-05-07 00:58:10 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/knowledge-base
+2026-05-07 00:58:10 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/
+2026-05-07 00:58:11 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/
+2026-05-07 00:58:11 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/policyholder-risk
+2026-05-07 00:58:12 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/policyholder-risk
+2026-05-07 00:58:13 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/policyholder-risk
+2026-05-07 00:58:13 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/geo-spatial
+2026-05-07 00:58:14 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/geo-spatial
+2026-05-07 00:58:14 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/geo-spatial
+2026-05-07 00:58:15 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/alert-event-monitor
+2026-05-07 00:58:17 | WARNING | automation_framework.crawler.crawler_engine:_ensure_authenticated:161 | Authentication session appears to be lost. Attempting login recovery.
+2026-05-07 00:58:17 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:58:20 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/live-events
+2026-05-07 00:58:27 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/prompt-master
+2026-05-07 00:58:31 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/prompt-master
+2026-05-07 00:58:31 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/prompt-master
+2026-05-07 00:58:32 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/template/checklist
+2026-05-07 00:58:33 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/template/checklist
+2026-05-07 00:58:33 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/template/checklist
+2026-05-07 00:58:34 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/risk-insights
+2026-05-07 00:58:36 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/risk-insights
+2026-05-07 00:58:36 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/risk-insights
+2026-05-07 00:58:36 | INFO | automation_framework.crawler.crawler_engine:crawl:67 | Exploring feature route: https://catsentinel.rpiinfo.com/command-center
+2026-05-07 00:58:41 | WARNING | automation_framework.crawler.crawler_engine:_navigate:103 | Network idle timeout while loading route: https://catsentinel.rpiinfo.com/command-center
+2026-05-07 00:58:41 | INFO | automation_framework.crawler.ui_wait_engine:wait_for_ui_stability:25 | Waiting for UI stability on page: https://catsentinel.rpiinfo.com/command-center
+2026-05-07 00:58:51 | WARNING | automation_framework.crawler.ui_wait_engine:_wait_for_network_idle:38 | Network idle timeout during UI stabilization
+2026-05-07 00:58:52 | INFO | automation_framework.engine.ui_intelligence_engine:build_ui_intelligence:123 | Building UI intelligence for route: https://catsentinel.rpiinfo.com/command-center
+2026-05-07 00:59:38 | INFO | automation_framework.crawler.crawl_exporter:export_crawl_results:36 | Crawl results exported to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_005701_crawl_results.json and C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_005701_crawl_results.yaml
+2026-05-07 00:59:38 | INFO | __main__:main:73 | Crawler execution completed
+2026-05-07 00:59:38 | INFO | __main__:main:94 | Browser shutdown
+2026-05-07 00:59:39 | INFO | automation_framework.utils.metadata_collector:save_metadata:44 | Run metadata saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\reports\run_20260507_005701_metadata.json

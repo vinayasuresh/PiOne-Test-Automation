@@ -1,0 +1,1341 @@
+schema_version: '1.0'
+routes:
+- route: https://catsentinel.rpiinfo.com/live-events
+  menu_name: home
+  purpose: Understand and validate home
+  sections:
+  - name: tables
+    count: 1
+  - name: maps
+    count: 2
+  - name: actions
+    count: 10
+  automation_targets:
+  - id: 'tables::# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS EVENT TIMELINE
+      ACTIONS '
+    category: tables
+    label: '# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS EVENT TIMELINE
+      ACTIONS '
+    purpose: 'Validate tabular data for # REF ID UID CATEGORY EVENT STATE SEVERITY
+      POLICYHOLDERS EVENT TIMELINE ACTIONS '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id001
+      primary:
+        strategy: role
+        value: role=table[name="# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS
+          EVENT TIMELINE ACTIONS "]
+      fallback: []
+    is_validation_target: true
+  - id: maps::300 km
+    category: maps
+    label: 300 km
+    purpose: Validate map behavior for 300 km
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: &id016
+      primary:
+        strategy: id
+        value: '#mapbox-map'
+      fallback: []
+    is_validation_target: true
+  - id: maps::Map
+    category: maps
+    label: Map
+    purpose: Validate map behavior for Map
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: &id017
+      primary:
+        strategy: aria
+        value: '[aria-label="Map"]'
+      fallback:
+      - role=region[name="Map"]
+    is_validation_target: true
+  - id: actions::Reset All Filters
+    category: actions
+    label: Reset All Filters
+    purpose: 'Execute action: Reset All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id021
+      primary:
+        strategy: role
+        value: role=button[name="Reset All Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Reset Bearing to North
+    category: actions
+    label: Reset Bearing to North
+    purpose: 'Execute action: Reset Bearing to North'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id022
+      primary:
+        strategy: role
+        value: role=button[name="Reset Bearing to North"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Reset Map View
+    category: actions
+    label: Reset Map View
+    purpose: 'Execute action: Reset Map View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id023
+      primary:
+        strategy: role
+        value: role=button[name="Reset Map View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Street View
+    category: actions
+    label: Street View
+    purpose: 'Execute action: Street View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id024
+      primary:
+        strategy: role
+        value: role=button[name="Street View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Satellite View
+    category: actions
+    label: Satellite View
+    purpose: 'Execute action: Satellite View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id025
+      primary:
+        strategy: role
+        value: role=button[name="Satellite View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Clear All Filters
+    category: actions
+    label: Clear All Filters
+    purpose: 'Execute action: Clear All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id026
+      primary:
+        strategy: role
+        value: role=button[name="Clear All Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Export to Excel
+    category: actions
+    label: Export to Excel
+    purpose: 'Execute action: Export to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id027
+      primary:
+        strategy: role
+        value: role=button[name="Export to Excel"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Add to bookmarks
+    category: actions
+    label: Add to bookmarks
+    purpose: 'Execute action: Add to bookmarks'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id028
+      primary:
+        strategy: role
+        value: role=button[name="Add to bookmarks"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::View on Map - Zoom to Location
+    category: actions
+    label: View on Map - Zoom to Location
+    purpose: 'Execute action: View on Map - Zoom to Location'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id029
+      primary:
+        strategy: role
+        value: role=button[name="View on Map - Zoom to Location"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::View Details
+    category: actions
+    label: View Details
+    purpose: 'Execute action: View Details'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id030
+      primary:
+        strategy: role
+        value: role=button[name="View Details"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/cat-history
+  menu_name: CAT History
+  purpose: Understand and validate CAT History
+  sections:
+  - name: filters
+    count: 1
+  - name: actions
+    count: 5
+  automation_targets:
+  - id: filters::Filters
+    category: filters
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: &id060
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: true
+  - id: actions::Recently Viewed
+    category: actions
+    label: Recently Viewed
+    purpose: 'Execute action: Recently Viewed'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id031
+      primary:
+        strategy: role
+        value: role=button[name="Recently Viewed"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Search
+    category: actions
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id032
+      primary:
+        strategy: role
+        value: role=button[name="Search"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Filters
+    category: actions
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id033
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Grid View
+    category: actions
+    label: Grid View
+    purpose: 'Execute action: Grid View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id034
+      primary:
+        strategy: role
+        value: role=button[name="Grid View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::List View
+    category: actions
+    label: List View
+    purpose: 'Execute action: List View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id035
+      primary:
+        strategy: role
+        value: role=button[name="List View"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/risk-map
+  menu_name: Risk Map
+  purpose: Understand and validate Risk Map
+  sections:
+  - name: maps
+    count: 2
+  - name: actions
+    count: 5
+  automation_targets:
+  - id: maps::300 km 300 km
+    category: maps
+    label: 300 km 300 km
+    purpose: Validate map behavior for 300 km 300 km
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: &id018
+      primary:
+        strategy: id
+        value: '#risk-map'
+      fallback: []
+    is_validation_target: true
+  - id: maps::Map
+    category: maps
+    label: Map
+    purpose: Validate map behavior for Map
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: &id019
+      primary:
+        strategy: aria
+        value: '[aria-label="Map"]'
+      fallback:
+      - role=region[name="Map"]
+    is_validation_target: true
+  - id: actions::Reset All Filters
+    category: actions
+    label: Reset All Filters
+    purpose: 'Execute action: Reset All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id036
+      primary:
+        strategy: role
+        value: role=button[name="Reset All Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Reset Bearing to North
+    category: actions
+    label: Reset Bearing to North
+    purpose: 'Execute action: Reset Bearing to North'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id037
+      primary:
+        strategy: role
+        value: role=button[name="Reset Bearing to North"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Reset Map View
+    category: actions
+    label: Reset Map View
+    purpose: 'Execute action: Reset Map View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id038
+      primary:
+        strategy: role
+        value: role=button[name="Reset Map View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Street View
+    category: actions
+    label: Street View
+    purpose: 'Execute action: Street View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id039
+      primary:
+        strategy: role
+        value: role=button[name="Street View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Satellite View
+    category: actions
+    label: Satellite View
+    purpose: 'Execute action: Satellite View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id040
+      primary:
+        strategy: role
+        value: role=button[name="Satellite View"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/action-queue-module
+  menu_name: Action Queue
+  purpose: Understand and validate Action Queue
+  sections:
+  - name: filters
+    count: 1
+  - name: tables
+    count: 1
+  - name: actions
+    count: 4
+  automation_targets:
+  - id: filters::Filters
+    category: filters
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: &id061
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: true
+  - id: tables::# REF ID TASK ID TASK NAME DOCUMENTS SEVERITY RISK SCORE STATUS TASK
+      TIMELINE AC
+    category: tables
+    label: '# REF ID TASK ID TASK NAME DOCUMENTS SEVERITY RISK SCORE STATUS TASK TIMELINE
+      AC'
+    purpose: 'Validate tabular data for # REF ID TASK ID TASK NAME DOCUMENTS SEVERITY
+      RISK SCORE STATUS TASK TIMELINE AC'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id002
+      primary:
+        strategy: role
+        value: role=table[name="# REF ID TASK ID TASK NAME DOCUMENTS SEVERITY RISK
+          SCORE STATUS TASK TIMELINE AC"]
+      fallback: []
+    is_validation_target: true
+  - id: actions::Search
+    category: actions
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id041
+      primary:
+        strategy: role
+        value: role=button[name="Search"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Filters
+    category: actions
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id042
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Export filtered data to Excel
+    category: actions
+    label: Export filtered data to Excel
+    purpose: 'Execute action: Export filtered data to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id043
+      primary:
+        strategy: role
+        value: role=button[name="Export filtered data to Excel"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Edit Task
+    category: actions
+    label: Edit Task
+    purpose: 'Execute action: Edit Task'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id044
+      primary:
+        strategy: role
+        value: role=button[name="Edit Task"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/micro-sites
+  menu_name: Microsites
+  purpose: Understand and validate Microsites
+  sections:
+  - name: filters
+    count: 1
+  - name: tables
+    count: 12
+  - name: actions
+    count: 7
+  automation_targets:
+  - id: filters::Filters
+    category: filters
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: &id062
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-242271 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    category: tables
+    label: 'REF ID : REFID-242271 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-242271 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id003
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-242271 Status : Published State :
+          Wisconsin - WI Microsite : http"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-242255 Status : Published State : New York - NY Microsite
+      : https'
+    category: tables
+    label: 'REF ID : REFID-242255 Status : Published State : New York - NY Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-242255 Status : Published State
+      : New York - NY Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id004
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-242255 Status : Published State :
+          New York - NY Microsite : https"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-241298 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    category: tables
+    label: 'REF ID : REFID-241298 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-241298 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id005
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-241298 Status : Published State :
+          Wisconsin - WI Microsite : http"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    category: tables
+    label: 'REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-241277 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id006
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-241277 Status : Published State :
+          Wisconsin - WI Microsite : http"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-240157 Status : Published State : Illinois - IL Microsite
+      : https'
+    category: tables
+    label: 'REF ID : REFID-240157 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-240157 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id007
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-240157 Status : Published State :
+          Illinois - IL Microsite : https"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239988 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    category: tables
+    label: 'REF ID : REFID-239988 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-239988 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id008
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239988 Status : Published State :
+          Wisconsin - WI Microsite : http"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239935 Status : Published State : Illinois - IL Microsite
+      : https'
+    category: tables
+    label: 'REF ID : REFID-239935 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-239935 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id009
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239935 Status : Published State :
+          Illinois - IL Microsite : https"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239930 Status : Published State : Illinois - IL Microsite
+      : https'
+    category: tables
+    label: 'REF ID : REFID-239930 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-239930 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id010
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239930 Status : Published State :
+          Illinois - IL Microsite : https"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239484 Status : Draft State : Illinois - IL Microsite
+      : N/A Live '
+    category: tables
+    label: 'REF ID : REFID-239484 Status : Draft State : Illinois - IL Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239484 Status : Draft State
+      : Illinois - IL Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id011
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239484 Status : Draft State : Illinois
+          - IL Microsite : N/A Live "]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239473 Status : Draft State : Illinois - IL Microsite
+      : N/A Live '
+    category: tables
+    label: 'REF ID : REFID-239473 Status : Draft State : Illinois - IL Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239473 Status : Draft State
+      : Illinois - IL Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id012
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239473 Status : Draft State : Illinois
+          - IL Microsite : N/A Live "]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite
+      : N/A Live unti'
+    category: tables
+    label: 'REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite : N/A
+      Live unti'
+    purpose: 'Validate tabular data for REF ID : REFID-239444 Status : Draft State
+      : Iowa - IA Microsite : N/A Live unti'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id013
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239444 Status : Draft State : Iowa
+          - IA Microsite : N/A Live unti"]'
+      fallback: []
+    is_validation_target: true
+  - id: 'tables::REF ID : REFID-239371 Status : Draft State : Michigan - MI Microsite
+      : N/A Live '
+    category: tables
+    label: 'REF ID : REFID-239371 Status : Draft State : Michigan - MI Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239371 Status : Draft State
+      : Michigan - MI Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id014
+      primary:
+        strategy: role
+        value: 'role=table[name="REF ID : REFID-239371 Status : Draft State : Michigan
+          - MI Microsite : N/A Live "]'
+      fallback: []
+    is_validation_target: true
+  - id: actions::Search
+    category: actions
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id045
+      primary:
+        strategy: role
+        value: role=button[name="Search"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Filters
+    category: actions
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id046
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Export filtered data to Excel
+    category: actions
+    label: Export filtered data to Excel
+    purpose: 'Execute action: Export filtered data to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id047
+      primary:
+        strategy: role
+        value: role=button[name="Export filtered data to Excel"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Grid View
+    category: actions
+    label: Grid View
+    purpose: 'Execute action: Grid View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id048
+      primary:
+        strategy: role
+        value: role=button[name="Grid View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::List View
+    category: actions
+    label: List View
+    purpose: 'Execute action: List View'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id049
+      primary:
+        strategy: role
+        value: role=button[name="List View"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Preview Microsite
+    category: actions
+    label: Preview Microsite
+    purpose: 'Execute action: Preview Microsite'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id050
+      primary:
+        strategy: role
+        value: role=button[name="Preview Microsite"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Edit Resources
+    category: actions
+    label: Edit Resources
+    purpose: 'Execute action: Edit Resources'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id051
+      primary:
+        strategy: role
+        value: role=button[name="Edit Resources"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/event-book
+  menu_name: CAT Event Book
+  purpose: Understand and validate CAT Event Book
+  sections:
+  - name: maps
+    count: 1
+  - name: actions
+    count: 1
+  automation_targets:
+  - id: "maps::+ \u2212 Leaflet | \xA9 Esri"
+    category: maps
+    label: "+ \u2212 Leaflet | \xA9 Esri"
+    purpose: "Validate map behavior for + \u2212 Leaflet | \xA9 Esri"
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: &id020
+      primary:
+        strategy: id
+        value: '#satellite-map'
+      fallback: []
+    is_validation_target: true
+  - id: actions::Export Book
+    category: actions
+    label: Export Book
+    purpose: 'Execute action: Export Book'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id052
+      primary:
+        strategy: role
+        value: role=button[name="Export Book"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/
+  menu_name: Knowledge Base
+  purpose: Understand and validate Knowledge Base
+  sections: []
+  automation_targets: []
+- route: https://catsentinel.rpiinfo.com/policyholder-risk
+  menu_name: Policyholder Risk Profile
+  purpose: Understand and validate Policyholder Risk Profile
+  sections:
+  - name: tables
+    count: 1
+  - name: actions
+    count: 1
+  automation_targets:
+  - id: tables::# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron Alce 24770 AZ
+      - Arizona 48
+    category: tables
+    label: '# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron Alce 24770 AZ -
+      Arizona 48'
+    purpose: 'Validate tabular data for # NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS
+      1 Aaron Alce 24770 AZ - Arizona 48'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: &id015
+      primary:
+        strategy: role
+        value: role=table[name="# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron
+          Alce 24770 AZ - Arizona 48"]
+      fallback: []
+    is_validation_target: true
+  - id: actions::Filters
+    category: actions
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id053
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/geo-spatial
+  menu_name: Geo Spatial
+  purpose: Understand and validate Geo Spatial
+  sections:
+  - name: actions
+    count: 1
+  automation_targets:
+  - id: actions::View Events
+    category: actions
+    label: View Events
+    purpose: 'Execute action: View Events'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id054
+      primary:
+        strategy: role
+        value: role=button[name="View Events"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/prompt-master
+  menu_name: CAT Synapse
+  purpose: Understand and validate CAT Synapse
+  sections: []
+  automation_targets: []
+- route: https://catsentinel.rpiinfo.com/template/checklist
+  menu_name: CheckList Templates
+  purpose: Understand and validate CheckList Templates
+  sections:
+  - name: filters
+    count: 1
+  - name: actions
+    count: 4
+  automation_targets:
+  - id: filters::Filters
+    category: filters
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: &id063
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: true
+  - id: actions::Edit Resources
+    category: actions
+    label: Edit Resources
+    purpose: 'Execute action: Edit Resources'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id055
+      primary:
+        strategy: role
+        value: role=button[name="Edit Resources"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Search
+    category: actions
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id056
+      primary:
+        strategy: role
+        value: role=button[name="Search"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::Filters
+    category: actions
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id057
+      primary:
+        strategy: role
+        value: role=button[name="Filters"]
+      fallback: []
+    is_validation_target: false
+  - id: actions::View Templates
+    category: actions
+    label: View Templates
+    purpose: 'Execute action: View Templates'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id058
+      primary:
+        strategy: role
+        value: role=button[name="View Templates"]
+      fallback: []
+    is_validation_target: false
+- route: https://catsentinel.rpiinfo.com/risk-insights
+  menu_name: Risk Insights
+  purpose: Understand and validate Risk Insights
+  sections: []
+  automation_targets: []
+- route: https://catsentinel.rpiinfo.com/command-center
+  menu_name: Command Center
+  purpose: Understand and validate Command Center
+  sections:
+  - name: actions
+    count: 1
+  automation_targets:
+  - id: actions::Overview
+    category: actions
+    label: Overview
+    purpose: 'Execute action: Overview'
+    interaction_type: click
+    relevance: HIGH
+    selector: &id059
+      primary:
+        strategy: role
+        value: role=button[name="Overview"]
+      fallback: []
+    is_validation_target: false
+component_registry:
+  tables:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: '# REF ID UID CATEGORY EVENT STATE SEVERITY POLICYHOLDERS EVENT TIMELINE
+      ACTIONS '
+    purpose: 'Validate tabular data for # REF ID UID CATEGORY EVENT STATE SEVERITY
+      POLICYHOLDERS EVENT TIMELINE ACTIONS '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id001
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: '# REF ID TASK ID TASK NAME DOCUMENTS SEVERITY RISK SCORE STATUS TASK TIMELINE
+      AC'
+    purpose: 'Validate tabular data for # REF ID TASK ID TASK NAME DOCUMENTS SEVERITY
+      RISK SCORE STATUS TASK TIMELINE AC'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id002
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-242271 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-242271 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id003
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-242255 Status : Published State : New York - NY Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-242255 Status : Published State
+      : New York - NY Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id004
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-241298 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-241298 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id005
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-241277 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-241277 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id006
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-240157 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-240157 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id007
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239988 Status : Published State : Wisconsin - WI Microsite
+      : http'
+    purpose: 'Validate tabular data for REF ID : REFID-239988 Status : Published State
+      : Wisconsin - WI Microsite : http'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id008
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239935 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-239935 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id009
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239930 Status : Published State : Illinois - IL Microsite
+      : https'
+    purpose: 'Validate tabular data for REF ID : REFID-239930 Status : Published State
+      : Illinois - IL Microsite : https'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id010
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239484 Status : Draft State : Illinois - IL Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239484 Status : Draft State
+      : Illinois - IL Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id011
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239473 Status : Draft State : Illinois - IL Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239473 Status : Draft State
+      : Illinois - IL Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id012
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239444 Status : Draft State : Iowa - IA Microsite : N/A
+      Live unti'
+    purpose: 'Validate tabular data for REF ID : REFID-239444 Status : Draft State
+      : Iowa - IA Microsite : N/A Live unti'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id013
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: 'REF ID : REFID-239371 Status : Draft State : Michigan - MI Microsite :
+      N/A Live '
+    purpose: 'Validate tabular data for REF ID : REFID-239371 Status : Draft State
+      : Michigan - MI Microsite : N/A Live '
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id014
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    label: '# NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS 1 Aaron Alce 24770 AZ -
+      Arizona 48'
+    purpose: 'Validate tabular data for # NAME POLICY ID STATE ADDRESS PREMIUM CLAIMS
+      1 Aaron Alce 24770 AZ - Arizona 48'
+    interaction_type: validate_table
+    relevance: HIGH
+    selector: *id015
+  maps:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: 300 km
+    purpose: Validate map behavior for 300 km
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: *id016
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Map
+    purpose: Validate map behavior for Map
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: *id017
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: 300 km 300 km
+    purpose: Validate map behavior for 300 km 300 km
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: *id018
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Map
+    purpose: Validate map behavior for Map
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: *id019
+  - route: https://catsentinel.rpiinfo.com/event-book
+    label: "+ \u2212 Leaflet | \xA9 Esri"
+    purpose: "Validate map behavior for + \u2212 Leaflet | \xA9 Esri"
+    interaction_type: validate_map
+    relevance: HIGH
+    selector: *id020
+  actions:
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Reset All Filters
+    purpose: 'Execute action: Reset All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id021
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Reset Bearing to North
+    purpose: 'Execute action: Reset Bearing to North'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id022
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Reset Map View
+    purpose: 'Execute action: Reset Map View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id023
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Street View
+    purpose: 'Execute action: Street View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id024
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Satellite View
+    purpose: 'Execute action: Satellite View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id025
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Clear All Filters
+    purpose: 'Execute action: Clear All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id026
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Export to Excel
+    purpose: 'Execute action: Export to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id027
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: Add to bookmarks
+    purpose: 'Execute action: Add to bookmarks'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id028
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: View on Map - Zoom to Location
+    purpose: 'Execute action: View on Map - Zoom to Location'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id029
+  - route: https://catsentinel.rpiinfo.com/live-events
+    label: View Details
+    purpose: 'Execute action: View Details'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id030
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: Recently Viewed
+    purpose: 'Execute action: Recently Viewed'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id031
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id032
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id033
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: Grid View
+    purpose: 'Execute action: Grid View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id034
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: List View
+    purpose: 'Execute action: List View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id035
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Reset All Filters
+    purpose: 'Execute action: Reset All Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id036
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Reset Bearing to North
+    purpose: 'Execute action: Reset Bearing to North'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id037
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Reset Map View
+    purpose: 'Execute action: Reset Map View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id038
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Street View
+    purpose: 'Execute action: Street View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id039
+  - route: https://catsentinel.rpiinfo.com/risk-map
+    label: Satellite View
+    purpose: 'Execute action: Satellite View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id040
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id041
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id042
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: Export filtered data to Excel
+    purpose: 'Execute action: Export filtered data to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id043
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: Edit Task
+    purpose: 'Execute action: Edit Task'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id044
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id045
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id046
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Export filtered data to Excel
+    purpose: 'Execute action: Export filtered data to Excel'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id047
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Grid View
+    purpose: 'Execute action: Grid View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id048
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: List View
+    purpose: 'Execute action: List View'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id049
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Preview Microsite
+    purpose: 'Execute action: Preview Microsite'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id050
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Edit Resources
+    purpose: 'Execute action: Edit Resources'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id051
+  - route: https://catsentinel.rpiinfo.com/event-book
+    label: Export Book
+    purpose: 'Execute action: Export Book'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id052
+  - route: https://catsentinel.rpiinfo.com/policyholder-risk
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id053
+  - route: https://catsentinel.rpiinfo.com/geo-spatial
+    label: View Events
+    purpose: 'Execute action: View Events'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id054
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    label: Edit Resources
+    purpose: 'Execute action: Edit Resources'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id055
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    label: Search
+    purpose: 'Execute action: Search'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id056
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    label: Filters
+    purpose: 'Execute action: Filters'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id057
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    label: View Templates
+    purpose: 'Execute action: View Templates'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id058
+  - route: https://catsentinel.rpiinfo.com/command-center
+    label: Overview
+    purpose: 'Execute action: Overview'
+    interaction_type: click
+    relevance: HIGH
+    selector: *id059
+  filters:
+  - route: https://catsentinel.rpiinfo.com/cat-history
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: *id060
+  - route: https://catsentinel.rpiinfo.com/action-queue-module
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: *id061
+  - route: https://catsentinel.rpiinfo.com/micro-sites
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: *id062
+  - route: https://catsentinel.rpiinfo.com/template/checklist
+    label: Filters
+    purpose: Filter data by Filters
+    interaction_type: filter
+    relevance: HIGH
+    selector: *id063
+manual_interactions: []

@@ -1,0 +1,15 @@
+2026-05-07 15:05:42 | INFO | api.services.crawler_service:run_scan:35 | [API] Scan started | run_id=run_20260507_150542 | url=https://catsentinel.pionedata.com
+2026-05-07 15:05:43 | INFO | api.services.crawler_service:run_scan:46 | [API] Logging in | user=superadmin@pionedata.com
+2026-05-07 15:05:44 | INFO | automation_framework.crawler.login_handler:login:62 | Username field detected using role=textbox[name~="email"]
+2026-05-07 15:05:44 | INFO | automation_framework.crawler.login_handler:login:69 | Password field detected using input[type="password"]
+2026-05-07 15:05:44 | INFO | automation_framework.crawler.login_handler:login:80 | Login button detected using role=button[name~="sign in"]
+2026-05-07 15:06:12 | WARNING | automation_framework.crawler.login_handler:_screenshot_failure:436 | Login failure screenshot saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\screenshots\login_failure.png
+2026-05-07 15:06:12 | ERROR | api.services.crawler_service:run_scan:77 | [API] Scan failed after 30.00s | error=Login failed: still on login page after submit → https://catsentinel.pionedata.com/login
+2026-05-07 15:12:21 | INFO | api.routers.scan:scan:34 | POST /scan | url=https://catsentinel.pionedata.com | mock=False | has_credentials=True
+2026-05-07 15:12:21 | INFO | api.services.crawler_service:run_scan:35 | [API] Scan started | run_id=run_20260507_151221 | url=https://catsentinel.pionedata.com
+2026-05-07 15:12:22 | INFO | api.services.crawler_service:run_scan:46 | [API] Logging in | user=superadmin@pionedata.com
+2026-05-07 15:12:23 | INFO | automation_framework.crawler.login_handler:login:62 | Username field detected using role=textbox[name~="email"]
+2026-05-07 15:12:23 | INFO | automation_framework.crawler.login_handler:login:69 | Password field detected using input[type="password"]
+2026-05-07 15:12:23 | INFO | automation_framework.crawler.login_handler:login:80 | Login button detected using role=button[name~="sign in"]
+2026-05-07 15:12:50 | WARNING | automation_framework.crawler.login_handler:_screenshot_failure:436 | Login failure screenshot saved to C:\Users\DeepakRaj\OneDrive - PiOne Technologies LLP\Documents\2026_auto_test\automation_framework\screenshots\login_failure.png
+2026-05-07 15:12:50 | ERROR | api.services.crawler_service:run_scan:77 | [API] Scan failed after 29.69s | error=Login failed: still on login page after submit → https://catsentinel.pionedata.com/login
