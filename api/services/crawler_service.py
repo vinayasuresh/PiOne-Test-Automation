@@ -12,6 +12,7 @@ responsive. The contract is:
 import time
 
 from automation_framework.config.settings import STORAGE_STATE_PATH
+from automation_framework.crawler.crawl_exporter import export_crawl_results
 from automation_framework.crawler.crawler_engine import CrawlerEngine
 from automation_framework.crawler.login_handler import login
 from automation_framework.crawler.navigation_expander import ensure_navigation_expanded
@@ -28,7 +29,7 @@ def run_scan(
     username: str | None,
     password: str | None,
     interactive_mode: bool = False,
-    interactive_timeout: int = 45,
+    interactive_timeout: int = 300,
 ) -> ScanResponse:
     """Run a full browser-based scan and ALWAYS return a ScanResponse.
 
@@ -98,6 +99,7 @@ def run_scan(
                 f"| collected_routes={len(partial.get('page_intelligence', {}))} "
                 f"| error={crawl_exc}"
             )
+            _safe_export(partial, run_id)
             return build_scan_response(
                 partial,
                 duration,
@@ -112,6 +114,7 @@ def run_scan(
         logger.info(f"[API] Total routes scanned: {route_count}")
         logger.info(f"[API] Duration: {duration:.2f}s")
 
+        _safe_export(crawl_results, run_id)
         return build_scan_response(crawl_results, duration, status="success")
 
     finally:
@@ -146,7 +149,16 @@ def _collect_partial(engine: CrawlerEngine | None) -> dict:
     return {
         "page_intelligence": page_intel,
         "routes": list(page_intel.keys()),
-        "manual_interactions": [],
+        "manual_interactions": getattr(engine, "manual_interactions", []) or [],
+        "interaction_flow": getattr(engine, "interaction_flow", []) or [],
         "component_registry": {},
         "feature_routes": getattr(engine, "feature_routes", {}) or {},
     }
+
+
+def _safe_export(crawl_results: dict, run_id: str) -> None:
+    try:
+        export_paths = export_crawl_results(crawl_results, run_id=run_id)
+        logger.info(f"[API] Test-ready artifacts exported: {export_paths}")
+    except Exception:
+        logger.exception("[API] Failed to export test-ready artifacts")

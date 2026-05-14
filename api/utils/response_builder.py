@@ -114,8 +114,10 @@ def _build_route(route_url: str, route_doc: dict) -> RouteResult:
         path=path,
         menu_name=route_doc.get("menu_name", "") or "",
         purpose=route_doc.get("purpose", "") or "",
+        framework=route_doc.get("framework", "") or "",
         components=ComponentGroups(**grouped),
         interactions=interactions,
+        automation_targets=targets[:_MAX_LIST_SIZE],
     )
 
 
@@ -130,6 +132,15 @@ def _category_to_bucket(category: str, target: dict) -> str | None:
 
     if category == "inputs":
         return "inputs"
+
+    if category == "dropdowns":
+        return "dropdowns"
+
+    if category == "interactive":
+        framework_type = (target.get("framework_type") or "").lower()
+        if "select" in framework_type or "combobox" in framework_type:
+            return "dropdowns"
+        return "buttons"
 
     if category == "tables":
         return "tables"
