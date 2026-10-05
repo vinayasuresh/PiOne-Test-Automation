@@ -10,6 +10,8 @@ from automation_framework.crawler.interactive_capture import (
     events_to_interactions,
     extract_events,
     inject_capture,
+    interactions_to_flow,
+    interactions_to_targets,
     wait_for_user,
 )
 from automation_framework.crawler.login_handler import login
@@ -69,6 +71,8 @@ class CrawlerEngine:
         self.route_tracker = RouteTracker()
         self.page_intelligence: dict[str, dict[str, Any]] = {}
         self.feature_routes: dict[str, dict[str, str]] = {}
+        self.manual_interactions: list[dict[str, Any]] = []
+        self.interaction_flow: list[dict[str, Any]] = []
         # Cross-route registry: (label_lower, primary_selector) -> dedup across pages
         self._global_seen: set[tuple[str, str]] = set()
 
@@ -97,7 +101,8 @@ class CrawlerEngine:
 
         return {
             "page_intelligence": self.page_intelligence,
-            "manual_interactions": [],
+            "manual_interactions": self.manual_interactions,
+            "interaction_flow": self.interaction_flow,
             "component_registry": build_component_registry(self.page_intelligence),
             "feature_routes": self.feature_routes,
             "routes": sorted(self.route_tracker.get_visited_routes()),
@@ -233,6 +238,7 @@ class CrawlerEngine:
             menu_name=menu_name,
             global_seen=self._global_seen,
         )
+        route_doc["auto_detected_elements"] = list(route_doc.get("automation_targets", []))
 
         # Empty-page handling: if nothing was detected, give the page a short
         # extra wait and retry once. Replace fixed sleep with a load-state check.
@@ -248,6 +254,7 @@ class CrawlerEngine:
                 menu_name=menu_name,
                 global_seen=self._global_seen,
             )
+            route_doc["auto_detected_elements"] = list(route_doc.get("automation_targets", []))
             if not route_doc["automation_targets"]:
                 logger.warning(
                     f"low confidence scan: no automation targets detected on {normalized}"
@@ -310,7 +317,12 @@ class CrawlerEngine:
 
         # 4. Opportunistic waits for interactive content. Each is best-effort:
         #    if a selector never appears the page legitimately may not have it.
-        for selector in ("table", "button", "input"):
+        for selector in (
+            "table, [role='table'], mat-table",
+            "button, [role='button'], mat-button, [mat-button], [mat-raised-button]",
+            "input, textarea, [contenteditable='true'], [role='textbox'], mat-form-field",
+            "[role='combobox'], mat-select, [aria-haspopup='listbox']",
+        ):
             try:
                 self.page.wait_for_selector(selector, timeout=2500, state="visible")
             except PlaywrightTimeoutError:
@@ -318,9 +330,12 @@ class CrawlerEngine:
 
         # 5. Simulate user scroll to surface lazy/virtualized rows.
         try:
+            self.page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+            self.page.wait_for_timeout(1500)
             self.page.mouse.wheel(0, 2000)
-            self.page.wait_for_timeout(1000)
+            self.page.wait_for_timeout(500)
             self.page.mouse.wheel(0, -2000)
+            self.page.evaluate("() => window.scrollTo(0, 0)")
             self.page.wait_for_timeout(400)
         except Exception:
             logger.debug(f"scroll simulation failed: {route_label}")
@@ -346,16 +361,30 @@ class CrawlerEngine:
         wait_for_user(self.page, timeout_seconds=self.interactive_timeout)
         raw_events = extract_events(self.page)
         interactions = events_to_interactions(raw_events)
+        flow = interactions_to_flow(interactions)
 
         if not interactions:
             logger.info(f"Interactive mode: no interactions captured on {normalized} (passive only)")
             route_doc["interactions"] = []
+            route_doc["interaction_flow"] = []
             return
 
         logger.info(
             f"Interactive mode: {len(interactions)} interactions captured on {normalized}"
         )
         route_doc["interactions"] = interactions
+        route_doc["interaction_flow"] = flow
+        user_targets = interactions_to_targets(
+            interactions,
+            framework=route_doc.get("framework", "unknown"),
+        )
+        route_doc["user_confirmed_elements"] = user_targets
+        route_doc["automation_targets"].extend(user_targets)
+        route_doc["sections"] = _recount_sections(route_doc["automation_targets"])
+        self.manual_interactions.extend(
+            {**interaction, "route": normalized} for interaction in interactions
+        )
+        self.interaction_flow.extend({**step, "route": normalized} for step in flow)
 
     def _explore_hidden_state(self, menu_name: str) -> None:
         def on_state_change(trigger_label: str) -> None:

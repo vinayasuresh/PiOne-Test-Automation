@@ -27,16 +27,19 @@ VALIDATION_CATEGORIES = {
     "analytics",
     "dialogs",
     "filters",
+    "dropdowns",
 }
 
 CATEGORY_ORDER = (
     "filters",
     "tables",
     "forms",
+    "dropdowns",
     "charts",
     "maps",
     "actions",
     "inputs",
+    "interactive",
     "navigation",
     "dialogs",
     "tabs",
@@ -57,7 +60,8 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
     "filters": {
         "selector": (
             "form, [role='search'], [aria-label*='filter' i], [class*='filter' i], "
-            "[class*='search' i], select, [role='combobox']"
+            "[class*='search' i], select, [role='combobox'], mat-select, "
+            "[aria-haspopup='listbox'], div[aria-haspopup='listbox']"
         ),
         "interaction_type": "filter",
         "relevance": HIGH_RELEVANCE,
@@ -65,13 +69,21 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
     "tables": {
         # Structural only: tag, role="table", role="grid". Class-based matches are
         # rejected to avoid treating text blobs / wrappers as tables.
-        "selector": "table, [role='table'], [role='grid']",
+        "selector": "table, [role='table'], [role='grid'], mat-table, cdk-table",
         "interaction_type": "validate_table",
         "relevance": HIGH_RELEVANCE,
     },
     "forms": {
         "selector": "form, [role='form']",
         "interaction_type": "submit_form",
+        "relevance": HIGH_RELEVANCE,
+    },
+    "dropdowns": {
+        "selector": (
+            "select, [role='combobox'], mat-select, [aria-haspopup='listbox'], "
+            "div[aria-haspopup='listbox'], [class*='select' i], [class*='dropdown' i]"
+        ),
+        "interaction_type": "select",
         "relevance": HIGH_RELEVANCE,
     },
     "charts": {
@@ -85,7 +97,12 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
         "relevance": HIGH_RELEVANCE,
     },
     "actions": {
-        "selector": "button, [role='button'], input[type='submit'], input[type='button']",
+        "selector": (
+            "button, [role='button'], input[type='submit'], input[type='button'], "
+            "div[click], span[click], [onclick], [mat-button], [mat-raised-button], "
+            "[mat-flat-button], [mat-stroked-button], [mat-icon-button], mat-button, "
+            "[class*='mat-button' i], [class*='mdc-button' i]"
+        ),
         "interaction_type": "click",
         "relevance": HIGH_RELEVANCE,
     },
@@ -93,8 +110,21 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
         # Bare inputs/textareas not already inside a form/filter container.
         # Hidden inputs are excluded explicitly; inFilterOrForm is filtered
         # in the main loop so we never double-count fields owned by a form.
-        "selector": "input:not([type='hidden']):not([type='submit']):not([type='button']), textarea",
+        "selector": (
+            "input:not([type='hidden']):not([type='submit']):not([type='button']), "
+            "textarea, [contenteditable='true'], [role='textbox'], [matInput], "
+            "[matinput], mat-input, mat-form-field input, mat-form-field textarea"
+        ),
         "interaction_type": "input",
+        "relevance": MEDIUM_RELEVANCE,
+    },
+    "interactive": {
+        "selector": (
+            "[tabindex]:not([tabindex='-1']), [onclick], [style*='cursor'], "
+            "[class*='button' i], [class*='btn' i], [class*='click' i], "
+            "[class*='select' i], [class*='dropdown' i], app-root *, [ng-version] *"
+        ),
+        "interaction_type": "interact",
         "relevance": MEDIUM_RELEVANCE,
     },
     "navigation": {
@@ -121,7 +151,8 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
 
 BUSINESS_ACTION_WORDS = (
     "add", "apply", "create", "delete", "download", "edit", "export", "filter",
-    "generate", "open", "refresh", "reset", "save", "search", "submit", "upload", "view",
+    "generate", "login", "log in", "open", "refresh", "reset", "save", "search",
+    "sign in", "submit", "upload", "view",
 )
 
 # Labels treated as map UI noise (legend text, scale bar, generic title).
@@ -189,9 +220,113 @@ _ELEMENT_DATA_SCRIPT = """
         return '';
     }
 
+    function getEventListenerCount(el) {
+        try {
+            if (typeof getEventListeners === 'function') {
+                const listeners = getEventListeners(el) || {};
+                return Object.keys(listeners).reduce((total, key) => total + (listeners[key] || []).length, 0);
+            }
+        } catch (err) {}
+        return el.onclick ? 1 : 0;
+    }
+
+    function cssEscape(value) {
+        if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(value);
+        return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\\\$&');
+    }
+
+    function generatedSelector(el) {
+        if (el.getAttribute('data-testid')) return `[data-testid="${el.getAttribute('data-testid')}"]`;
+        if (el.getAttribute('aria-label')) return `${el.tagName.toLowerCase()}[aria-label="${el.getAttribute('aria-label')}"]`;
+        if (el.id && !/\\d{4,}/.test(el.id)) return `#${cssEscape(el.id)}`;
+        const tag = el.tagName.toLowerCase();
+        const name = el.getAttribute('name');
+        if (name) return `${tag}[name="${name}"]`;
+        let current = el;
+        const parts = [];
+        while (current && current.nodeType === 1 && current !== document.body && parts.length < 4) {
+            const currentTag = current.tagName.toLowerCase();
+            const parent = current.parentElement;
+            if (!parent) break;
+            const sameTagSiblings = Array.from(parent.children).filter(child => child.tagName === current.tagName);
+            const index = sameTagSiblings.indexOf(current) + 1;
+            parts.unshift(sameTagSiblings.length > 1 ? `${currentTag}:nth-of-type(${index})` : currentTag);
+            current = parent;
+        }
+        return parts.length ? parts.join(' > ') : tag;
+    }
+
+    function classifyElement(el, style, eventListenerCount) {
+        const tag = el.tagName.toLowerCase();
+        const role = (el.getAttribute('role') || '').toLowerCase();
+        const text = (el.innerText || el.value || '').trim();
+        const lowerText = text.toLowerCase();
+        const cls = String(el.className || '').toLowerCase();
+        const type = (el.getAttribute('type') || '').toLowerCase();
+        const ariaHasPopup = (el.getAttribute('aria-haspopup') || '').toLowerCase();
+        const frameworkType = tag.startsWith('mat-') || tag.startsWith('app-') || tag.startsWith('ng-') || tag.startsWith('cdk-')
+            ? tag
+            : (
+                el.hasAttribute('matInput') || el.hasAttribute('matinput') ? 'mat-input'
+                : el.hasAttribute('mat-button') || el.hasAttribute('mat-raised-button') || el.hasAttribute('mat-flat-button')
+                    || el.hasAttribute('mat-stroked-button') || el.hasAttribute('mat-icon-button') ? 'mat-button'
+                : cls.includes('mat-mdc-select') || cls.includes('mat-select') ? 'mat-select'
+                : cls.includes('mat-mdc-button') || cls.includes('mat-button') || cls.includes('mdc-button') ? 'mat-button'
+                : 'native'
+            );
+        const isAngularComponent = frameworkType !== 'native' || tag.startsWith('app-') || tag.startsWith('ng-');
+        const clickable = !el.disabled && (
+            style.cursor === 'pointer' ||
+            eventListenerCount > 0 ||
+            el.hasAttribute('onclick') ||
+            el.hasAttribute('click') ||
+            el.hasAttribute('ng-click') ||
+            role === 'button' ||
+            tag === 'button' ||
+            tag === 'a' ||
+            type === 'button' ||
+            type === 'submit'
+        );
+
+        let elementType = 'unknown';
+        if (tag === 'table' || role === 'table' || role === 'grid' || tag === 'mat-table' || tag === 'cdk-table') {
+            elementType = 'table';
+        } else if (
+            tag === 'select' || tag === 'mat-select' || role === 'combobox' ||
+            ariaHasPopup === 'listbox' || frameworkType === 'mat-select' ||
+            cls.includes('select') || cls.includes('dropdown')
+        ) {
+            elementType = 'dropdown';
+        } else if (
+            tag === 'input' || tag === 'textarea' || role === 'textbox' ||
+            el.getAttribute('contenteditable') === 'true' || frameworkType === 'mat-input' ||
+            tag === 'mat-input'
+        ) {
+            elementType = 'input';
+        } else if (
+            tag === 'button' || role === 'button' || type === 'submit' || type === 'button' ||
+            frameworkType === 'mat-button' || ['submit', 'save', 'login', 'log in', 'apply'].some(word => lowerText.includes(word))
+        ) {
+            elementType = 'button';
+        } else if (clickable) {
+            elementType = 'interactive';
+        }
+
+        return {
+            type: elementType === 'unknown' && clickable ? 'interactive' : elementType,
+            selector: generatedSelector(el),
+            text,
+            framework_type: frameworkType,
+            is_clickable: clickable,
+            is_dynamic: isAngularComponent || !!el.closest('[ng-version], app-root')
+        };
+    }
+
     return elements.map(el => {
         const style = window.getComputedStyle(el);
         const box   = el.getBoundingClientRect();
+        const eventListenerCount = getEventListenerCount(el);
+        const classification = classifyElement(el, style, eventListenerCount);
         const isVisible = (
             style.display !== 'none' &&
             style.visibility !== 'hidden' &&
@@ -208,7 +343,8 @@ _ELEMENT_DATA_SCRIPT = """
 
         /* Form control count */
         const controlCount = el.querySelectorAll(
-            "input:not([type='hidden']), textarea, select, button, [role='combobox']"
+            "input:not([type='hidden']), textarea, select, button, [role='combobox'], "
+            + "mat-select, mat-form-field, [contenteditable='true']"
         ).length;
 
         return {
@@ -221,6 +357,16 @@ _ELEMENT_DATA_SCRIPT = """
             role:         el.getAttribute('role') || '',
             tagName:      el.tagName.toLowerCase(),
             text:         (el.innerText || '').trim().slice(0, 120),
+            value:        el.value || '',
+            generatedSelector: classification.selector,
+            classifiedType: classification.type,
+            frameworkType: classification.framework_type,
+            isClickable: classification.is_clickable,
+            isDynamic: classification.is_dynamic,
+            eventListenerCount,
+            cursor:       style.cursor || '',
+            disabled:     !!el.disabled || el.getAttribute('aria-disabled') === 'true',
+            ariaHasPopup: el.getAttribute('aria-haspopup') || '',
             isVisible,
             inShell:         isInShell(el),
             inFilterOrForm:  isInFilterOrForm(el),
@@ -265,6 +411,7 @@ def build_ui_intelligence(
     seen_signatures: set[tuple[str, str, str]] = set()
     seen_visual_containers: set[str] = set()
     content_root = _content_root(page)
+    framework = _detect_framework(page)
 
     # Per-category counts surfaced in logs so a route's detection profile is
     # immediately visible (e.g. "Detected 5 buttons on /dashboard").
@@ -309,9 +456,13 @@ def build_ui_intelligence(
                 if container_key:
                     seen_visual_containers.add(container_key)
 
-            target = _build_target_from_data(data, category, rule)
+            target = _build_target_from_data(data, category, rule, framework)
             if target is None:
                 continue
+
+            if target["type"] == "dropdown" and _probe_dropdown_behavior(page, target):
+                target["opens_listbox"] = True
+                target["is_dynamic"] = True
 
             label_lower = target["label"].lower()
             primary = target["selector"]["primary"]["value"]
@@ -341,16 +492,18 @@ def build_ui_intelligence(
 
     # Surface per-category detection counts so each route's profile is logged.
     route_label = page.url
-    for category in ("actions", "inputs", "filters", "tables", "charts", "maps"):
+    for category in ("actions", "inputs", "dropdowns", "interactive", "filters", "tables", "charts", "maps"):
         n = category_counts.get(category, 0)
         if n:
             human = {"actions": "buttons", "inputs": "inputs", "filters": "filters",
+                     "dropdowns": "dropdowns", "interactive": "interactive elements",
                      "tables": "tables", "charts": "charts", "maps": "maps"}[category]
             logger.info(f"Detected {n} {human} on {route_label}")
 
     return {
         "route": page.url,
         "menu_name": menu_name or feature_name,
+        "framework": framework,
         "purpose": _infer_page_purpose(page, feature_name),
         "sections": sections,
         "automation_targets": automation_targets,
@@ -370,10 +523,15 @@ def build_component_registry(
                 {
                     "route": route,
                     "label": target["label"],
+                    "type": target.get("type", ""),
                     "purpose": target["purpose"],
                     "interaction_type": target["interaction_type"],
                     "relevance": target["relevance"],
                     "selector": target["selector"],
+                    "framework": target.get("framework", ""),
+                    "framework_type": target.get("framework_type", ""),
+                    "component_tag": target.get("component_tag", ""),
+                    "is_dynamic": target.get("is_dynamic", False),
                 }
             )
 
@@ -398,12 +556,19 @@ def _element_label_from_data(data: dict) -> str:
 
 def _implicit_role_from_data(data: dict, category: str) -> str:
     tag = data.get("tagName", "")
+    classified = data.get("classifiedType", "")
     if tag == "button" or category == "actions":
+        return "button"
+    if classified == "button":
         return "button"
     if tag == "a" or category == "navigation":
         return "link"
-    if tag == "table" or category == "tables":
+    if tag == "table" or category == "tables" or classified == "table":
         return "table"
+    if classified == "dropdown":
+        return "combobox"
+    if classified == "input":
+        return "textbox"
     if category == "tabs":
         return "tab"
     return ""
@@ -437,6 +602,10 @@ def _build_selector_from_data(data: dict, category: str, label: str) -> dict | N
         tag = data.get("tagName", "") or "*"
         candidates.append(("id", f'{tag}[name="{name_attr}"]'))
 
+    generated = data.get("generatedSelector", "")
+    if generated:
+        candidates.append(("css", generated))
+
     if not candidates:
         return None
 
@@ -451,22 +620,38 @@ def _build_selector_from_data(data: dict, category: str, label: str) -> dict | N
 def _is_meaningful_from_data(data: dict, category: str) -> bool:
     if not data.get("isVisible"):
         return False
+    if data.get("disabled"):
+        return False
     if data.get("inShell"):
         return False
 
     label = _element_label_from_data(data)
+    classified_type = data.get("classifiedType", "unknown")
 
     if category in {"actions", "navigation", "tabs"} and not label:
         return False
-    if category == "actions" and not _is_business_action(label):
+    if category == "actions" and not (
+        _is_business_action(label)
+        or classified_type == "button"
+        or data.get("isClickable")
+    ):
         return False
     if category == "inputs" and not label:
         # Require a label/placeholder/name so anonymous text boxes are dropped.
-        return False
+        return classified_type == "input"
+    if category == "dropdowns":
+        return classified_type == "dropdown" or bool(label)
+    if category == "interactive":
+        if classified_type not in {"button", "dropdown", "input", "interactive"}:
+            return False
+        if not label and not data.get("generatedSelector"):
+            return False
     if category in {"filters", "forms"}:
         if data.get("controlCount", 0) == 0 and not label:
             return False
     if category == "tables":
+        if classified_type == "table" and data.get("tagName") in {"mat-table", "cdk-table"}:
+            return True
         if data.get("rowCount", 0) < MIN_TABLE_ROWS:
             return False
         if data.get("firstRowCols", 0) < MIN_TABLE_COLUMNS:
@@ -480,22 +665,123 @@ def _is_meaningful_from_data(data: dict, category: str) -> bool:
     return True
 
 
-def _build_target_from_data(data: dict, category: str, rule: dict) -> dict | None:
+def _build_target_from_data(
+    data: dict,
+    category: str,
+    rule: dict,
+    framework: str,
+) -> dict | None:
     label = _element_label_from_data(data)
     selector = _build_selector_from_data(data, category, label)
     if not selector:
         return None
+    element_type = _element_type_from_data(data, category)
+    target_category = _category_from_element_type(element_type, category)
+    interaction_type = _interaction_type_for_element(element_type, rule["interaction_type"])
+    component_tag = data.get("tagName", "") or ""
+    framework_type = data.get("frameworkType", "") or "native"
 
     return {
-        "id": f"{category}::{(label or selector['primary']['value'])[:MAX_LABEL_LENGTH]}",
-        "category": category,
+        "id": f"{target_category}::{(label or selector['primary']['value'])[:MAX_LABEL_LENGTH]}",
+        "category": target_category,
+        "type": element_type,
         "label": label,
         "purpose": _purpose_for(category, label),
-        "interaction_type": rule["interaction_type"],
+        "interaction_type": interaction_type,
         "relevance": rule["relevance"],
         "selector": selector,
-        "is_validation_target": category in VALIDATION_CATEGORIES,
+        "text": data.get("text", "") or label,
+        "framework": framework,
+        "framework_type": framework_type,
+        "component_tag": component_tag,
+        "is_dynamic": bool(data.get("isDynamic")) or framework == "angular",
+        "is_clickable": bool(data.get("isClickable")),
+        "event_listener_count": int(data.get("eventListenerCount") or 0),
+        "cursor": data.get("cursor", "") or "",
+        "is_validation_target": target_category in VALIDATION_CATEGORIES,
     }
+
+
+def _element_type_from_data(data: dict, category: str) -> str:
+    classified = (data.get("classifiedType") or "unknown").lower()
+    if classified in {"button", "input", "dropdown", "table", "interactive"}:
+        return classified
+    if category == "actions":
+        return "button"
+    if category == "inputs":
+        return "input"
+    if category == "dropdowns":
+        return "dropdown"
+    if category == "tables":
+        return "table"
+    if category == "interactive":
+        return "interactive"
+    return "interactive"
+
+
+def _category_from_element_type(element_type: str, fallback_category: str) -> str:
+    return {
+        "button": "actions",
+        "input": "inputs",
+        "dropdown": "dropdowns",
+        "table": "tables",
+        "interactive": "interactive",
+    }.get(element_type, fallback_category)
+
+
+def _interaction_type_for_element(element_type: str, fallback: str) -> str:
+    return {
+        "button": "click",
+        "input": "input",
+        "dropdown": "select",
+        "table": "validate_table",
+        "interactive": "interact",
+    }.get(element_type, fallback)
+
+
+def _detect_framework(page: Page) -> str:
+    try:
+        if page.locator("[ng-version]").count() > 0:
+            return "angular"
+    except PlaywrightError:
+        pass
+    try:
+        has_angular = page.evaluate(
+            "() => !!(window.angular || window.ng || document.querySelector('app-root, [ng-version]'))"
+        )
+        if has_angular:
+            return "angular"
+    except PlaywrightError:
+        pass
+    return "unknown"
+
+
+def _probe_dropdown_behavior(page: Page, target: dict[str, Any]) -> bool:
+    """Click a dropdown-looking element and confirm a listbox appears.
+
+    This is intentionally scoped to elements already classified as dropdowns,
+    avoiding broad click probing that could navigate or submit forms.
+    """
+    selector = ((target.get("selector") or {}).get("primary") or {}).get("value", "")
+    if not selector:
+        return False
+    try:
+        element = page.locator(selector).first
+        if not element.is_visible() or not element.is_enabled():
+            return False
+        before = page.locator("[role='listbox'], mat-option, [role='option']").count()
+        element.hover(timeout=700)
+        element.focus(timeout=700)
+        element.click(timeout=1000)
+        page.wait_for_timeout(250)
+        after = page.locator("[role='listbox'], mat-option, [role='option']").count()
+        try:
+            page.keyboard.press("Escape")
+        except PlaywrightError:
+            pass
+        return after > before or after > 0
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +810,62 @@ def _build_target(
         "selector": selector,
         "is_validation_target": category in VALIDATION_CATEGORIES,
     }
+
+
+def classify_element(element: Locator) -> dict[str, Any]:
+    """Classify one DOM element using framework-aware behavior signals."""
+    try:
+        return element.evaluate(
+            """
+            (el) => {
+                const style = window.getComputedStyle(el);
+                const tag = el.tagName.toLowerCase();
+                const role = (el.getAttribute('role') || '').toLowerCase();
+                const text = (el.innerText || el.value || '').trim();
+                const lowerText = text.toLowerCase();
+                const cls = String(el.className || '').toLowerCase();
+                const typeAttr = (el.getAttribute('type') || '').toLowerCase();
+                const popup = (el.getAttribute('aria-haspopup') || '').toLowerCase();
+                let listenerCount = el.onclick ? 1 : 0;
+                try {
+                    if (typeof getEventListeners === 'function') {
+                        const listeners = getEventListeners(el) || {};
+                        listenerCount = Object.keys(listeners)
+                            .reduce((total, key) => total + (listeners[key] || []).length, listenerCount);
+                    }
+                } catch (err) {}
+                const frameworkType = tag.startsWith('mat-') || tag.startsWith('app-') || tag.startsWith('ng-') || tag.startsWith('cdk-')
+                    ? tag
+                    : (
+                        el.hasAttribute('matInput') || el.hasAttribute('matinput') ? 'mat-input'
+                        : el.hasAttribute('mat-button') || el.hasAttribute('mat-raised-button') || el.hasAttribute('mat-flat-button')
+                            || el.hasAttribute('mat-stroked-button') || el.hasAttribute('mat-icon-button') ? 'mat-button'
+                        : cls.includes('mat-mdc-select') || cls.includes('mat-select') ? 'mat-select'
+                        : cls.includes('mat-mdc-button') || cls.includes('mat-button') || cls.includes('mdc-button') ? 'mat-button'
+                        : 'native'
+                    );
+                const clickable = !el.disabled && (
+                    style.cursor === 'pointer' || listenerCount > 0 || el.hasAttribute('onclick') ||
+                    el.hasAttribute('click') || role === 'button' || tag === 'button' ||
+                    tag === 'a' || typeAttr === 'button' || typeAttr === 'submit'
+                );
+                let elementType = 'unknown';
+                if (tag === 'table' || role === 'table' || role === 'grid' || tag === 'mat-table' || tag === 'cdk-table') elementType = 'table';
+                else if (tag === 'select' || tag === 'mat-select' || role === 'combobox' || popup === 'listbox' || frameworkType === 'mat-select' || cls.includes('select') || cls.includes('dropdown')) elementType = 'dropdown';
+                else if (tag === 'input' || tag === 'textarea' || role === 'textbox' || el.getAttribute('contenteditable') === 'true' || frameworkType === 'mat-input' || tag === 'mat-input') elementType = 'input';
+                else if (tag === 'button' || role === 'button' || typeAttr === 'submit' || typeAttr === 'button' || frameworkType === 'mat-button' || ['submit', 'save', 'login', 'log in', 'apply'].some(word => lowerText.includes(word))) elementType = 'button';
+                else if (clickable) elementType = 'interactive';
+                return {
+                    type: elementType === 'unknown' && clickable ? 'interactive' : elementType,
+                    selector: el.getAttribute('data-testid') ? `[data-testid="${el.getAttribute('data-testid')}"]` : (el.id ? `#${el.id}` : tag),
+                    text,
+                    framework_type: frameworkType
+                };
+            }
+            """
+        )
+    except PlaywrightError:
+        return {"type": "unknown", "selector": "", "text": "", "framework_type": "native"}
 
 
 def _build_selector(
@@ -770,11 +1112,13 @@ def _purpose_for(category: str, label: str) -> str:
     readable = label or category.replace("_", " ")
     return {
         "filters": f"Filter data by {readable}",
+        "dropdowns": f"Select option for {readable}",
         "tables": f"Validate tabular data for {readable}",
         "forms": f"Complete form workflow for {readable}",
         "charts": f"Validate chart or visualization for {readable}",
         "maps": f"Validate map behavior for {readable}",
         "actions": f"Execute action: {readable}",
+        "interactive": f"Interact with {readable}",
         "navigation": f"Navigate to {readable}",
         "dialogs": f"Validate dialog: {readable}",
         "tabs": f"Switch tab: {readable}",

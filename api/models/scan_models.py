@@ -1,7 +1,7 @@
 """Pydantic request and response models for the /scan API."""
 
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -17,7 +17,7 @@ class ScanRequest(BaseModel):
     password: Optional[str] = None
     mock: bool = False
     interactive_mode: bool = False
-    interactive_timeout: int = 45  # seconds the crawler waits per route
+    interactive_timeout: int = 300  # seconds the crawler waits per route confirmation
 
     @field_validator("url")
     @classmethod
@@ -59,14 +59,21 @@ class Interaction(BaseModel):
     label:     str
     selector:  str = ""
     tag:       str = ""
+    detected_type: str = ""
+    framework_type: str = ""
+    component_tag: str = ""
+    page_url: str = ""
+    value: str = ""
 
 
 class RouteResult(BaseModel):
     path: str
     menu_name: str = ""
     purpose: str = ""
+    framework: str = ""
     components: ComponentGroups
     interactions: list[Interaction] = []
+    automation_targets: list[dict[str, Any]] = []
 
 
 class ScanSummary(BaseModel):
@@ -101,3 +108,60 @@ class ScanResponse(BaseModel):
 class ErrorResponse(BaseModel):
     status: str = "error"
     detail: str
+
+
+# ---------------------------------------------------------------------------
+# Test automation workflow models
+# ---------------------------------------------------------------------------
+
+
+class GenerateTestRequest(BaseModel):
+    base_url: str
+    scan: ScanResponse
+    description: Optional[str] = None
+    feature_focus: Optional[str] = None
+
+
+class GeneratedTestResponse(BaseModel):
+    status: str = "success"
+    script: str
+    execution_command: str
+
+
+class ExecuteTestRequest(BaseModel):
+    base_url: str
+    scan: ScanResponse
+    script: str
+
+
+class ExecutionResultRow(BaseModel):
+    TC_ID: str
+    Screen: str
+    Module: str
+    Feature: str
+    Test_Case: str
+    Expected_Result: str
+    Actual_Result: str
+    Status: str
+    Failure_Info: str = ""
+    Bug_Priority: str = ""
+
+
+class ExecutionSummary(BaseModel):
+    total: int
+    passed: int
+    failed: int
+    skipped: int = 0
+
+
+class ExecuteTestResponse(BaseModel):
+    status: str = "success"
+    rows: list[ExecutionResultRow]
+    summary: ExecutionSummary
+
+
+class SystemInfoResponse(BaseModel):
+    os: str
+    browser: str
+    python_version: str
+    environment: str
