@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import scan
+from api.routers import scan, scan_events
 
 _FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 
@@ -54,6 +54,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 app.include_router(scan.router, tags=["Scan"])
+app.include_router(scan_events.router, tags=["Scan Events"])
 
 # ---------------------------------------------------------------------------
 # Serve the frontend
