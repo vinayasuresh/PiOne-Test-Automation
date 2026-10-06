@@ -25,6 +25,15 @@ PAGE_LOAD_TIMEOUT = 8000
 # Timeout for individual element interactions (clicks, attribute reads, etc.).
 ELEMENT_TIMEOUT = 2000
 
+# Bounded work units make a large application scan recoverable. These are
+# per-node limits, not a global wall-clock limit.
+ROUTE_NAVIGATION_TIMEOUT = 12000
+LOGIN_TIMEOUT = 10000
+ROUTE_LOAD_TIMEOUT = 15000
+ROUTE_SCAN_TIMEOUT = 60000
+MENU_EXPANSION_TIMEOUT = 1500
+SUBMENU_TIMEOUT = 25000
+
 # Deep exploration: click expandable elements (dropdowns, tabs, aria-expanded
 # triggers) to discover hidden navigation. Capped to MAX_DEEP_EXPLORATION_DEPTH
 # levels and skips destructive actions.

@@ -518,12 +518,16 @@
       startMessages();
       const token = ++scanToken;
       const interactive = !isMockMode && document.getElementById("interactive-input").checked;
+      const scanId = crypto.randomUUID().replaceAll("-", "");
       const body = isMockMode
         ? { url, mock: true }
-        : { url, mock: false, username, password, interactive_mode: interactive, interactive_timeout: 300 };
+        : { url, mock: false, username, password, interactive_mode: interactive, interactive_timeout: 300, scan_id: scanId };
+      let eventSocket = null;
 
       try {
+        if (!isMockMode) eventSocket = connectScanEvents(scanId);
         const data = await callAPI("/scan", body);
+        if (eventSocket) eventSocket.close();
         if (token !== scanToken) return;
         state.scanResult = data;
         state.scanUrl = url;
@@ -535,12 +539,39 @@
         renderAnalyze();
         showPanel("panel-results");
       } catch (err) {
+        if (eventSocket) eventSocket.close();
         if (token !== scanToken) return;
         stopMessages();
         document.getElementById("scan-btn").disabled = false;
         document.getElementById("btn-label").textContent = "Start Scan";
         showError(...mapError(err.message || ""));
       }
+    }
+
+    function connectScanEvents(scanId) {
+      const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(`${scheme}//${location.host}/ws/scan-events?scan_id=${encodeURIComponent(scanId)}`);
+      let elementCount = 0;
+      socket.onmessage = event => {
+        let message;
+        try { message = JSON.parse(event.data); } catch { return; }
+        stopMessages();
+        if (message.type === "route_started") {
+          document.getElementById("loading-msg").textContent = `Scanning ${message.route || "route"}...`;
+        } else if (message.type === "submenu_opened") {
+          document.getElementById("loading-msg").textContent = `Exploring menu ${message.label || "submenu"}...`;
+        } else if (message.type === "element_found") {
+          elementCount += 1;
+          if (elementCount % 10 === 0) {
+            document.getElementById("loading-msg").textContent = `Discovered ${elementCount} UI elements...`;
+          }
+        } else if (message.type === "route_completed") {
+          document.getElementById("loading-msg").textContent = `Completed ${message.route || "route"} (${message.element_count || 0} elements)`;
+        } else if (message.type === "route_failed") {
+          document.getElementById("loading-msg").textContent = `Could not scan ${message.route || "route"}`;
+        }
+      };
+      return socket;
     }
 
     function startMessages() {

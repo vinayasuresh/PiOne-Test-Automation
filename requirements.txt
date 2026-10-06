@@ -4,6 +4,7 @@ pytest-html
 pyyaml
 loguru
 pandas
+openpyxl
 python-dotenv
 
 # API server

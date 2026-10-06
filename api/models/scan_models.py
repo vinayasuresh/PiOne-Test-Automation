@@ -18,6 +18,8 @@ class ScanRequest(BaseModel):
     mock: bool = False
     interactive_mode: bool = False
     interactive_timeout: int = 300  # seconds the crawler waits per route confirmation
+    resume_run_id: Optional[str] = None
+    scan_id: Optional[str] = None
 
     @field_validator("url")
     @classmethod
@@ -29,6 +31,52 @@ class ScanRequest(BaseModel):
             raise ValueError("url must start with http:// or https://")
         return v.rstrip("/")
 
+    @field_validator("resume_run_id")
+    @classmethod
+    def validate_resume_run_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("resume_run_id may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+    @field_validator("scan_id")
+    @classmethod
+    def validate_scan_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("scan_id may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+
+class RouteReplayRequest(BaseModel):
+    base_url: str
+    route: str
+    checkpoint_id: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    scan_id: Optional[str] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str) -> str:
+        value = value.strip()
+        if not re.match(r"^https?://", value, re.IGNORECASE):
+            raise ValueError("base_url must start with http:// or https://")
+        return value.rstrip("/")
+
+    @field_validator("checkpoint_id", "scan_id")
+    @classmethod
+    def validate_replay_ids(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("IDs may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
 
 # ---------------------------------------------------------------------------
 # Response — inner structures
@@ -74,6 +122,8 @@ class RouteResult(BaseModel):
     components: ComponentGroups
     interactions: list[Interaction] = []
     automation_targets: list[dict[str, Any]] = []
+    route_status: str = ""
+    route_score: int = 0
 
 
 class ScanSummary(BaseModel):
@@ -103,6 +153,9 @@ class ScanResponse(BaseModel):
     routes:  list[RouteResult]
     summary: ScanSummary
     message: Optional[str] = None
+    checkpoint_id: Optional[str] = None
+    replay_comparison: Optional[dict[str, Any]] = None
+    route_namespace: Optional[str] = None
 
 
 class ErrorResponse(BaseModel):

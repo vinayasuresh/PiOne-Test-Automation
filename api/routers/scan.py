@@ -4,6 +4,7 @@ import asyncio
 import os
 import platform
 import re
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 
@@ -17,20 +18,15 @@ from api.models.scan_models import (
     GeneratedTestResponse,
     ScanRequest,
     ScanResponse,
+    RouteReplayRequest,
     ScanSummary,
     SystemInfoResponse,
 )
 from api.services import crawler_service, mock_service
+from api.services.scan_event_bus import get_channel, publish
 from automation_framework.utils.logger import logger
 
 router = APIRouter()
-
-# Wall-clock cap for a real (non-mock) scan.
-SCAN_TIMEOUT_SECONDS = 180  # 3 minutes for a passive scan
-# Interactive scans need a much larger budget — the user demonstrates flows
-# on every route and may take a minute or more per page.
-INTERACTIVE_TIMEOUT_SECONDS = 1800  # 30 minutes
-
 
 @router.post(
     "/scan",
@@ -62,45 +58,25 @@ async def scan(request: ScanRequest) -> ScanResponse:
         logger.info("[API] Mock mode: returning pre-defined sample data")
         return mock_service.get_mock_response(request.url)
 
+    scan_id = request.scan_id or uuid4().hex
+    get_channel(scan_id)
+    publish(scan_id, {"type": "scan_started", "scan_id": scan_id, "url": request.url})
+
     # ──────────────────────────────────────────────────────────────────
-    # Real mode — run crawler in a background thread with a timeout.
+    # Real mode — run the synchronous Playwright crawler in a worker thread.
     # ──────────────────────────────────────────────────────────────────
-    timeout = INTERACTIVE_TIMEOUT_SECONDS if request.interactive_mode else SCAN_TIMEOUT_SECONDS
     try:
-        result: ScanResponse = await asyncio.wait_for(
-            asyncio.to_thread(
-                crawler_service.run_scan,
-                request.url,
-                request.username,
-                request.password,
-                request.interactive_mode,
-                request.interactive_timeout,
-            ),
-            timeout=timeout,
+        result: ScanResponse = await asyncio.to_thread(
+            crawler_service.run_scan,
+            request.url,
+            request.username,
+            request.password,
+            request.interactive_mode,
+            request.interactive_timeout,
+            request.resume_run_id,
+            scan_id,
         )
         return result
-
-    except asyncio.TimeoutError:
-        msg = (
-            f"Scan exceeded the {timeout}-second budget. "
-            "The browser thread will continue in the background and shut "
-            "down on its own; please retry with mock mode for an instant preview."
-        )
-        logger.error(f"[API] Scan timed out for {request.url}")
-        # Return a structured 200 response with status=timeout so the UI
-        # can render a friendly message instead of receiving an HTTP error.
-        return ScanResponse(
-            status="timeout",
-            routes=[],
-            summary=ScanSummary(
-                total_routes=0,
-                total_buttons=0,
-                total_inputs=0,
-                total_tables=0,
-                scan_duration_seconds=float(timeout),
-            ),
-            message=msg,
-        )
 
     except RuntimeError as exc:
         # Login failures and other deterministic errors raised by the crawler.
@@ -117,6 +93,30 @@ async def scan(request: ScanRequest) -> ScanResponse:
             status_code=500,
             detail=f"Scan failed: {type(exc).__name__}: {exc}",
         )
+
+
+@router.post("/replay-route", response_model=ScanResponse, summary="Replay and compare one scanned route")
+async def replay_route(request: RouteReplayRequest) -> ScanResponse:
+    scan_id = request.scan_id or uuid4().hex
+    get_channel(scan_id)
+    publish(scan_id, {"type": "scan_started", "scan_id": scan_id,
+                      "url": request.route, "mode": "route_replay"})
+    try:
+        return await asyncio.to_thread(
+            crawler_service.run_scan,
+            request.base_url,
+            request.username,
+            request.password,
+            False,
+            0,
+            request.checkpoint_id,
+            scan_id,
+            request.route,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.post(

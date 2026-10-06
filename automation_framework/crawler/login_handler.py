@@ -21,7 +21,7 @@ from playwright.sync_api import (
     TimeoutError as PlaywrightTimeoutError,
 )
 
-from automation_framework.config.settings import SCREENSHOT_PATH
+from automation_framework.config.settings import LOGIN_TIMEOUT, ROUTE_LOAD_TIMEOUT, SCREENSHOT_PATH
 from automation_framework.utils.logger import logger
 
 
@@ -69,7 +69,7 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
     """
     try:
         logger.info(f"[login] Navigating to {base_url}")
-        page.goto(base_url, wait_until="domcontentloaded")
+        page.goto(base_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
 
         _wait_for_login_form(page)
 
@@ -83,12 +83,12 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
         logger.info(f"[login] Submit button selector: {submit_selector}")
 
         logger.info("[login] Filling credentials")
-        username_field.fill(username)
-        password_field.fill(password)
+        username_field.fill(username, timeout=LOGIN_TIMEOUT)
+        password_field.fill(password, timeout=LOGIN_TIMEOUT)
         page.wait_for_timeout(500)
 
         logger.info("[login] Submitting form")
-        submit_button.click()
+        submit_button.click(timeout=LOGIN_TIMEOUT)
 
         _wait_for_login_completion(page)
         _validate_login_success(page)
@@ -111,12 +111,12 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
 
 def _wait_for_login_form(page: Page) -> None:
     try:
-        page.wait_for_selector("input", timeout=8000)
+        page.wait_for_selector("input", timeout=LOGIN_TIMEOUT)
     except PlaywrightTimeoutError as exc:
         raise RuntimeError("no input fields found on the login page") from exc
 
     try:
-        page.wait_for_selector('input[type="password"]', timeout=8000)
+        page.wait_for_selector('input[type="password"]', timeout=LOGIN_TIMEOUT)
     except PlaywrightTimeoutError as exc:
         raise RuntimeError("password field never appeared on the login page") from exc
 
@@ -236,10 +236,10 @@ def _is_sso_button(button: Locator) -> bool:
 
 def _wait_for_login_completion(page: Page) -> None:
     try:
-        page.wait_for_load_state("networkidle", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=LOGIN_TIMEOUT)
     except PlaywrightTimeoutError:
         logger.warning("[login] networkidle timeout after submit — continuing")
-    page.wait_for_timeout(3000)
+    page.wait_for_timeout(min(1000, LOGIN_TIMEOUT))
 
 
 # ---------------------------------------------------------------------------

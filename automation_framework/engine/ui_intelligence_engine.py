@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from playwright.sync_api import Error as PlaywrightError, Locator, Page
@@ -256,6 +257,26 @@ _ELEMENT_DATA_SCRIPT = """
         return parts.length ? parts.join(' > ') : tag;
     }
 
+    function xpathFor(el) {
+        if (el.id && !/\\d{4,}/.test(el.id)) {
+            const value = el.id;
+            const literal = !value.includes("'") ? `'${value}'`
+                : (!value.includes('"') ? `"${value}"`
+                    : `concat(${value.split("'").map(part => `'${part}'`).join(', "\'", ')})`);
+            return `//*[@id=${literal}]`;
+        }
+        const parts = [];
+        let current = el;
+        while (current && current.nodeType === 1 && current !== document.body) {
+            const tag = current.tagName.toLowerCase();
+            const siblings = Array.from(current.parentElement ? current.parentElement.children : [])
+                .filter(sibling => sibling.tagName === current.tagName);
+            parts.unshift(`${tag}[${siblings.indexOf(current) + 1}]`);
+            current = current.parentElement;
+        }
+        return `/html/body/${parts.join('/')}`;
+    }
+
     function classifyElement(el, style, eventListenerCount) {
         const tag = el.tagName.toLowerCase();
         const role = (el.getAttribute('role') || '').toLowerCase();
@@ -359,6 +380,8 @@ _ELEMENT_DATA_SCRIPT = """
             text:         (el.innerText || '').trim().slice(0, 120),
             value:        el.value || '',
             generatedSelector: classification.selector,
+            elementXPath: xpathFor(el),
+            elementIndex: el.parentElement ? Array.from(el.parentElement.children).indexOf(el) + 1 : 1,
             classifiedType: classification.type,
             frameworkType: classification.framework_type,
             isClickable: classification.is_clickable,
@@ -392,15 +415,15 @@ def build_ui_intelligence(
     feature_name: str = "current_page",
     menu_name: str | None = None,
     global_seen: set[tuple[str, str]] | None = None,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     """Produce a normalized Route document for the current page.
 
     Output shape (see docs/output_schema.md):
         { route, menu_name, purpose, sections, automation_targets }
 
-    `global_seen` is an optional cross-route registry keyed by
-    (label_lower, primary_selector). Components already in it are skipped so
-    the same button/filter does not appear in every route.
+    ``global_seen`` is retained for backwards-compatible callers but does not
+    suppress targets across routes. Identity is route + XPath + label.
     """
     logger.info(f"Building UI intelligence for route: {page.url}")
 
@@ -408,7 +431,7 @@ def build_ui_intelligence(
         global_seen = set()
 
     automation_targets: list[dict[str, Any]] = []
-    seen_signatures: set[tuple[str, str, str]] = set()
+    seen_signatures: set[str] = set()
     seen_visual_containers: set[str] = set()
     content_root = _content_root(page)
     framework = _detect_framework(page)
@@ -418,6 +441,9 @@ def build_ui_intelligence(
     category_counts: dict[str, int] = {}
 
     for category in CATEGORY_ORDER:
+        if deadline is not None and time.monotonic() >= deadline:
+            logger.warning("Route scan deadline reached while extracting %s", category)
+            break
         rule = CATEGORY_RULES[category]
 
         if rule["relevance"] not in ALLOWED_RELEVANCE:
@@ -435,6 +461,8 @@ def build_ui_intelligence(
         kept = 0
 
         for data in elements_data:
+            if deadline is not None and time.monotonic() >= deadline:
+                break
             if not _is_meaningful_from_data(data, category):
                 continue
 
@@ -460,25 +488,33 @@ def build_ui_intelligence(
             if target is None:
                 continue
 
-            if target["type"] == "dropdown" and _probe_dropdown_behavior(page, target):
+            if target["type"] == "dropdown" and _probe_dropdown_behavior(
+                page, target,
+                timeout_ms=(min(1000, max(1, int((deadline - time.monotonic()) * 1000)))
+                            if deadline is not None else 1000),
+            ):
                 target["opens_listbox"] = True
                 target["is_dynamic"] = True
 
             label_lower = target["label"].lower()
-            primary = target["selector"]["primary"]["value"]
+            element_xpath = target.get("element_xpath") or target["selector"]["primary"]["value"]
+            role = target.get("element_role", "")
+            element_index = target.get("element_index", 0)
+            target["element_identity"] = "|".join((
+                page.url, element_xpath, role, target["label"], str(element_index)
+            ))
+            target["id"] = target["element_identity"]
+            target["hierarchy_level"] = 2
+            target["interaction_probability"] = 1.0 if target.get("is_clickable") else 0.0
+            target["interaction_probability_method"] = "detected_clickability_signal"
 
-            # Per-route dedup: same category+label+selector cannot repeat.
-            local_signature = (target["category"], label_lower, primary)
+            # Per-route identity: route + XPath + label. Category is retained
+            # so a control can still be represented in its semantic bucket.
+            local_signature = target["element_identity"]
             if local_signature in seen_signatures:
                 continue
 
-            # Global dedup: same component must not appear across routes.
-            global_key = (label_lower, primary)
-            if global_key in global_seen:
-                continue
-
             seen_signatures.add(local_signature)
-            global_seen.add(global_key)
             automation_targets.append(target)
             kept += 1
 
@@ -690,6 +726,9 @@ def _build_target_from_data(
         "interaction_type": interaction_type,
         "relevance": rule["relevance"],
         "selector": selector,
+        "element_xpath": data.get("elementXPath", ""),
+        "element_role": data.get("role", "") or _implicit_role_from_data(data, category),
+        "element_index": int(data.get("elementIndex") or 0),
         "text": data.get("text", "") or label,
         "framework": framework,
         "framework_type": framework_type,
@@ -756,7 +795,7 @@ def _detect_framework(page: Page) -> str:
     return "unknown"
 
 
-def _probe_dropdown_behavior(page: Page, target: dict[str, Any]) -> bool:
+def _probe_dropdown_behavior(page: Page, target: dict[str, Any], timeout_ms: int = 1000) -> bool:
     """Click a dropdown-looking element and confirm a listbox appears.
 
     This is intentionally scoped to elements already classified as dropdowns,
@@ -770,10 +809,11 @@ def _probe_dropdown_behavior(page: Page, target: dict[str, Any]) -> bool:
         if not element.is_visible() or not element.is_enabled():
             return False
         before = page.locator("[role='listbox'], mat-option, [role='option']").count()
-        element.hover(timeout=700)
-        element.focus(timeout=700)
-        element.click(timeout=1000)
-        page.wait_for_timeout(250)
+        small_timeout = max(1, timeout_ms // 4)
+        element.hover(timeout=small_timeout)
+        element.focus(timeout=small_timeout)
+        element.click(timeout=max(1, timeout_ms // 2))
+        page.wait_for_timeout(min(100, max(1, timeout_ms // 10)))
         after = page.locator("[role='listbox'], mat-option, [role='option']").count()
         try:
             page.keyboard.press("Escape")

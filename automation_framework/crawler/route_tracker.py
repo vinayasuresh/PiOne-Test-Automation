@@ -7,7 +7,7 @@ class RouteTracker:
     Normalization rules (per architectural fix):
     - drop query params and fragments
     - drop trailing slash
-    - lowercase scheme, netloc, and path
+    - lowercase scheme and netloc while preserving case-sensitive paths
     """
 
     def __init__(self) -> None:
@@ -15,7 +15,7 @@ class RouteTracker:
 
     def normalize_url(self, url: str) -> str:
         parsed_url = urlparse(url)
-        normalized_path = parsed_url.path.rstrip("/").lower() or "/"
+        normalized_path = parsed_url.path.rstrip("/") or "/"
 
         return urlunparse(
             (
@@ -33,6 +33,9 @@ class RouteTracker:
 
     def mark_visited(self, url: str) -> None:
         self._visited_routes.add(self.normalize_url(url))
+
+    def unmark_visited(self, url: str) -> None:
+        self._visited_routes.discard(self.normalize_url(url))
 
     def get_visited_routes(self) -> set[str]:
         return self._visited_routes.copy()
