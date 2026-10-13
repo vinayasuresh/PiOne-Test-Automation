@@ -14,6 +14,7 @@ from automation_framework.config.settings import (
     ROUTE_SCAN_TIMEOUT,
 )
 from automation_framework.crawler.hidden_navigation_explorer import explore_hidden_navigation
+from automation_framework.crawler.viewport_explorer import explore_viewport_states
 from automation_framework.crawler.interactive_capture import (
     events_to_interactions,
     extract_events,
@@ -462,8 +463,11 @@ class CrawlerEngine:
             f"{len(route_doc['automation_targets'])} targets | "
             f"{time.monotonic() - _scan_start:.2f}s"
         )
+        # Cover lazy/virtualized content at deterministic viewport positions
+        # before opening nested navigation/accordion states.
+        self._explore_viewport_states(menu_name)
         # Deep exploration: try expanding hidden navigation (dropdowns, tabs,
-        # aria-expanded triggers) and scan any new states discovered.
+        # accordions, framework expanders) and scan any new states discovered.
         if ENABLE_DEEP_EXPLORATION:
             self._explore_hidden_state(menu_name)
         self._save_checkpoint()
@@ -683,6 +687,43 @@ class CrawlerEngine:
                     wait_for_ui_stability(self.page)
                 except Exception:
                     logger.warning("Could not restore the route after hidden-state exploration")
+
+    def _explore_viewport_states(self, menu_name: str) -> None:
+        """Merge targets revealed by document/panel scrolling into this route."""
+        if self._deep_exploration_active:
+            return
+        normalized = self.route_tracker.normalize_url(self.page.url)
+        if normalized not in self.page_intelligence:
+            return
+
+        def on_viewport_change(label: str) -> None:
+            if time.monotonic() >= self._route_deadline:
+                return
+            extra = build_ui_intelligence(
+                self.page, feature_name=f"{menu_name} > {label}", menu_name=menu_name,
+                global_seen=self._global_seen, deadline=self._route_deadline,
+            )
+            existing = self.page_intelligence[normalized]
+            known = {target.get("element_identity") for target in existing["automation_targets"]}
+            for target in extra.get("automation_targets", []):
+                identity = target.get("element_identity")
+                if identity and identity not in known:
+                    existing["automation_targets"].append(target)
+                    known.add(identity)
+                    self._emit_event("element_found", {
+                        "route": normalized, "id": identity,
+                        "element_type": target.get("type", ""), "label": target.get("label", ""),
+                    })
+            existing["sections"] = _recount_sections(existing["automation_targets"])
+            existing["route_validation"] = self._rescore_route(
+                self.route_validations[normalized], len(existing["automation_targets"])
+            )
+            self.route_validations[normalized] = existing["route_validation"]
+
+        try:
+            explore_viewport_states(self.page, on_viewport_change, self._route_deadline)
+        except Exception:
+            logger.exception("Viewport exploration failed; continuing with route scan")
 
     def _xpath_for_selector(self, target: dict[str, Any], fallback_index: int) -> str:
         selector = (target.get("selector", {}).get("primary", {}) or {}).get("value", "")

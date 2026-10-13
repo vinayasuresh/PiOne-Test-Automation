@@ -19,6 +19,9 @@ def provider_catalog() -> list[dict]:
          "default_model": "", "detail": "Uses scan data and supplied context without an external model."},
         {"id": "ollama", "label": "Ollama (local)", "available": True,
          "default_model": os.getenv("OLLAMA_MODEL", "llama3.2"), "detail": f"Local endpoint: {ollama_url}"},
+        {"id": "huggingface", "label": "Hugging Face Inference Providers", "available": bool(os.getenv("HF_TOKEN")),
+         "default_model": os.getenv("HF_MODEL", "openai/gpt-oss-20b:fastest"),
+         "detail": "Configure HF_TOKEN and optionally HF_MODEL on the server."},
         {"id": "openai_compatible", "label": "OpenAI-compatible API", "available": bool(os.getenv("LLM_BASE_URL") and os.getenv("LLM_API_KEY")),
          "default_model": os.getenv("LLM_MODEL", ""), "detail": "Configure LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL on the server."},
     ]
@@ -34,6 +37,18 @@ def request_plan(provider: str, model: str | None, prompt: str) -> str:
         endpoint = f"{base_url}/api/generate"
         response = _post_json(endpoint, body)
         text = response.get("response")
+    elif provider == "huggingface":
+        token = os.getenv("HF_TOKEN", "")
+        selected_model = model or os.getenv("HF_MODEL", "openai/gpt-oss-20b:fastest")
+        if not token:
+            raise ValueError("Hugging Face provider requires HF_TOKEN on the server")
+        response = _post_json(
+            "https://router.huggingface.co/v1/chat/completions",
+            {"model": selected_model, "messages": [{"role": "user", "content": prompt}], "temperature": 0},
+            token,
+        )
+        choices = response.get("choices") or []
+        text = choices[0].get("message", {}).get("content") if choices else ""
     elif provider == "openai_compatible":
         base_url = os.getenv("LLM_BASE_URL", "").rstrip("/")
         api_key = os.getenv("LLM_API_KEY", "")

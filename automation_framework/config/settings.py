@@ -33,6 +33,9 @@ ROUTE_LOAD_TIMEOUT = 15000
 ROUTE_SCAN_TIMEOUT = 60000
 MENU_EXPANSION_TIMEOUT = 1500
 SUBMENU_TIMEOUT = 25000
+VIEWPORT_EXPLORATION_TIMEOUT = 12000
+MAX_SCROLL_CONTAINERS = 12
+MAX_SCROLL_POSITIONS = 5
 
 # Deep exploration: click expandable elements (dropdowns, tabs, aria-expanded
 # triggers) to discover hidden navigation. Capped to MAX_DEEP_EXPLORATION_DEPTH

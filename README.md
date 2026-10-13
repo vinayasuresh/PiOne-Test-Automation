@@ -88,3 +88,17 @@ Each page model keeps meaningful automation categories only:
 - Stable selector preference: `data-testid`, `aria-label`, role/name, stable ID, semantic label.
 - Runtime credentials are entered securely with `getpass`.
 - Logging is centralized through Loguru.
+
+## Optional AI planning providers
+
+The browser crawler remains deterministic: it uses Playwright route, DOM, scroll,
+and safe-expander exploration. AI providers only generate planning notes from the
+already captured UI map and explicit user-supplied test context; they never drive
+browser actions.
+
+- Local Ollama: set `OLLAMA_BASE_URL` and optionally `OLLAMA_MODEL`.
+- Hugging Face Inference Providers: set `HF_TOKEN` and optionally `HF_MODEL`
+  (default: `openai/gpt-oss-20b:fastest`).
+- Any OpenAI-compatible service: set `LLM_BASE_URL`, `LLM_API_KEY`, and `LLM_MODEL`.
+
+Keep these environment variables in `.env`; `.env` is excluded from Git.

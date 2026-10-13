@@ -12,6 +12,7 @@ from api.models.scan_models import (
     TestStep as AutomationStep,
 )
 from api.services import test_context_service
+from api.services.llm_service import provider_catalog
 from api.services.test_execution_service import _write_artifacts
 from api.services.test_planning_service import build_test_cases
 
@@ -84,3 +85,11 @@ def test_execution_artifacts_include_replayable_plan(tmp_path):
     assert (tmp_path / "execution_summary.md").exists()
     assert (tmp_path / "test_plan.json").exists()
     assert artifacts["plan"].endswith("test_plan.json")
+
+
+def test_huggingface_provider_requires_server_token(monkeypatch):
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    providers = {provider["id"]: provider for provider in provider_catalog()}
+
+    assert providers["huggingface"]["available"] is False
+    assert providers["huggingface"]["default_model"]

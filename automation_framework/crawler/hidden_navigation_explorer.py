@@ -32,7 +32,10 @@ from automation_framework.utils.logger import logger
 TRIGGER_SELECTOR = (
     "button[aria-expanded], [role='button'][aria-expanded], "
     "[aria-haspopup='true'], [aria-haspopup='menu'], [aria-haspopup='listbox'], "
-    "[role='tab']"
+    "[role='tab'], mat-expansion-panel-header, .mat-expansion-panel-header, "
+    ".p-accordion-header, .p-panel-header, .p-menuitem-link, "
+    "[data-bs-toggle='collapse'], [data-toggle='collapse'], "
+    "[class*='accordion' i] button, [class*='submenu' i][role='button']"
 )
 
 DESTRUCTIVE_WORDS = (
