@@ -18,7 +18,7 @@ from automation_framework.crawler.login_handler import login
 from automation_framework.crawler.navigation_expander import ensure_navigation_expanded
 from automation_framework.crawler.ui_wait_engine import wait_for_ui_stability
 from automation_framework.crawler.url_filter import install_document_scope_guard, is_valid_url
-from automation_framework.utils.browser_manager import start_persistent_browser
+from automation_framework.utils.browser_manager import save_storage_state, start_persistent_browser
 from automation_framework.utils.logger import configure_run_logger, logger
 from automation_framework.utils.metadata_collector import generate_run_id
 
@@ -73,7 +73,7 @@ def run_scan(
             logger.info(f"[API] Logging in | user={username}")
             login(page, username, password, url)
             try:
-                context.storage_state(path=str(STORAGE_STATE_PATH))
+                save_storage_state(context, STORAGE_STATE_PATH)
             except Exception:
                 pass
             logger.info("[API] Login successful")
@@ -180,7 +180,14 @@ def run_scan(
         if scan_id:
             publish(scan_id, {"type": "scan_completed", "scan_id": scan_id,
                               "routes": route_count, "duration_seconds": round(duration, 2)})
-        return build_scan_response(crawl_results, duration, status="success")
+        stopped_early = bool(crawl_results.get("scan_stopped_early"))
+        return build_scan_response(
+            crawl_results,
+            duration,
+            status="partial_success" if stopped_early else "success",
+            message=("Scan ended by user; exported routes and elements discovered so far."
+                     if stopped_early else None),
+        )
 
     except Exception as exc:
         if scan_id:
@@ -191,7 +198,7 @@ def run_scan(
     finally:
         if context:
             try:
-                context.storage_state(path=str(STORAGE_STATE_PATH))
+                save_storage_state(context, STORAGE_STATE_PATH)
             except Exception:
                 pass
         if browser:

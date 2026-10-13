@@ -9,6 +9,7 @@ from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 from automation_framework.config.settings import (
     ENABLE_DEEP_EXPLORATION,
     MENU_EXPANSION_TIMEOUT,
+    MAX_DISCOVERED_ROUTES,
     ROUTE_NAVIGATION_TIMEOUT,
     ROUTE_LOAD_TIMEOUT,
     ROUTE_SCAN_TIMEOUT,
@@ -122,6 +123,9 @@ class CrawlerEngine:
         self._route_interactions: dict[str, dict[str, int]] = {}
         self._route_deadline = 0.0
         self._deep_exploration_active = False
+        self._discovered_route_queue: list[dict[str, str]] = []
+        self._queued_routes: set[str] = set()
+        self.scan_stop_requested = False
         self.page.on("response", self._record_api_response)
         install_document_scope_guard(self.page, self.base_url, self._emit_event)
         self._seed_loaded_api_responses()
@@ -148,17 +152,88 @@ class CrawlerEngine:
         self._scan_route(start_url or self.page.url, menu_name=self._landing_label(),
                          expected_url=start_url or self.page.url, api_marker=landing_api_marker)
 
+        if self.scan_stop_requested:
+            self._save_checkpoint()
+            return self._result_snapshot()
+
         # Step 2: build a flat, deduplicated menu list.
         menu_items = self._build_menu_list(application_shell)
         logger.info(f"Discovered {len(menu_items)} menu items to explore")
 
         # Step 3: visit each menu item exactly once.
         for menu_item in menu_items:
+            if self.scan_stop_requested:
+                break
             self._visit_menu_item(menu_item)
+
+        # Step 4: breadth-first traversal of every route exposed by content
+        # links and router-backed buttons. Each route is scanned once; the
+        # crawler navigates back to the next queued route rather than relying
+        # on browser history or stale UI locators.
+        while self._discovered_route_queue and not self.scan_stop_requested:
+            candidate = self._discovered_route_queue.pop(0)
+            self._visit_discovered_route(candidate)
 
         self._save_checkpoint()
 
         return self._result_snapshot()
+
+    def _queue_page_routes(self, source_route: str, source_label: str) -> None:
+        """Queue visible in-scope navigation targets from the current route.
+
+        Only explicit links/router targets are followed. Generic buttons can
+        save, delete, download, or mutate application data, so they are
+        recorded as elements but never blindly clicked by the crawler.
+        """
+        if len(self._queued_routes) >= MAX_DISCOVERED_ROUTES:
+            return
+        try:
+            candidates = self.page.locator(
+                "a[href], [role='link'][href], [routerlink], [data-route], [data-href], [ng-reflect-router-link]"
+            ).evaluate_all("""elements => elements.map(el => {
+                const style = getComputedStyle(el), box = el.getBoundingClientRect();
+                const value = el.getAttribute('href') || el.getAttribute('routerlink') ||
+                    el.getAttribute('data-route') || el.getAttribute('data-href') ||
+                    el.getAttribute('ng-reflect-router-link') || '';
+                return { value, label: (el.getAttribute('aria-label') || el.getAttribute('title') ||
+                    el.innerText || el.textContent || '').trim().slice(0, 80),
+                    visible: style.display !== 'none' && style.visibility !== 'hidden' && !!(box.width || box.height) };
+            })""")
+        except Exception:
+            return
+        for candidate in candidates:
+            if not candidate.get("visible") or not candidate.get("value"):
+                continue
+            destination = self._normalize(str(candidate["value"]))
+            if (not is_valid_url(destination, self.base_url)
+                    or destination == source_route
+                    or destination in self._queued_routes
+                    or self.route_tracker.is_visited(destination)):
+                continue
+            self._queued_routes.add(destination)
+            self._discovered_route_queue.append({
+                "url": destination,
+                "label": str(candidate.get("label") or destination),
+                "source": source_label,
+            })
+            self._emit_event("route_discovered", {
+                "route": destination, "source_route": source_route,
+                "label": candidate.get("label") or destination,
+            })
+
+    def _visit_discovered_route(self, candidate: dict[str, str]) -> None:
+        url = candidate["url"]
+        if self.route_tracker.is_visited(url):
+            return
+        try:
+            marker = len(self._api_responses)
+            self._navigate(url)
+            self._ensure_authenticated()
+            wait_for_ui_stability(self.page)
+            self._scan_route(self.page.url, candidate["label"], expected_url=url, api_marker=marker)
+        except Exception as exc:
+            logger.warning("Discovered route navigation failed: %s (%s)", url, exc)
+            self._emit_event("route_failed", {"route": url, "reason": "discovered_route_navigation_failed"})
 
     def replay_route(
         self, url: str, menu_name: str = "route_replay", api_marker: int | None = None,
@@ -188,6 +263,7 @@ class CrawlerEngine:
                               if self.checkpoint_path else None),
             "route_namespace": self._checkpoint_namespace(),
             "menu_hierarchy": self.menu_hierarchy,
+            "scan_stopped_early": self.scan_stop_requested,
         }
 
     # ------------------------------------------------------------------
@@ -441,17 +517,6 @@ class CrawlerEngine:
             })
         self._save_checkpoint()
 
-        # Interactive learning: pause and let the user demonstrate flows on
-        # the live page. Captured events are merged into the route doc so
-        # the response includes both passive AND user-driven components.
-        if self.interactive_mode:
-            self._capture_interactions(normalized, route_doc)
-            validation = self.route_validations[normalized]
-            self.route_validations[normalized] = self._rescore_route(
-                validation, len(route_doc["automation_targets"])
-            )
-            route_doc["route_validation"] = self.route_validations[normalized]
-
         # Enforce minimum 2 s on-page time so the user perceives a real scan
         # and any late-arriving widgets had a chance to render.
         elapsed = time.monotonic() - _scan_start
@@ -470,7 +535,30 @@ class CrawlerEngine:
         # accordions, framework expanders) and scan any new states discovered.
         if ENABLE_DEEP_EXPLORATION:
             self._explore_hidden_state(menu_name)
+
+        # Manual review belongs at the end of automatic route discovery.
+        # Previously this appeared before scrolling and hidden-state expansion,
+        # so pressing Confirm looked like the scanner had become stuck while
+        # it continued its undisclosed automatic work afterwards.
+        if self.interactive_mode:
+            self._emit_event("manual_review_started", {
+                "route": normalized, "menu_name": menu_name,
+                "message": "Automatic discovery complete; waiting for user confirmation.",
+            })
+            self._capture_interactions(normalized, route_doc)
+            validation = self.route_validations[normalized]
+            self.route_validations[normalized] = self._rescore_route(
+                validation, len(route_doc["automation_targets"])
+            )
+            route_doc["route_validation"] = self.route_validations[normalized]
+            self._emit_event("manual_review_completed", {
+                "route": normalized, "interaction_count": len(route_doc.get("interactions", [])),
+            })
         self._save_checkpoint()
+        # This occurs after every scan (including routes discovered through a
+        # button/router link), so traversal grows deterministically until the
+        # bounded queue is exhausted.
+        self._queue_page_routes(normalized, menu_name)
         if not route_doc.get("scan_error"):
             self._emit_event("route_completed", {
                 "route": normalized,
@@ -580,10 +668,17 @@ class CrawlerEngine:
             route_doc["interactions"] = []
             return
 
-        wait_for_user(self.page, timeout_seconds=self.interactive_timeout)
+        choice = wait_for_user(self.page, timeout_seconds=self.interactive_timeout)
         raw_events = extract_events(self.page)
         interactions = events_to_interactions(raw_events)
         flow = interactions_to_flow(interactions)
+
+        if choice == "end":
+            self.scan_stop_requested = True
+            self._emit_event("scan_stopped", {
+                "route": normalized,
+                "message": "User ended the scan; exporting collected results.",
+            })
 
         if not interactions:
             logger.info(f"Interactive mode: no interactions captured on {normalized} (passive only)")

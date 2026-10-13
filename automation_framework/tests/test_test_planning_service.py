@@ -1,4 +1,5 @@
 import pytest
+import automation_framework.crawler.crawler_engine as crawler_module
 
 from api.models.scan_models import (
     ComponentGroups,
@@ -14,7 +15,11 @@ from api.models.scan_models import (
 from api.services import test_context_service
 from api.services.llm_service import provider_catalog
 from api.services.test_execution_service import _write_artifacts
+from api.services.test_execution_service import _locator_for, _wait_for_target
 from api.services.test_planning_service import build_test_cases
+from automation_framework.engine.ui_intelligence_engine import _is_meaningful_from_data
+from automation_framework.crawler.crawler_engine import CrawlerEngine
+from automation_framework.utils.browser_manager import save_storage_state
 
 
 def _scan(targets, status="WORKING"):
@@ -34,6 +39,7 @@ def test_plan_uses_current_route_and_stable_selector():
     scan = _scan([
         {"label": "Create User", "type": "button", "selector": {
             "primary": {"strategy": "testid", "value": '[data-testid="create-user"]'},
+            "fallback": ['button[name="Create User"]'],
         }},
     ])
 
@@ -42,6 +48,7 @@ def test_plan_uses_current_route_and_stable_selector():
     assert len(cases) == 1
     assert [step.action for step in cases[0].steps] == ["navigate", "assert_visible"]
     assert cases[0].steps[1].selector["strategy"] == "testid"
+    assert cases[0].steps[1].selector["fallback"] == ['button[name="Create User"]']
     assert cases[0].requirement_references == ["Users must validate creation permissions."]
 
 
@@ -93,3 +100,118 @@ def test_huggingface_provider_requires_server_token(monkeypatch):
 
     assert providers["huggingface"]["available"] is False
     assert providers["huggingface"]["default_model"]
+
+
+def test_action_detection_rejects_clickable_text_wrappers():
+    wrapper = {
+        "isVisible": True, "disabled": False, "inShell": False,
+        "text": "Total Events Active Apply filter Search all results",
+        "classifiedType": "interactive", "isClickable": True,
+        "isSemanticAction": False, "hasNestedControl": True,
+    }
+    assert _is_meaningful_from_data(wrapper, "actions") is False
+
+
+class _FakeLocator:
+    def __init__(self, visible: bool):
+        self.visible = visible
+        self.first = self
+
+    def wait_for(self, **_kwargs):
+        if not self.visible:
+            raise TimeoutError("not visible")
+
+
+class _FakePage:
+    def __init__(self):
+        self.requested = []
+        self.roles = []
+
+    def locator(self, value):
+        self.requested.append(value)
+        return _FakeLocator(value == "#present")
+
+    def get_by_role(self, role, name):
+        self.roles.append((role, name))
+        return _FakeLocator(True)
+
+    def get_by_text(self, _value, exact=True):
+        return _FakeLocator(False)
+
+
+def test_execution_retries_fallback_and_normalizes_role_selector():
+    page = _FakePage()
+    _wait_for_target(
+        page,
+        {"primary": {"strategy": "css", "value": "#missing"}, "fallback": ["#present"]},
+        "Target", 1000,
+    )
+    assert page.requested == ["#missing", "#present"]
+
+    _locator_for(page, {"strategy": "role", "value": 'role=button[name="Save"]'}, "Save")
+    assert page.roles == [("button", "Save")]
+
+
+def test_storage_state_includes_indexeddb_when_supported(tmp_path):
+    class Context:
+        def __init__(self):
+            self.kwargs = None
+
+        def storage_state(self, **kwargs):
+            self.kwargs = kwargs
+
+    context = Context()
+    save_storage_state(context, tmp_path / "state.json")
+    assert context.kwargs["indexed_db"] is True
+
+
+def test_route_queue_follows_only_visible_in_scope_router_targets():
+    class Locator:
+        def evaluate_all(self, _script):
+            return [
+                {"value": "/users", "label": "Users", "visible": True},
+                {"value": "https://outside.example/admin", "label": "Outside", "visible": True},
+                {"value": "/hidden", "label": "Hidden", "visible": False},
+            ]
+
+    class Page:
+        def locator(self, _selector):
+            return Locator()
+
+    class Tracker:
+        def is_visited(self, _route):
+            return False
+
+    engine = CrawlerEngine.__new__(CrawlerEngine)
+    engine.page = Page()
+    engine.base_url = "https://example.test"
+    engine.route_tracker = Tracker()
+    engine._queued_routes = set()
+    engine._discovered_route_queue = []
+    engine._normalize = lambda value: "https://example.test" + value if value.startswith("/") else value
+    engine._emit_event = lambda *_args: None
+
+    engine._queue_page_routes("https://example.test/", "Home")
+
+    assert engine._discovered_route_queue == [{
+        "url": "https://example.test/users", "label": "Users", "source": "Home",
+    }]
+
+
+def test_end_scan_from_first_manual_review_preserves_current_results(monkeypatch):
+    engine = CrawlerEngine.__new__(CrawlerEngine)
+    engine.page = object()
+    engine.scan_stop_requested = False
+    engine.interactive_timeout = 1
+    engine.manual_interactions = []
+    engine.interaction_flow = []
+    engine._emit_event = lambda *_args: None
+    monkeypatch.setattr(crawler_module, "inject_capture", lambda _page: None)
+    monkeypatch.setattr(crawler_module, "wait_for_user", lambda _page, timeout_seconds: "end")
+    monkeypatch.setattr(crawler_module, "extract_events", lambda _page: [])
+
+    route_doc = {"automation_targets": [], "interactions": [], "interaction_flow": []}
+    engine._capture_interactions("https://example.test/first", route_doc)
+
+    assert engine.scan_stop_requested is True
+    assert route_doc["interactions"] == []

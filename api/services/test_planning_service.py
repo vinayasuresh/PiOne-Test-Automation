@@ -66,13 +66,17 @@ def _candidate_targets(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return selected
 
 
-def _normalize_selector(raw: Any, target: dict[str, Any], label: str) -> dict[str, str]:
+def _normalize_selector(raw: Any, target: dict[str, Any], label: str) -> dict[str, Any]:
     if isinstance(raw, dict):
         primary = raw.get("primary") or {}
         value = str(primary.get("value") or "").strip()
         strategy = str(primary.get("strategy") or "").strip()
         if value and strategy:
-            return {"strategy": strategy, "value": value}
+            # Keep the ordered alternatives collected by the crawler.  They
+            # are part of a target's identity and must survive planning so
+            # execution can recover from a stale primary locator.
+            fallback = [item for item in raw.get("fallback", []) if isinstance(item, str) and item.strip()]
+            return {"strategy": strategy, "value": value, "fallback": fallback}
     role = str(target.get("element_role") or "").strip()
     if role:
         return {"strategy": "role", "value": f"{role}[name={label}]"}

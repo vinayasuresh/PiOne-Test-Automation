@@ -27,3 +27,16 @@ def start_persistent_browser(
     page = context.new_page()
 
     return playwright, browser, context, page
+
+
+def save_storage_state(context: BrowserContext, storage_state_path: str | Path) -> None:
+    """Persist all supported browser authentication state for later execution.
+
+    Modern SPAs may store the session in IndexedDB rather than cookies alone.
+    Playwright versions before IndexedDB export support still work via the
+    compatibility fallback.
+    """
+    try:
+        context.storage_state(path=str(storage_state_path), indexed_db=True)
+    except TypeError:
+        context.storage_state(path=str(storage_state_path))

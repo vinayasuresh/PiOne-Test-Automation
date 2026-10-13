@@ -77,7 +77,7 @@ def _execute_case(page: Any, base_url: str, case: TestCase, artifact_dir: Path, 
                 page.goto(target_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
                 _assert_not_login(page)
             elif step.action == "assert_visible":
-                _locator_for(page, step.selector, step.target_label).wait_for(state="visible", timeout=ELEMENT_TIMEOUT)
+                _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
             elif not allow_mutating_actions:
                 rows.append(_row(case, step, "Skipped", "Mutating actions are disabled for controlled execution."))
                 continue
@@ -106,10 +106,36 @@ def _locator_for(page: Any, selector: dict[str, Any], label: str):
         return page.locator(value).first
     if strategy == "role" and value:
         role, _, name = value.partition("[name=")
-        return page.get_by_role(role, name=(name[:-1] if name.endswith("]") else name)).first
+        role = role.removeprefix("role=").strip()
+        name = name[:-1] if name.endswith("]") else name
+        return page.get_by_role(role, name=name.strip('"\'' )).first
     if strategy == "text" and value:
         return page.get_by_text(value, exact=True).first
     return page.get_by_text(label, exact=True).first
+
+
+def _wait_for_target(page: Any, selector: dict[str, Any], label: str, timeout: int) -> None:
+    """Wait for the primary locator, then deterministic fallback locators."""
+    primary = selector.get("primary") if isinstance(selector.get("primary"), dict) else selector
+    candidates = [primary]
+    for value in selector.get("fallback", []) if isinstance(selector, dict) else []:
+        if isinstance(value, str) and value:
+            if value.startswith("role="):
+                candidates.append({"strategy": "role", "value": value})
+            elif value.startswith(("#", ".", "[")) or "[" in value or ">" in value:
+                candidates.append({"strategy": "css", "value": value})
+            else:
+                candidates.append({"strategy": "text", "value": value})
+    candidates = [candidate for candidate in candidates if isinstance(candidate, dict)]
+    per_candidate_timeout = max(250, timeout // max(1, len(candidates)))
+    last_error: Exception | None = None
+    for candidate in candidates:
+        try:
+            _locator_for(page, candidate, label).wait_for(state="visible", timeout=per_candidate_timeout)
+            return
+        except Exception as exc:
+            last_error = exc
+    raise last_error or ValueError(f"No usable locator available for {label!r}")
 
 
 def _assert_not_login(page: Any) -> None:

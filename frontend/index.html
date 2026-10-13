@@ -594,8 +594,16 @@
         stopMessages();
         if (message.type === "route_started") {
           document.getElementById("loading-msg").textContent = `Scanning ${message.route || "route"}...`;
+        } else if (message.type === "route_discovered") {
+          document.getElementById("loading-msg").textContent = `Queued ${message.label || message.route || "route"} for route scan...`;
         } else if (message.type === "submenu_opened") {
           document.getElementById("loading-msg").textContent = `Exploring menu ${message.label || "submenu"}...`;
+        } else if (message.type === "manual_review_started") {
+          document.getElementById("loading-msg").textContent = "Automatic scan complete for this module. Waiting for your confirmation...";
+        } else if (message.type === "manual_review_completed") {
+          document.getElementById("loading-msg").textContent = `Manual review saved (${message.interaction_count || 0} interactions). Continuing route queue...`;
+        } else if (message.type === "scan_stopped") {
+          document.getElementById("loading-msg").textContent = "Ending scan and exporting discovered results...";
         } else if (message.type === "element_found") {
           elementCount += 1;
           if (elementCount % 10 === 0) {

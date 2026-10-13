@@ -21,12 +21,14 @@ _CAPTURE_SCRIPT = r"""
   if (window.__captureInstalled) {
     window.__events = [];
     window.__continueScan = false;
+    window.__endScan = false;
     const old = document.getElementById('__capture_banner');
     if (old) old.remove();
   }
   window.__captureInstalled = true;
   window.__events = [];
   window.__continueScan = false;
+  window.__endScan = false;
   window.__lastHighlight = null;
 
   function cssEscape(value) {
@@ -63,8 +65,7 @@ _CAPTURE_SCRIPT = r"""
     const standard = target.closest(
       "button, [role='button'], input, textarea, select, [role='combobox'], "
       + "[contenteditable='true'], mat-select, mat-form-field, mat-table, "
-      + "[aria-haspopup='listbox'], [onclick], [tabindex]:not([tabindex='-1']), "
-      + "[class*='button' i], [class*='btn' i], [class*='select' i], [class*='dropdown' i]"
+      + "[aria-haspopup='listbox'], [onclick], [ng-click], [tabindex]:not([tabindex='-1'])"
     );
     if (standard) return standard;
 
@@ -183,21 +184,30 @@ _CAPTURE_SCRIPT = r"""
     'position:fixed', 'bottom:20px', 'right:20px', 'z-index:2147483647',
     'background:#0f172a', 'color:#fff', 'padding:12px 16px', 'border-radius:10px',
     'box-shadow:0 8px 24px rgba(0,0,0,.35)', 'font:600 13px system-ui,sans-serif',
-    'display:flex', 'align-items:center', 'gap:12px', 'max-width:560px',
+    'display:flex', 'align-items:center', 'gap:12px', 'max-width:700px',
   ].join(';');
   banner.innerHTML = `
     <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.35;">
       <span style="width:8px;height:8px;background:#10b981;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.25);"></span>
-      Confirm this page elements: click important controls, fill/select sample fields, then continue.
+      Automatic scan is complete for this module. Confirm to continue, or end the scan and save all results found so far.
     </span>
     <button id="__capture_continue"
             style="background:#2563eb;color:#fff;border:none;border-radius:8px;
                    padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
       Confirm & Continue
+    </button>
+    <button id="__capture_end"
+            style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;
+                   padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
+      End Scan & Save
     </button>`;
   document.body.appendChild(banner);
   document.getElementById('__capture_continue').addEventListener('click', () => {
     window.__continueScan = true;
+    banner.style.opacity = '0.55';
+  });
+  document.getElementById('__capture_end').addEventListener('click', () => {
+    window.__endScan = true;
     banner.style.opacity = '0.55';
   });
 })();
@@ -232,21 +242,21 @@ def inject_capture(page: Page) -> None:
         logger.warning(f"Interactive capture: failed to inject recorder ({exc})")
 
 
-def wait_for_user(page: Page, timeout_seconds: int = 45) -> bool:
-    """Block until the user confirms the route or the timeout elapses."""
+def wait_for_user(page: Page, timeout_seconds: int = 45) -> str:
+    """Return ``continue``, ``end``, or ``timeout`` from the review overlay."""
     deadline = time.monotonic() + max(1, timeout_seconds)
     logger.info(f"Interactive capture: waiting up to {timeout_seconds}s for user confirmation")
     while time.monotonic() < deadline:
         try:
-            done = page.evaluate("() => !!window.__continueScan")
+            choice = page.evaluate("() => window.__endScan ? 'end' : (window.__continueScan ? 'continue' : '')")
         except Exception:
-            return False
-        if done:
-            logger.info("Interactive capture: user confirmed route")
-            return True
+            return "timeout"
+        if choice:
+            logger.info("Interactive capture: user selected %s", choice)
+            return str(choice)
         page.wait_for_timeout(500)
     logger.info("Interactive capture: timed out waiting for confirmation")
-    return False
+    return "timeout"
 
 
 def extract_events(page: Page) -> list[dict[str, Any]]:

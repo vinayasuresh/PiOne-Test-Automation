@@ -63,14 +63,22 @@ def explore_viewport_states(page: Page, on_state_change: Callable[[str], None], 
         if maximum <= 0:
             continue
         original = int(container.get("top", 0))
-        positions = sorted({round(maximum * index / (MAX_SCROLL_POSITIONS - 1)) for index in range(MAX_SCROLL_POSITIONS)})
+        # Visit ordered viewport-sized increments rather than a few large
+        # jumps. Lazy lists often append only after intermediate scroll events.
+        viewport = max(1, int(page.evaluate("() => window.innerHeight || 800")))
+        step = max(1, viewport - 80)
+        positions = list(range(0, maximum + 1, step))
+        if positions[-1] != maximum:
+            positions.append(maximum)
+        if len(positions) > MAX_SCROLL_POSITIONS:
+            positions = sorted({round(maximum * index / (MAX_SCROLL_POSITIONS - 1)) for index in range(MAX_SCROLL_POSITIONS)})
         previous = _fingerprint(page)
         try:
             for position in positions:
                 if time.monotonic() >= stop_at:
                     return
                 _scroll_to(page, container, position)
-                page.wait_for_timeout(250)
+                page.wait_for_timeout(350)
                 current = _fingerprint(page)
                 if current != previous:
                     on_state_change(f"scroll:{container.get('id', 'container')}:{position}")

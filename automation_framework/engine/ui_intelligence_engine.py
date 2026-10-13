@@ -296,6 +296,8 @@ _ELEMENT_DATA_SCRIPT = """
                 : 'native'
             );
         const isAngularComponent = frameworkType !== 'native' || tag.startsWith('app-') || tag.startsWith('ng-');
+        const semanticAction = tag === 'button' || role === 'button' ||
+            type === 'submit' || type === 'button' || frameworkType === 'mat-button';
         const clickable = !el.disabled && (
             style.cursor === 'pointer' ||
             eventListenerCount > 0 ||
@@ -324,10 +326,7 @@ _ELEMENT_DATA_SCRIPT = """
             tag === 'mat-input'
         ) {
             elementType = 'input';
-        } else if (
-            tag === 'button' || role === 'button' || type === 'submit' || type === 'button' ||
-            frameworkType === 'mat-button' || ['submit', 'save', 'login', 'log in', 'apply'].some(word => lowerText.includes(word))
-        ) {
+        } else if (semanticAction) {
             elementType = 'button';
         } else if (clickable) {
             elementType = 'interactive';
@@ -339,6 +338,10 @@ _ELEMENT_DATA_SCRIPT = """
             text,
             framework_type: frameworkType,
             is_clickable: clickable,
+            is_semantic_action: semanticAction,
+            has_nested_control: !!el.querySelector(
+                "button, [role='button'], input, select, textarea, [role='combobox']"
+            ),
             is_dynamic: isAngularComponent || !!el.closest('[ng-version], app-root')
         };
     }
@@ -385,6 +388,8 @@ _ELEMENT_DATA_SCRIPT = """
             classifiedType: classification.type,
             frameworkType: classification.framework_type,
             isClickable: classification.is_clickable,
+            isSemanticAction: classification.is_semantic_action,
+            hasNestedControl: classification.has_nested_control,
             isDynamic: classification.is_dynamic,
             eventListenerCount,
             cursor:       style.cursor || '',
@@ -666,11 +671,13 @@ def _is_meaningful_from_data(data: dict, category: str) -> bool:
 
     if category in {"actions", "navigation", "tabs"} and not label:
         return False
-    if category == "actions" and not (
-        _is_business_action(label)
-        or classified_type == "button"
-        or data.get("isClickable")
-    ):
+    # Do not promote a wrapper to a button because its *descendant text*
+    # happens to contain words such as "filter" or "apply".  Enterprise
+    # dashboards frequently put their entire screen content in a clickable
+    # container, which used to produce one enormous false button label.
+    if category == "actions" and not data.get("isSemanticAction"):
+        return False
+    if category == "actions" and data.get("hasNestedControl"):
         return False
     if category == "inputs" and not label:
         # Require a label/placeholder/name so anonymous text boxes are dropped.
@@ -681,6 +688,10 @@ def _is_meaningful_from_data(data: dict, category: str) -> bool:
         if classified_type not in {"button", "dropdown", "input", "interactive"}:
             return False
         if not label and not data.get("generatedSelector"):
+            return False
+        if data.get("hasNestedControl"):
+            return False
+        if len(label) > MAX_LABEL_LENGTH:
             return False
     if category in {"filters", "forms"}:
         if data.get("controlCount", 0) == 0 and not label:
