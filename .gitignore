@@ -7,3 +7,5 @@ dist/
 build/
 automation_framework/reports/checkpoint_*.json
 automation_framework/reports/checkpoint_*.json.tmp
+automation_framework/logs/*.log
+scans/test_context/

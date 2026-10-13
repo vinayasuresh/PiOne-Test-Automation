@@ -27,7 +27,11 @@ from automation_framework.crawler.menu_detector import detect_menus
 from automation_framework.crawler.route_tracker import RouteTracker
 from automation_framework.crawler.shell_detector import detect_application_shell
 from automation_framework.crawler.ui_wait_engine import wait_for_ui_stability
-from automation_framework.crawler.url_filter import is_internal_url, is_valid_url
+from automation_framework.crawler.url_filter import (
+    install_document_scope_guard,
+    is_internal_url,
+    is_valid_url,
+)
 from automation_framework.engine.ui_intelligence_engine import (
     CATEGORY_ORDER,
     build_component_registry,
@@ -47,6 +51,25 @@ def _recount_sections(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for category in CATEGORY_ORDER
         if counts.get(category, 0) > 0
     ]
+
+
+def _normalized_route_score(
+    components: dict[str, int], api_present: bool, interaction_attempted: bool,
+) -> tuple[int, int]:
+    """Normalize weighted route signals while excluding unavailable signals.
+
+    API traffic and interactions are often legitimately absent (e.g. a static
+    page or a scan with no safe user actions). Missing evidence must not count
+    as a failure; actual failed API responses and failed attempted interactions
+    still lower the score.
+    """
+    available_weight = 25 + 20 + 20  # DOM, redirect, and element signals
+    if api_present:
+        available_weight += 20
+    if interaction_attempted:
+        available_weight += 15
+    earned = sum(components.values())
+    return round(earned * 100 / available_weight), available_weight
 
 
 class CrawlerEngine:
@@ -99,7 +122,7 @@ class CrawlerEngine:
         self._route_deadline = 0.0
         self._deep_exploration_active = False
         self.page.on("response", self._record_api_response)
-        self.page.route("**/*", self._enforce_document_scope)
+        install_document_scope_guard(self.page, self.base_url, self._emit_event)
         self._seed_loaded_api_responses()
         if resume_from_checkpoint:
             self._load_checkpoint()
@@ -712,17 +735,6 @@ class CrawlerEngine:
             raise ValueError(f"Refusing to navigate outside requested app scope: {url}")
         self.page.goto(url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
 
-    def _enforce_document_scope(self, route: Any) -> None:
-        request = route.request
-        if request.is_navigation_request() and request.frame == self.page.main_frame:
-            if not is_valid_url(request.url, self.base_url):
-                self._emit_event("route_failed", {
-                    "route": request.url, "reason": "navigation_blocked_outside_app_scope",
-                })
-                route.abort()
-                return
-        route.continue_()
-
     def _remaining_route_timeout(self, preferred_ms: int = ROUTE_SCAN_TIMEOUT) -> int:
         if not self._route_deadline:
             return preferred_ms
@@ -776,7 +788,9 @@ class CrawlerEngine:
             "interaction_success": round(15 * interaction_rate),
             "element_detection": 20 if target_count >= 5 else (12 if target_count else 0),
         }
-        score = sum(components.values())
+        score, available_weight = _normalized_route_score(
+            components, api_present, bool(interaction["attempted"]),
+        )
         if scan_error or not stable or not page_load_success or self._is_login_page() or score < 40:
             status = "NON-WORKING"
         elif score < 70 or failed_api or redirected or target_count == 0:
@@ -787,6 +801,7 @@ class CrawlerEngine:
             "status": status,
             "score": score,
             "score_components": components,
+            "score_available_weight": available_weight,
             "expected_url": expected_url,
             "actual_url": actual_url,
             "redirected": redirected,
@@ -797,6 +812,7 @@ class CrawlerEngine:
             "failed_api_responses": len(failed_api),
             "target_count": target_count,
             "interaction_success_rate": round(interaction_rate, 3),
+            "interaction_attempted": bool(interaction["attempted"]),
         }
 
     def _rescore_route(self, validation: dict[str, Any], target_count: int) -> dict[str, Any]:
@@ -805,7 +821,11 @@ class CrawlerEngine:
         components["element_detection"] = 20 if target_count >= 5 else (12 if target_count else 0)
         updated["target_count"] = target_count
         updated["score_components"] = components
-        updated["score"] = sum(components.values())
+        updated["score"], updated["score_available_weight"] = _normalized_route_score(
+            components,
+            bool(updated.get("api_response_present")),
+            bool(updated.get("interaction_attempted")),
+        )
         if (not updated.get("dom_stable") or not updated.get("page_load_success")
                 or self._is_login_page() or updated["score"] < 40):
             updated["status"] = "NON-WORKING"

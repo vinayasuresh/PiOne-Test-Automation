@@ -164,7 +164,7 @@
     <section id="panel-generate" class="hidden bg-white rounded-lg shadow-sm border border-slate-200 p-6 space-y-5">
       <div>
         <h2 class="text-xl font-bold">Generate Test</h2>
-        <p class="text-sm text-slate-500 mt-1">Generate a script from the current scan only.</p>
+        <p class="text-sm text-slate-500 mt-1">Combine the current UI scan with optional requirements, testcase artifacts, and a short scenario prompt.</p>
       </div>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div class="space-y-4">
@@ -174,8 +174,33 @@
             <p class="text-sm mt-2"><span class="font-semibold">Components:</span> <span id="llm-components-context" class="font-mono text-xs"></span></p>
           </div>
           <div>
-            <label class="block text-sm font-semibold mb-1.5" for="llm-test-desc">Test Description</label>
-            <textarea id="llm-test-desc" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"></textarea>
+            <label class="block text-sm font-semibold mb-1.5" for="llm-user-prompt">Scenario Prompt</label>
+            <textarea id="llm-user-prompt" rows="3" placeholder="Example: create negative login and invalid-permission scenarios for the Users module." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"></textarea>
+            <p class="text-xs text-slate-500 mt-1">For low-effort scenarios, this prompt alone is enough. It is sent only to the selected planning provider.</p>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold mb-1.5" for="requirements-file">Requirements file</label>
+              <input id="requirements-file" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv" class="w-full text-sm" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5" for="testcases-file">Existing testcase file</label>
+              <input id="testcases-file" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv" class="w-full text-sm" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold mb-1.5" for="llm-provider">Planning provider</label>
+              <select id="llm-provider" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                <option value="deterministic">Built-in deterministic planner</option>
+                <option value="ollama">Ollama (local)</option>
+                <option value="openai_compatible">OpenAI-compatible API</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5" for="llm-model">Model override (optional)</label>
+              <input id="llm-model" type="text" placeholder="e.g. llama3.2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+            </div>
           </div>
           <div>
             <label class="block text-sm font-semibold mb-1.5" for="llm-feature-focus">Feature Focus</label>
@@ -187,6 +212,10 @@
           <h3 class="font-semibold mb-2">Generated Test Script</h3>
           <pre id="generated-script" class="bg-slate-950 text-slate-100 border border-slate-800 rounded-lg p-4 text-xs overflow-x-auto min-h-72 whitespace-pre-wrap"></pre>
           <p id="execution-command" class="text-xs text-slate-500 mt-2 font-mono"></p>
+          <div id="planning-notes-wrap" class="hidden mt-4">
+            <h3 class="font-semibold mb-2">AI Planning Notes</h3>
+            <pre id="planning-notes" class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs overflow-x-auto whitespace-pre-wrap"></pre>
+          </div>
         </div>
       </div>
       <div class="flex justify-between gap-3">
@@ -199,7 +228,7 @@
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h2 class="text-xl font-bold">Execute Test</h2>
-          <p id="execution-status" class="text-sm text-slate-500 mt-1">Execution results are produced by the backend from the generated script and current scan.</p>
+          <p id="execution-status" class="text-sm text-slate-500 mt-1">Controlled execution verifies navigation and discovered controls. State-changing actions remain disabled.</p>
         </div>
         <button class="js-execute bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">Execute Test</button>
       </div>
@@ -222,6 +251,7 @@
           <tbody id="exec-results-body"></tbody>
         </table>
       </div>
+      <div id="execution-artifacts" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700"></div>
       <div class="flex justify-between gap-3">
         <button class="js-back bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg" type="button">Back to Generate</button>
         <button class="js-view-report bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">View Results</button>
@@ -313,6 +343,9 @@
         scanUrl: "",
         generatedScript: "",
         executionCommand: "",
+        planningNotes: "",
+        contextId: "",
+        testCases: [],
         executionResult: null,
         systemInfo: null
       };
@@ -405,7 +438,7 @@
     function clearRenderedData() {
       [
         "metric-cards", "routes-list", "components-summary", "scan-summary-text",
-        "generated-script", "execution-command", "exec-results-body",
+        "generated-script", "execution-command", "planning-notes", "exec-results-body",
         "report-results-body", "report-summary", "system-insights"
       ].forEach(id => {
         const el = document.getElementById(id);
@@ -414,6 +447,8 @@
       document.getElementById("result-url").textContent = "";
       document.getElementById("llm-routes-context").textContent = "";
       document.getElementById("llm-components-context").textContent = "";
+      document.getElementById("execution-artifacts").classList.add("hidden");
+      document.getElementById("execution-artifacts").textContent = "";
       hideStatusBanner();
     }
 
@@ -677,6 +712,8 @@
       document.getElementById("llm-components-context").textContent = Array.from(componentTypes).join(", ");
       document.getElementById("generated-script").textContent = state.generatedScript || "";
       document.getElementById("execution-command").textContent = state.executionCommand || "";
+      document.getElementById("planning-notes").textContent = state.planningNotes || "";
+      document.getElementById("planning-notes-wrap").classList.toggle("hidden", !state.planningNotes);
     }
 
     async function generateTest() {
@@ -685,14 +722,21 @@
       button.disabled = true;
       button.textContent = "Generating...";
       try {
+        state.contextId = await uploadTestContext();
         const data = await callAPI("/generate-test", {
           base_url: state.scanUrl,
           scan: state.scanResult,
-          description: document.getElementById("llm-test-desc").value.trim(),
-          feature_focus: document.getElementById("llm-feature-focus").value.trim()
+          description: document.getElementById("llm-user-prompt").value.trim(),
+          user_prompt: document.getElementById("llm-user-prompt").value.trim(),
+          feature_focus: document.getElementById("llm-feature-focus").value.trim(),
+          context_id: state.contextId || null,
+          provider: document.getElementById("llm-provider").value,
+          model: document.getElementById("llm-model").value.trim() || null
         });
         state.generatedScript = data.script || "";
         state.executionCommand = data.execution_command || "";
+        state.planningNotes = data.planning_notes || "";
+        state.testCases = data.test_cases || [];
         state.executionResult = null;
         state.completedStep = Math.max(state.completedStep, 4);
         prepareGenerate();
@@ -706,6 +750,21 @@
       }
     }
 
+    async function uploadTestContext() {
+      const requirements = document.getElementById("requirements-file").files[0];
+      const testcases = document.getElementById("testcases-file").files[0];
+      const prompt = document.getElementById("llm-user-prompt").value.trim();
+      if (!requirements && !testcases && !prompt) return "";
+      const form = new FormData();
+      if (requirements) form.append("requirements_file", requirements);
+      if (testcases) form.append("testcases_file", testcases);
+      form.append("user_prompt", prompt);
+      const res = await fetch(`${API_BASE}/test-context/upload`, { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not store test context");
+      return data.context_id || "";
+    }
+
     async function executeTest() {
       if (!state.generatedScript) return showToast("Generate test first");
       state.step = 4;
@@ -717,7 +776,9 @@
         const data = await callAPI("/execute-test", {
           base_url: state.scanUrl,
           scan: state.scanResult,
-          script: state.generatedScript
+          script: state.generatedScript,
+          test_cases: state.testCases,
+          allow_mutating_actions: false
         });
         state.executionResult = data;
         state.completedStep = Math.max(state.completedStep, 5);
@@ -742,6 +803,11 @@
 
     function renderExecution() {
       renderResultsTable("exec-results-body", state.executionResult?.rows || []);
+      const artifacts = state.executionResult?.artifacts || {};
+      const host = document.getElementById("execution-artifacts");
+      const reportPath = artifacts.markdown || artifacts.excel || artifacts.directory;
+      host.classList.toggle("hidden", !reportPath);
+      host.textContent = reportPath ? `Execution artifacts saved locally: ${reportPath}` : "";
     }
 
     function goToReport() {

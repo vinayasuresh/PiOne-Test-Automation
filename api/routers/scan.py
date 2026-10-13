@@ -1,29 +1,34 @@
 """POST /scan router — the main API endpoint."""
 
 import asyncio
+import json
 import os
 import platform
-import re
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from api.models.scan_models import (
     ErrorResponse,
     ExecuteTestRequest,
     ExecuteTestResponse,
-    ExecutionResultRow,
-    ExecutionSummary,
     GenerateTestRequest,
     GeneratedTestResponse,
     ScanRequest,
     ScanResponse,
     RouteReplayRequest,
+    RegressionRunRequest,
     ScanSummary,
     SystemInfoResponse,
+    LLMProviderInfo,
+    TestContextResponse,
 )
 from api.services import crawler_service, mock_service
+from api.services.llm_service import provider_catalog, request_plan
 from api.services.scan_event_bus import get_channel, publish
+from api.services.test_execution_service import execute_test_cases, load_saved_test_cases
+from api.services.test_planning_service import build_test_cases
+from api.services.test_context_service import create_context, decode_upload, load_context
 from automation_framework.utils.logger import logger
 
 router = APIRouter()
@@ -129,16 +134,58 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
     if not routes:
         raise HTTPException(status_code=400, detail="Scan data has no routes to test")
 
+    context = load_context(request.context_id)
+    combined_prompt = (request.user_prompt or context.get("user_prompt") or request.description or "").strip()
+    llm_prompt = _build_llm_prompt(request, context, combined_prompt)
+    planning_notes = await asyncio.to_thread(
+        request_plan, request.provider, request.model, llm_prompt,
+    )
     script = _build_pytest_script(
         base_url=request.base_url,
         scan=request.scan,
-        description=request.description or "",
+        description=combined_prompt,
         feature_focus=request.feature_focus or "",
     )
     return GeneratedTestResponse(
         script=script,
         execution_command="pytest generated_tests/test_generated_ui_flow.py",
+        planning_notes=planning_notes,
+        context_id=request.context_id,
+        test_cases=build_test_cases(request.scan, context),
     )
+
+
+@router.get("/llm/providers", response_model=list[LLMProviderInfo], summary="List configured test-planning providers")
+async def list_llm_providers() -> list[LLMProviderInfo]:
+    return [LLMProviderInfo(**item) for item in provider_catalog()]
+
+
+@router.post("/test-context/upload", response_model=TestContextResponse, summary="Store test inputs for the current test-generation session")
+async def upload_test_context(
+    requirements_file: UploadFile | None = File(None),
+    testcases_file: UploadFile | None = File(None),
+    user_prompt: str = Form(""),
+) -> TestContextResponse:
+    """Accept text-based requirements and testcase artifacts plus a short prompt."""
+    requirements_text = ""
+    testcases_text = ""
+    source_files: list[str] = []
+    try:
+        if requirements_file:
+            requirements_text, filename = decode_upload(
+                await requirements_file.read(), requirements_file.filename,
+            )
+            source_files.append(f"requirements:{filename}")
+        if testcases_file:
+            testcases_text, filename = decode_upload(
+                await testcases_file.read(), testcases_file.filename,
+            )
+            source_files.append(f"testcases:{filename}")
+        return TestContextResponse(**create_context(
+            requirements_text, testcases_text, user_prompt, source_files,
+        ))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post(
@@ -149,17 +196,26 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
 async def execute_test(request: ExecuteTestRequest) -> ExecuteTestResponse:
     if not request.script.strip():
         raise HTTPException(status_code=400, detail="Generated script is required")
-    routes = request.scan.routes or []
-    if not routes:
-        raise HTTPException(status_code=400, detail="Scan data has no routes to execute")
-
-    rows = _build_execution_rows(routes)
-    passed = sum(1 for row in rows if row.Status == "Pass")
-    failed = sum(1 for row in rows if row.Status == "Fail")
-    return ExecuteTestResponse(
-        rows=rows,
-        summary=ExecutionSummary(total=len(rows), passed=passed, failed=failed),
+    test_cases = request.test_cases or build_test_cases(request.scan, {})
+    if not test_cases:
+        raise HTTPException(status_code=400, detail="No executable safe checks were derived from this scan")
+    rows, summary, artifacts = await asyncio.to_thread(
+        execute_test_cases, request.base_url, test_cases, request.allow_mutating_actions,
     )
+    return ExecuteTestResponse(rows=rows, summary=summary, artifacts=artifacts)
+
+
+@router.post("/regression-run", response_model=ExecuteTestResponse, summary="Rerun a saved controlled test plan")
+async def regression_run(request: RegressionRunRequest) -> ExecuteTestResponse:
+    try:
+        test_cases = load_saved_test_cases(request.execution_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    rows, summary, artifacts = await asyncio.to_thread(
+        execute_test_cases, request.base_url, test_cases, False,
+    )
+    artifacts["regression_of"] = request.execution_id
+    return ExecuteTestResponse(rows=rows, summary=summary, artifacts=artifacts)
 
 
 @router.get(
@@ -239,44 +295,27 @@ def _build_pytest_script(
     return "\n".join(lines) + "\n"
 
 
-def _build_execution_rows(routes) -> list[ExecutionResultRow]:
-    rows: list[ExecutionResultRow] = []
-    for index, route in enumerate(routes, start=1):
-        components = route.components
-        target_count = (
-            len(components.buttons)
-            + len(components.inputs)
-            + len(components.dropdowns)
-            + len(components.tables)
-            + len(components.charts)
-            + len(components.maps)
-        )
-        module = route.menu_name or route.path.strip("/") or "Home"
-        feature = _feature_name(route.path, module)
-        passed = target_count > 0
-        rows.append(
-            ExecutionResultRow(
-                TC_ID=f"TC_{index:03d}",
-                Screen=route.path or "/",
-                Module=module,
-                Feature=feature,
-                Test_Case=f"Validate {module} route and automation targets",
-                Expected_Result="Route has discoverable UI automation targets",
-                Actual_Result=(
-                    f"{target_count} automation targets available"
-                    if passed
-                    else "No automation targets were found"
-                ),
-                Status="Pass" if passed else "Fail",
-                Failure_Info="" if passed else "Route needs stable controls or selectors",
-                Bug_Priority="" if passed else "Medium",
-            )
-        )
-    return rows
+def _build_llm_prompt(request: GenerateTestRequest, context: dict, user_prompt: str) -> str:
+    """Create a bounded, data-only prompt; never include credentials or runtime events."""
+    routes = [
+        {
+            "path": route.path,
+            "module": route.menu_name,
+            "purpose": route.purpose,
+            "status": route.route_status,
+            "score": route.route_score,
+            "components": route.components.model_dump(),
+        }
+        for route in request.scan.routes
+    ]
+    return "\n".join((
+        "You are a test-planning assistant. Produce concise planning notes, not code.",
+        "Use only the supplied scan map and user artifacts. Identify module coverage, missing coverage, negative cases, and risk scenarios.",
+        f"User prompt: {user_prompt or '(none)'}",
+        f"Feature focus: {request.feature_focus or '(none)'}",
+        "Requirements artifact:\n" + context.get("requirements", "")[:50_000],
+        "Existing testcase artifact:\n" + context.get("testcases", "")[:50_000],
+        "Observed UI scan map:\n" + json.dumps(routes, ensure_ascii=False, indent=2),
+    ))
 
-
-def _feature_name(path: str, fallback: str) -> str:
-    parts = [p for p in re.split(r"[/_-]+", path or "") if p]
-    if not parts:
-        return fallback
-    return " ".join(part.capitalize() for part in parts[-2:])
+# End of router helpers.

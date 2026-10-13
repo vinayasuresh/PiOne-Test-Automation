@@ -61,6 +61,33 @@ def is_internal_url(url: str, base_url: str) -> bool:
     return same_origin and is_within_app_path(target.geturl(), base_url)
 
 
+def install_document_scope_guard(page, base_url: str, event_callback=None) -> None:
+    """Block top-level document navigations outside the requested app scope.
+
+    Install this before the first ``page.goto`` (including login navigation),
+    otherwise an out-of-scope redirect can load before the crawler is guarded.
+    Subresources and API calls are deliberately left alone; this guard controls
+    which documents the scanner is allowed to visit.
+    """
+    def guard(route) -> None:
+        request = route.request
+        if request.is_navigation_request() and request.frame == page.main_frame:
+            if not is_internal_url(request.url, base_url):
+                if event_callback:
+                    try:
+                        event_callback("route_failed", {
+                            "route": request.url,
+                            "reason": "navigation_blocked_outside_app_scope",
+                        })
+                    except Exception:
+                        pass
+                route.abort()
+                return
+        route.continue_()
+
+    page.route("**/*", guard)
+
+
 def is_static_asset(url: str) -> bool:
     path = unquote(urlparse(url).path).lower().rstrip("/")
     return any(path.endswith(extension) for extension in STATIC_ASSET_EXTENSIONS)

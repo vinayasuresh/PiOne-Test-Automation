@@ -173,18 +173,73 @@ class GenerateTestRequest(BaseModel):
     scan: ScanResponse
     description: Optional[str] = None
     feature_focus: Optional[str] = None
+    context_id: Optional[str] = None
+    provider: str = "deterministic"
+    model: Optional[str] = None
+    user_prompt: Optional[str] = None
+
+    @field_validator("context_id")
+    @classmethod
+    def validate_context_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("context_id may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+
+class TestContextResponse(BaseModel):
+    context_id: str
+    requirements_characters: int = 0
+    testcase_characters: int = 0
+    user_prompt_characters: int = 0
+    source_files: list[str] = []
+
+
+class LLMProviderInfo(BaseModel):
+    id: str
+    label: str
+    available: bool
+    default_model: str = ""
+    detail: str = ""
 
 
 class GeneratedTestResponse(BaseModel):
     status: str = "success"
     script: str
     execution_command: str
+    planning_notes: str = ""
+    context_id: Optional[str] = None
+    test_cases: list["TestCase"] = []
+
+
+class TestStep(BaseModel):
+    step_id: str
+    action: str
+    route: str = ""
+    target_label: str = ""
+    selector: dict[str, Any] = {}
+    expected_result: str = ""
+    source: str = "scan"
+
+
+class TestCase(BaseModel):
+    tc_id: str
+    title: str
+    module: str
+    route: str
+    purpose: str = ""
+    requirement_references: list[str] = []
+    steps: list[TestStep] = []
 
 
 class ExecuteTestRequest(BaseModel):
     base_url: str
     scan: ScanResponse
     script: str
+    test_cases: list[TestCase] = []
+    allow_mutating_actions: bool = False
 
 
 class ExecutionResultRow(BaseModel):
@@ -198,6 +253,9 @@ class ExecutionResultRow(BaseModel):
     Status: str
     Failure_Info: str = ""
     Bug_Priority: str = ""
+    Step_ID: str = ""
+    Action: str = ""
+    Artifact_Path: str = ""
 
 
 class ExecutionSummary(BaseModel):
@@ -211,6 +269,28 @@ class ExecuteTestResponse(BaseModel):
     status: str = "success"
     rows: list[ExecutionResultRow]
     summary: ExecutionSummary
+    artifacts: dict[str, str] = {}
+
+
+class RegressionRunRequest(BaseModel):
+    execution_id: str
+    base_url: str
+
+    @field_validator("execution_id")
+    @classmethod
+    def validate_execution_id(cls, value: str) -> str:
+        value = value.strip()
+        if not re.fullmatch(r"execution_[0-9]{8}_[0-9]{6}(?:_[A-Za-z0-9_-]+)?", value):
+            raise ValueError("Invalid execution artifact ID")
+        return value
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_regression_base_url(cls, value: str) -> str:
+        value = value.strip().rstrip("/")
+        if not re.match(r"^https?://", value, re.IGNORECASE):
+            raise ValueError("base_url must start with http:// or https://")
+        return value
 
 
 class SystemInfoResponse(BaseModel):

@@ -17,7 +17,7 @@ from automation_framework.crawler.crawler_engine import CrawlerEngine
 from automation_framework.crawler.login_handler import login
 from automation_framework.crawler.navigation_expander import ensure_navigation_expanded
 from automation_framework.crawler.ui_wait_engine import wait_for_ui_stability
-from automation_framework.crawler.url_filter import is_valid_url
+from automation_framework.crawler.url_filter import install_document_scope_guard, is_valid_url
 from automation_framework.utils.browser_manager import start_persistent_browser
 from automation_framework.utils.logger import configure_run_logger, logger
 from automation_framework.utils.metadata_collector import generate_run_id
@@ -58,6 +58,15 @@ def run_scan(
     try:
         # ── Boot browser ────────────────────────────────────────────────
         playwright, browser, context, page = start_persistent_browser(STORAGE_STATE_PATH)
+        # Protect the initial navigation and any redirects during login too;
+        # the crawler engine is created only after this part of the flow.
+        install_document_scope_guard(
+            page,
+            url,
+            (lambda event_type, data: publish(
+                scan_id, {"type": event_type, "scan_id": scan_id, **data}
+            )) if scan_id else None,
+        )
 
         # ── Login (or direct nav) ───────────────────────────────────────
         if username and password:
