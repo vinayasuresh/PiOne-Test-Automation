@@ -3,6 +3,7 @@ from typing import Any
 
 from playwright.sync_api import Error as PlaywrightError, Locator, Page
 
+from automation_framework.engine.element_identity_registry import compute_element_identity
 from automation_framework.utils.logger import logger
 
 
@@ -259,11 +260,8 @@ _ELEMENT_DATA_SCRIPT = """
 
     function xpathFor(el) {
         if (el.id && !/\\d{4,}/.test(el.id)) {
-            const value = el.id;
-            const literal = !value.includes("'") ? `'${value}'`
-                : (!value.includes('"') ? `"${value}"`
-                    : `concat(${value.split("'").map(part => `'${part}'`).join(', "\'", ')})`);
-            return `//*[@id=${literal}]`;
+            const val = el.id.indexOf("'") === -1 ? ("'" + el.id + "'") : ('"' + el.id.replace(/"/g, '') + '"');
+            return "//*[@id=" + val + "]";
         }
         const parts = [];
         let current = el;
@@ -505,11 +503,15 @@ def build_ui_intelligence(
             element_xpath = target.get("element_xpath") or target["selector"]["primary"]["value"]
             role = target.get("element_role", "")
             element_index = target.get("element_index", 0)
-            target["element_identity"] = "|".join((
-                page.url, element_xpath, role, target["label"], str(element_index)
-            ))
+            target["element_identity"] = compute_element_identity(
+                page.url, element_xpath, role, target["label"], element_index
+            )
             target["id"] = target["element_identity"]
+            target["element_id"] = target["element_identity"]
+            target["route"] = page.url
             target["hierarchy_level"] = 2
+            target["hierarchy_path"] = f"{menu_name or feature_name} > {category}"
+            target["discovery_mechanism"] = "passive_dom"
             target["interaction_probability"] = 1.0 if target.get("is_clickable") else 0.0
             target["interaction_probability_method"] = "detected_clickability_signal"
 
@@ -559,16 +561,17 @@ def build_component_registry(
 
     for route, page_model in page_models.items():
         for target in page_model.get("automation_targets", []):
-            category = target["category"]
+            category = target.get("category", "actions")
+            label = target.get("label", "")
             registry.setdefault(category, []).append(
                 {
                     "route": route,
-                    "label": target["label"],
+                    "label": label,
                     "type": target.get("type", ""),
-                    "purpose": target["purpose"],
-                    "interaction_type": target["interaction_type"],
-                    "relevance": target["relevance"],
-                    "selector": target["selector"],
+                    "purpose": target.get("purpose", f"Interact with {label}"),
+                    "interaction_type": target.get("interaction_type", "click"),
+                    "relevance": target.get("relevance", "HIGH"),
+                    "selector": target.get("selector", {}),
                     "framework": target.get("framework", ""),
                     "framework_type": target.get("framework_type", ""),
                     "component_tag": target.get("component_tag", ""),

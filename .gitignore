@@ -5,7 +5,7 @@ __pycache__/
 node_modules/
 dist/
 build/
-automation_framework/reports/checkpoint_*.json
-automation_framework/reports/checkpoint_*.json.tmp
+automation_framework/reports/*
+!automation_framework/reports/.gitkeep
 automation_framework/logs/*.log
 scans/test_context/

@@ -20,6 +20,8 @@ def build_scan_response(
     duration: float,
     status: str = "success",
     message: str | None = None,
+    auth_session_id: str | None = None,
+    run_id: str | None = None,
 ) -> ScanResponse:
     """Convert ``CrawlerEngine.crawl()`` output into a ScanResponse.
 
@@ -50,10 +52,12 @@ def build_scan_response(
 
     return ScanResponse(
         status=status,
+        run_id=run_id,
         message=message,
         checkpoint_id=crawl_results.get("checkpoint_id"),
         replay_comparison=crawl_results.get("replay_comparison"),
         route_namespace=crawl_results.get("route_namespace"),
+        auth_session_id=auth_session_id,
         routes=routes,
         summary=ScanSummary(
             total_routes=len(routes),

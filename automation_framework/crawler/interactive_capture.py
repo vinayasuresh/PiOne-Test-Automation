@@ -178,6 +178,13 @@ _CAPTURE_SCRIPT = r"""
     pushEvent('select', target, true);
   }, true);
 
+  let summaryText = 'Automatic scan is complete for this module. Confirm to continue, or end the scan and save all results found so far.';
+  if (window.__reviewSummary && window.__reviewSummary.module_name) {
+    const elCount = window.__reviewSummary.element_count || 0;
+    const rCount = window.__reviewSummary.route_count || 1;
+    summaryText = `Module <b>${window.__reviewSummary.module_name}</b> complete: <b>${elCount}</b> elements discovered across <b>${rCount}</b> routes.`;
+  }
+
   const banner = document.createElement('div');
   banner.id = '__capture_banner';
   banner.style.cssText = [
@@ -189,7 +196,7 @@ _CAPTURE_SCRIPT = r"""
   banner.innerHTML = `
     <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.35;">
       <span style="width:8px;height:8px;background:#10b981;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.25);"></span>
-      Automatic scan is complete for this module. Confirm to continue, or end the scan and save all results found so far.
+      ${summaryText}
     </span>
     <button id="__capture_continue"
             style="background:#2563eb;color:#fff;border:none;border-radius:8px;
@@ -233,9 +240,11 @@ _EVENT_TO_COMPONENT = {
 }
 
 
-def inject_capture(page: Page) -> None:
+def inject_capture(page: Page, summary: dict[str, Any] | None = None) -> None:
     """Install the page overlay, highlighter, and event listeners."""
     try:
+        if summary:
+            page.evaluate("(s) => { window.__reviewSummary = s; }", summary)
         page.evaluate(_CAPTURE_SCRIPT)
         logger.info("Interactive capture: confirmation overlay injected")
     except Exception as exc:

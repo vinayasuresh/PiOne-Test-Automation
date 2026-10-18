@@ -3,927 +3,1212 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test Automation Platform</title>
+  <title>PiOne Testmate</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
     .hidden { display: none !important; }
-    .scan-btn { background: #2563eb; transition: all 0.18s ease; }
-    .scan-btn:hover:not(:disabled) { background: #1d4ed8; transform: translateY(-1px); }
-    .scan-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-    .step-btn { min-height: 42px; }
     .spinner {
-      width: 56px; height: 56px; border: 3px solid #e2e8f0;
-      border-top-color: #2563eb; border-radius: 999px; animation: spin 0.9s linear infinite;
+      width: 44px; height: 44px; border: 3px solid #e2e8f0;
+      border-top-color: #2563eb; border-radius: 9999px; animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .table-cell { padding: 0.65rem 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .table-cell { padding: 0.65rem 0.75rem; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+    .step-active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+    .step-done { border-color: #10b981; background: #ecfdf5; color: #047857; }
+    .step-disabled { border-color: #e2e8f0; background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
   </style>
 </head>
 
-<body class="bg-slate-50 min-h-screen text-slate-800">
-  <nav class="sticky top-0 z-30 bg-white/95 border-b border-slate-200 shadow-sm">
+<body class="bg-slate-50 min-h-screen text-slate-800 antialiased flex flex-col justify-between">
+  <!-- Top Navigation Bar -->
+  <nav class="sticky top-0 z-40 bg-slate-900 border-b border-slate-800 text-white shadow-md">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div>
-          <h1 class="text-lg font-bold text-slate-950">Test Automation Platform</h1>
-          <p class="text-xs text-slate-500">Scan -> Analyze -> Generate Test -> Execute Test -> Report -> Export</p>
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
+            <i class="fa-solid fa-microchip"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate</h1>
+              <span class="bg-blue-500/20 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-500/30">v2.0 Enterprise</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Deterministic UI Scanner &amp; Test Intelligence Platform</p>
+          </div>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button id="btn-newscan" class="hidden bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-2 rounded-lg">New Scan</button>
-          <button id="btn-backscan" class="hidden bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg">Back</button>
-          <button id="btn-continue" class="hidden bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg">Continue to Generate Test</button>
-          <button id="btn-execute" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg">Execute Test</button>
-          <button id="btn-viewresults" class="hidden bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-3 py-2 rounded-lg">View Results</button>
-          <button id="btn-export-json" class="hidden bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg">Download JSON</button>
-          <button id="btn-export-yaml" class="hidden bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg">Download YAML</button>
-          <button id="btn-export-excel" class="hidden bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg">Export Excel</button>
+
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded font-mono text-[11px]">Run: <span id="nav-run-id">--</span></span>
+          <span id="nav-session-badge" class="hidden bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-2 py-1 rounded font-semibold flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Auth Active
+          </span>
+          <button id="btn-top-refresh-session" class="hidden bg-amber-600 hover:bg-amber-700 text-white font-medium px-3 py-1.5 rounded transition">
+            <i class="fa-solid fa-key mr-1"></i> Refresh Session
+          </button>
+          <button id="btn-top-newscan" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium px-3 py-1.5 rounded transition">
+            <i class="fa-solid fa-rotate-left mr-1"></i> New Scan
+          </button>
         </div>
       </div>
-      <div id="stepper" class="grid grid-cols-2 md:grid-cols-5 gap-2"></div>
+
+      <!-- 7-Step Navigation Stepper -->
+      <div id="stepper" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 pt-1 border-t border-slate-800/80"></div>
     </div>
   </nav>
 
-  <header class="bg-slate-950 text-white">
-    <div class="max-w-7xl mx-auto px-4 py-8">
-      <p class="text-xs font-semibold text-blue-300 uppercase tracking-wide">End-to-end automation workflow</p>
-      <h2 class="text-3xl font-bold mt-2">Build and run tests from discovered application structure</h2>
-      <p class="text-slate-300 mt-2 max-w-3xl">
-        Start with a fresh scan, analyze routes and components, generate a test script, execute it through the backend, review the report, then export the results.
-      </p>
+  <!-- Global Session Expiry Alert Banner -->
+  <div id="session-expired-banner" class="hidden max-w-7xl mx-auto px-4 mt-4 w-full">
+    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="text-amber-600 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+          <h4 class="text-sm font-bold text-amber-900">Authentication Expired</h4>
+          <p class="text-xs text-amber-700 mt-0.5">Your browser session has expired. Refresh your credentials to continue the scan or execution without restarting.</p>
+        </div>
+      </div>
+      <button id="btn-banner-refresh-session" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded shadow-sm whitespace-nowrap transition">
+        <i class="fa-solid fa-key mr-1.5"></i> Refresh Session
+      </button>
     </div>
-  </header>
+  </div>
 
-  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
-    <section id="panel-input" class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 space-y-5">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-grow space-y-6">
+
+    <!-- STEP 1: Target & Authentication -->
+    <section id="panel-1" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h2 class="text-xl font-bold">Scan Application</h2>
-          <p class="text-sm text-slate-500 mt-1">Fresh loads always start here. Previous scan results are not restored.</p>
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">1</span>
+            <h2 class="text-lg font-bold text-slate-900">Target Application &amp; Authentication</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Specify target origin and credentials. The platform will authenticate and passively discover reachable modules.</p>
         </div>
-        <div class="inline-flex bg-slate-100 rounded-lg p-1 w-fit">
-          <button id="btn-demo" class="px-4 py-2 rounded-md text-sm font-semibold bg-white text-emerald-700 shadow-sm" type="button">Demo Mode</button>
-          <button id="btn-live" class="px-4 py-2 rounded-md text-sm font-semibold text-slate-600" type="button">Live Scan</button>
+        <div class="inline-flex bg-slate-100 rounded-lg p-1 w-fit border border-slate-200">
+          <button id="btn-mode-live" class="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm" type="button">Live Target</button>
+          <button id="btn-mode-demo" class="px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600" type="button">Mock Demo</button>
         </div>
       </div>
 
-      <div>
-        <label class="block text-sm font-semibold mb-1.5" for="url-input">Target Application URL</label>
-        <input id="url-input" type="url" value="https://demo.yourapp.com" placeholder="https://your-app.com"
-          class="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      <div class="grid grid-cols-1 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
+          <input id="url-input" type="url" value="https://www.saucedemo.com" placeholder="https://app.enterprise.com"
+            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+          <p class="text-[11px] text-slate-500 mt-1">SSRF protection enforced: private IPv4, loopback, AWS/cloud metadata, and localhost rejected in production.</p>
+        </div>
+
+        <div id="creds-block" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="username-input">Username</label>
+            <input id="username-input" type="text" value="standard_user" placeholder="standard_user" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="password-input">Password</label>
+            <input id="password-input" type="password" value="secret_sauce" placeholder="••••••••" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+          </div>
+        </div>
+
+        <div id="interactive-check-wrap" class="flex items-center gap-3 bg-blue-50/60 border border-blue-200 rounded-lg p-3">
+          <input id="interactive-input" type="checkbox" class="h-4 w-4 accent-blue-600 rounded" />
+          <label for="interactive-input" class="text-xs text-slate-700 cursor-pointer">
+            <span class="font-bold text-blue-900">Interactive Learning Checkpoints</span> — Pause after scanning each module for human action confirmation and review.
+          </label>
+        </div>
       </div>
 
-      <div id="credentials-block" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-semibold mb-1.5" for="username-input">Username</label>
-          <input id="username-input" type="text" class="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm" />
-        </div>
-        <div>
-          <label class="block text-sm font-semibold mb-1.5" for="password-input">Password</label>
-          <input id="password-input" type="password" class="w-full px-4 py-3 border border-slate-300 rounded-lg text-sm" />
-        </div>
-        <p id="creds-warning" class="hidden md:col-span-2 text-sm text-red-600 font-semibold">Credentials are required for live scans.</p>
-      </div>
-
-      <label id="interactive-block" class="hidden items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 cursor-pointer">
-        <input id="interactive-input" type="checkbox" class="mt-1 h-4 w-4 accent-blue-600" />
-        <span>
-          <span class="block text-sm font-semibold">Interactive Learning Mode</span>
-          <span class="block text-xs text-slate-600 mt-1">Pause during live route exploration so manual interactions can be captured.</span>
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <span id="auth-status-indicator" class="text-xs text-slate-500 flex items-center gap-2">
+          <i class="fa-solid fa-circle text-[8px] text-slate-400"></i> Not authenticated yet
         </span>
-      </label>
-
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <p id="mode-hint" class="text-sm text-emerald-700">Demo mode returns instant testable scan data.</p>
-        <button id="scan-btn" class="scan-btn text-white font-semibold px-7 py-3 rounded-lg text-sm" type="button">
-          <span id="btn-label">Start Scan</span>
+        <button id="btn-discover" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-compass"></i> Discover Modules
         </button>
       </div>
     </section>
 
-    <section id="panel-loading" class="hidden bg-white rounded-lg shadow-sm border border-slate-200 p-10 text-center">
-      <div class="flex justify-center mb-5"><div class="spinner"></div></div>
-      <h2 class="text-xl font-bold">Running Scan</h2>
-      <p id="loading-msg" class="text-sm text-slate-500 mt-2">Initializing scan engine...</p>
-      <button id="btn-cancel-scan" class="mt-6 text-sm font-semibold text-slate-600 underline" type="button">Cancel</button>
-    </section>
-
-    <section id="panel-error" class="hidden bg-red-50 rounded-lg border border-red-200 p-5">
-      <h2 id="error-title" class="font-bold text-red-800">Scan Failed</h2>
-      <p id="error-msg" class="text-sm text-red-700 mt-1">Something went wrong.</p>
-      <div class="flex gap-3 mt-4">
-        <button id="btn-try-again" class="text-sm font-semibold text-red-800 underline" type="button">Try Again</button>
-        <button id="demo-retry-btn" class="hidden text-sm font-semibold text-emerald-700 underline" type="button">Switch to Demo Mode</button>
-      </div>
-    </section>
-
-    <section id="panel-results" class="hidden space-y-5">
-      <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          <div>
-            <h2 class="text-xl font-bold">Analyze Routes</h2>
-            <p id="result-url" class="text-sm text-slate-500 font-mono mt-1"></p>
+    <!-- STEP 2: Module Selection -->
+    <section id="panel-2" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</span>
+            <h2 class="text-lg font-bold text-slate-900">Select Modules to Scan</h2>
           </div>
-          <div class="flex gap-2 flex-wrap">
-            <button class="js-json bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg" type="button">Download JSON</button>
-            <button class="js-yaml bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg" type="button">Download YAML</button>
-          </div>
+          <p class="text-xs text-slate-500 mt-1">Select target modules from the authenticated session. The crawler will deterministically scan only the selected boundary.</p>
         </div>
-        <div id="status-banner" class="hidden mt-4 rounded-lg px-4 py-3 text-sm"></div>
-        <div id="metric-cards" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5"></div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="font-semibold">Routes</h3>
-            <span id="route-badge" class="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1 rounded-full"></span>
-          </div>
-          <div id="routes-list" class="p-4 space-y-2 max-h-96 overflow-y-auto"></div>
-        </div>
-
-        <div class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-          <div class="px-5 py-4 border-b border-slate-100">
-            <h3 class="font-semibold">Components</h3>
-          </div>
-          <div id="components-summary" class="p-4 space-y-3 max-h-96 overflow-y-auto"></div>
+        <div class="flex items-center gap-2">
+          <label class="inline-flex items-center gap-2 text-xs font-semibold cursor-pointer bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+            <input id="modules-select-all" type="checkbox" class="h-4 w-4 accent-blue-600" /> Select All
+          </label>
+          <span id="module-count-badge" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg">0 modules</span>
         </div>
       </div>
 
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
-        <h3 class="font-semibold">Summary</h3>
-        <p id="scan-summary-text" class="text-sm text-slate-600 mt-2"></p>
-      </div>
+      <div id="module-options-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1"></div>
 
-      <div class="flex justify-between gap-3">
-        <button class="js-back bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg" type="button">Back to Scan</button>
-        <button class="js-continue bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">Continue to Generate Test</button>
+      <p id="module-selection-warning" class="hidden text-xs text-red-600 font-bold bg-red-50 p-2 rounded border border-red-200">
+        <i class="fa-solid fa-circle-exclamation mr-1"></i> Please select at least one module to begin scanning.
+      </p>
+
+      <div class="flex justify-between items-center gap-3 pt-2">
+        <button id="btn-modules-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline" type="button">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Target
+        </button>
+        <button id="btn-start-scan" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-play"></i> Start Deep Scan
+        </button>
       </div>
     </section>
 
-    <section id="panel-generate" class="hidden bg-white rounded-lg shadow-sm border border-slate-200 p-6 space-y-5">
+    <!-- STEP 3: Scan Progress & Live Stream -->
+    <section id="panel-3" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">3</span>
+          <h2 class="text-lg font-bold text-slate-900">Deterministic Scanning</h2>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="live-dom-status" class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> DOM Stable
+          </span>
+          <span id="live-element-counter" class="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold px-2.5 py-1 rounded">0 elements</span>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-center justify-between text-xs">
+          <span id="scan-current-action" class="font-medium text-slate-700">Initializing scanner...</span>
+          <span id="scan-duration" class="font-mono text-slate-400">00:00</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+          <div id="scan-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 w-1/12 animate-pulse"></div>
+        </div>
+      </div>
+
+      <!-- Real-time event log box -->
       <div>
-        <h2 class="text-xl font-bold">Generate Test</h2>
-        <p class="text-sm text-slate-500 mt-1">Combine the current UI scan with optional requirements, testcase artifacts, and a short scenario prompt.</p>
-      </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div class="space-y-4">
-          <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
-            <p class="text-xs font-semibold text-slate-500 uppercase">Input Context</p>
-            <p class="text-sm mt-2"><span class="font-semibold">Routes:</span> <span id="llm-routes-context" class="font-mono text-xs"></span></p>
-            <p class="text-sm mt-2"><span class="font-semibold">Components:</span> <span id="llm-components-context" class="font-mono text-xs"></span></p>
-          </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1.5" for="llm-user-prompt">Scenario Prompt</label>
-            <textarea id="llm-user-prompt" rows="3" placeholder="Example: create negative login and invalid-permission scenarios for the Users module." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"></textarea>
-            <p class="text-xs text-slate-500 mt-1">For low-effort scenarios, this prompt alone is enough. It is sent only to the selected planning provider.</p>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-semibold mb-1.5" for="requirements-file">Requirements file</label>
-              <input id="requirements-file" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv" class="w-full text-sm" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1.5" for="testcases-file">Existing testcase file</label>
-              <input id="testcases-file" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv" class="w-full text-sm" />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-semibold mb-1.5" for="llm-provider">Planning provider</label>
-              <select id="llm-provider" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
-                <option value="deterministic">Built-in deterministic planner</option>
-                <option value="ollama">Ollama (local)</option>
-                <option value="huggingface">Hugging Face Inference Providers</option>
-                <option value="openai_compatible">OpenAI-compatible API</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-semibold mb-1.5" for="llm-model">Model override (optional)</label>
-              <input id="llm-model" type="text" placeholder="e.g. llama3.2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-            </div>
-          </div>
-          <div>
-            <label class="block text-sm font-semibold mb-1.5" for="llm-feature-focus">Feature Focus</label>
-            <input id="llm-feature-focus" type="text" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
-          </div>
-          <button id="btn-generate-test" class="scan-btn text-white font-semibold px-5 py-2.5 rounded-lg text-sm" type="button">Generate Test</button>
-        </div>
-        <div>
-          <h3 class="font-semibold mb-2">Generated Test Script</h3>
-          <pre id="generated-script" class="bg-slate-950 text-slate-100 border border-slate-800 rounded-lg p-4 text-xs overflow-x-auto min-h-72 whitespace-pre-wrap"></pre>
-          <p id="execution-command" class="text-xs text-slate-500 mt-2 font-mono"></p>
-          <div id="planning-notes-wrap" class="hidden mt-4">
-            <h3 class="font-semibold mb-2">AI Planning Notes</h3>
-            <pre id="planning-notes" class="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs overflow-x-auto whitespace-pre-wrap"></pre>
-          </div>
+        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Scanner Telemetry Stream</label>
+        <div id="scan-event-log" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-[11px] h-48 overflow-y-auto space-y-1">
+          <p class="text-slate-500">[SYSTEM] Awaiting crawler engine telemetry...</p>
         </div>
       </div>
-      <div class="flex justify-between gap-3">
-        <button class="js-back bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg" type="button">Back to Analyze</button>
-        <button class="js-execute bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">Execute Test</button>
+
+      <div class="flex justify-between items-center pt-2">
+        <button id="btn-cancel-scan" class="text-xs font-semibold text-rose-600 hover:text-rose-800 underline">
+          <i class="fa-solid fa-xmark mr-1"></i> Abort Scan
+        </button>
+        <button id="btn-pause-scan" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg border border-slate-300">
+          <i class="fa-solid fa-pause mr-1"></i> Pause Scan
+        </button>
       </div>
     </section>
 
-    <section id="panel-execute" class="hidden bg-white rounded-lg shadow-sm border border-slate-200 p-6 space-y-5">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <h2 class="text-xl font-bold">Execute Test</h2>
-          <p id="execution-status" class="text-sm text-slate-500 mt-1">Controlled execution verifies navigation and discovered controls. State-changing actions remain disabled.</p>
+    <!-- STEP 4: Learning Checkpoint (Interactive Review) -->
+    <section id="panel-4" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">4</span>
+          <h2 class="text-lg font-bold text-slate-900">Manual Learning Checkpoint</h2>
         </div>
-        <button class="js-execute bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">Execute Test</button>
+        <p class="text-xs text-slate-500 mt-1">Review captured automation targets, classified actions, and parking-lot candidates for the current route.</p>
       </div>
-      <div class="overflow-x-auto border border-slate-200 rounded-lg">
+
+      <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span class="text-[11px] font-bold text-blue-700 uppercase">Current Scanned Route</span>
+            <p id="checkpoint-route" class="font-mono text-sm font-bold text-slate-900">/inventory.html</p>
+          </div>
+          <span id="checkpoint-module-badge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded">Inventory Module</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="border border-slate-200 rounded-lg overflow-hidden">
+          <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
+            <span>Discovered Targets</span>
+            <span id="checkpoint-target-count" class="text-[11px] font-normal text-slate-500">0 targets</span>
+          </div>
+          <div id="checkpoint-targets-list" class="p-3 divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs space-y-2"></div>
+        </div>
+
+        <div class="border border-slate-200 rounded-lg overflow-hidden">
+          <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
+            <span>Parking Lot Actions (Manual Review)</span>
+            <span id="checkpoint-parking-count" class="text-[11px] font-normal text-slate-500">0 actions</span>
+          </div>
+          <div id="checkpoint-parking-list" class="p-3 divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs space-y-2"></div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+        <button id="btn-end-save-scan" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition">
+          <i class="fa-solid fa-floppy-disk mr-1.5"></i> End Scan &amp; Save
+        </button>
+        <button id="btn-confirm-continue" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition">
+          <i class="fa-solid fa-check mr-1.5"></i> Confirm &amp; Continue
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 5: Test Planning & Intelligence -->
+    <section id="panel-5" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">5</span>
+          <h2 class="text-lg font-bold text-slate-900">Requirement-Aware Test Planning</h2>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Generate deterministic test plans or consult AI models to match discovered UI controls against requirements.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-1 space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Planning Provider</label>
+            <select id="llm-provider-select" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium bg-white">
+              <option value="deterministic">Deterministic Engine (Local Rules)</option>
+              <option value="gemini">Google Gemini Developer API</option>
+              <option value="ollama">Ollama (Local LLM)</option>
+              <option value="openai_compatible">OpenAI-compatible Endpoint</option>
+              <option value="huggingface">Hugging Face Inference</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">Model Override</label>
+              <button id="btn-test-provider" type="button" class="text-[11px] font-semibold text-blue-600 hover:underline">Test Connection</button>
+            </div>
+            <input id="llm-model-input" type="text" placeholder="e.g. gemini-2.5-flash or llama3.2" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" />
+            <p id="provider-conn-badge" class="text-[11px] mt-1 hidden"></p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Scenario Prompt</label>
+            <textarea id="planning-prompt" rows="3" placeholder="Focus on inventory items and shopping cart checkout flows..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requirements Artifact (Optional)</label>
+            <input id="upload-requirements" type="file" accept=".txt,.md,.json,.yaml,.csv" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
+          </div>
+
+          <button id="btn-generate-plan" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2.5 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan
+          </button>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Derived Test Cases</h3>
+              <span id="plan-case-count" class="text-xs font-bold text-blue-600">0 test cases</span>
+            </div>
+            <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-100 text-slate-700">
+                  <tr>
+                    <th class="table-cell text-left">TC ID</th>
+                    <th class="table-cell text-left">Title</th>
+                    <th class="table-cell text-left">Module</th>
+                    <th class="table-cell text-left">Steps</th>
+                  </tr>
+                </thead>
+                <tbody id="plan-cases-body">
+                  <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">No test cases generated yet. Click "Generate Test Plan".</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Executable Pytest Script</h3>
+            <pre id="plan-script-code" class="bg-slate-950 text-slate-100 rounded-lg p-3.5 font-mono text-[11px] overflow-x-auto max-h-48 whitespace-pre-wrap"># Script will appear here once generated...</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+        <button id="btn-plan-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Scan
+        </button>
+        <button id="btn-plan-proceed" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
+          Proceed to Execution <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 6: Controlled Execution -->
+    <section id="panel-6" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">6</span>
+            <h2 class="text-lg font-bold text-slate-900">Controlled Execution &amp; Evidence</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Playwright executes each plan step deterministically with locator recording, per-step screenshots, and error captures.</p>
+        </div>
+        <button id="btn-run-execution" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-play"></i> Run Test Execution
+        </button>
+      </div>
+
+      <!-- Execution Results Table -->
+      <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
         <table class="min-w-full text-xs">
-          <thead class="bg-slate-100 text-slate-700">
+          <thead class="bg-slate-100 text-slate-700 font-semibold">
             <tr>
-              <th class="table-cell text-left">TC_ID</th>
-              <th class="table-cell text-left">Screen</th>
-              <th class="table-cell text-left">Module</th>
-              <th class="table-cell text-left">Feature</th>
-              <th class="table-cell text-left">Test Case</th>
+              <th class="table-cell text-left">TC ID</th>
+              <th class="table-cell text-left">Step</th>
+              <th class="table-cell text-left">Action</th>
+              <th class="table-cell text-left">Locator Used</th>
               <th class="table-cell text-left">Expected Result</th>
               <th class="table-cell text-left">Actual Result</th>
-              <th class="table-cell text-left">Status</th>
-              <th class="table-cell text-left">Failure Info</th>
-              <th class="table-cell text-left">Bug Priority</th>
+              <th class="table-cell text-center">Status</th>
+              <th class="table-cell text-center">Evidence</th>
+              <th class="table-cell text-center">Actions</th>
             </tr>
           </thead>
-          <tbody id="exec-results-body"></tbody>
+          <tbody id="exec-table-body">
+            <tr><td colspan="9" class="table-cell text-center text-slate-400 py-8">Ready to execute. Click "Run Test Execution" above.</td></tr>
+          </tbody>
         </table>
       </div>
-      <div id="execution-artifacts" class="hidden rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700"></div>
-      <div class="flex justify-between gap-3">
-        <button class="js-back bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg" type="button">Back to Generate</button>
-        <button class="js-view-report bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">View Results</button>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+        <button id="btn-exec-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Plan
+        </button>
+        <button id="btn-exec-proceed" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
+          View Audit Report <i class="fa-solid fa-arrow-right"></i>
+        </button>
       </div>
     </section>
 
-    <section id="panel-report" class="hidden space-y-5">
-      <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+    <!-- STEP 7: Audit Report & Regression -->
+    <section id="panel-7" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">7</span>
+            <h2 class="text-lg font-bold text-slate-900">Audit-Ready Report &amp; Regression Run</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Executive summaries, downloadable artifact packages, and regression baseline replay.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button id="btn-dl-json" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-file-code text-blue-600 mr-1"></i> JSON
+          </button>
+          <button id="btn-dl-yaml" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-file-lines text-purple-600 mr-1"></i> YAML
+          </button>
+          <button id="btn-dl-excel" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-file-excel mr-1"></i> Excel (10 Sheets)
+          </button>
+          <button id="btn-dl-markdown" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-brands fa-markdown text-slate-800 mr-1"></i> Summary
+          </button>
+        </div>
+      </div>
+
+      <!-- Executive Metric Cards -->
+      <div id="report-metric-cards" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <!-- Regression Replay Section -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h2 class="text-xl font-bold">View Report</h2>
-            <p class="text-sm text-slate-500 mt-1">Final automation report for the current scan and execution.</p>
+            <h3 class="text-sm font-bold text-slate-900">Regression Baseline &amp; Diff Comparison</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application and compare added/removed elements and status drifts.</p>
           </div>
-          <div class="flex gap-2 flex-wrap">
-            <button class="js-json bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg" type="button">Download JSON</button>
-            <button class="js-yaml bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg" type="button">Download YAML</button>
-            <button class="js-excel bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg" type="button">Export Excel</button>
+          <button id="btn-run-regression" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay
+          </button>
+        </div>
+
+        <div id="regression-diff-container" class="hidden bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div class="p-2.5 bg-slate-50 rounded border border-slate-100">
+              <span class="text-[10px] text-slate-400 font-bold uppercase">Baseline Steps</span>
+              <p id="reg-prev-total" class="text-lg font-bold text-slate-700">0</p>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded border border-slate-100">
+              <span class="text-[10px] text-slate-400 font-bold uppercase">Current Steps</span>
+              <p id="reg-curr-total" class="text-lg font-bold text-slate-700">0</p>
+            </div>
+            <div class="p-2.5 bg-emerald-50 rounded border border-emerald-100">
+              <span class="text-[10px] text-emerald-600 font-bold uppercase">Newly Passing</span>
+              <p id="reg-newly-passing" class="text-lg font-bold text-emerald-700">0</p>
+            </div>
+            <div class="p-2.5 bg-rose-50 rounded border border-rose-100">
+              <span class="text-[10px] text-rose-600 font-bold uppercase">Newly Failing</span>
+              <p id="reg-newly-failing" class="text-lg font-bold text-rose-700">0</p>
+            </div>
           </div>
+          <div id="reg-status-changes" class="text-xs space-y-1"></div>
         </div>
-        <div id="report-summary" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5"></div>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h3 class="font-semibold">System & App Insights</h3>
-        <div id="system-insights" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4"></div>
-      </div>
-
-      <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h3 class="font-semibold mb-3">Execution Results</h3>
-        <div class="overflow-x-auto border border-slate-200 rounded-lg">
-          <table class="min-w-full text-xs">
-            <thead class="bg-slate-100 text-slate-700">
-              <tr>
-                <th class="table-cell text-left">TC_ID</th>
-                <th class="table-cell text-left">Screen</th>
-                <th class="table-cell text-left">Module</th>
-                <th class="table-cell text-left">Feature</th>
-                <th class="table-cell text-left">Test Case</th>
-                <th class="table-cell text-left">Expected Result</th>
-                <th class="table-cell text-left">Actual Result</th>
-                <th class="table-cell text-left">Status</th>
-                <th class="table-cell text-left">Failure Info</th>
-                <th class="table-cell text-left">Bug Priority</th>
-              </tr>
-            </thead>
-            <tbody id="report-results-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="flex justify-between gap-3">
-        <button class="js-back bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg" type="button">Back to Execute</button>
-        <button id="btn-report-newscan" class="bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-lg" type="button">New Scan</button>
       </div>
     </section>
+
   </main>
 
-  <footer class="text-center py-8 text-xs text-slate-400">Playwright + FastAPI automation workflow</footer>
+  <!-- Screenshot Modal Dialog -->
+  <div id="screenshot-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <h3 id="modal-title" class="text-sm font-bold text-slate-800 font-mono">Step Screenshot</h3>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <div class="p-4 overflow-auto flex-grow bg-slate-100 flex items-center justify-center">
+        <img id="modal-img" src="" alt="Step Screenshot" class="max-w-full max-h-[75vh] object-contain rounded border border-slate-300 shadow" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Refresh Session Dialog Modal -->
+  <div id="refresh-session-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-key text-amber-600"></i>
+          <h3 class="text-sm font-bold text-slate-900">Refresh Authentication Session</h3>
+        </div>
+        <button id="btn-close-refresh-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500">Enter credentials to re-authenticate against the target origin. Your existing scan boundary and run ID will be preserved.</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Username</label>
+          <input id="refresh-username" type="text" value="standard_user" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Password</label>
+          <input id="refresh-password" type="password" value="secret_sauce" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="btn-cancel-refresh" class="text-xs font-semibold px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+        <button id="btn-submit-refresh" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Refresh &amp; Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+    PiOne Testmate &bull; Deterministic Scanner &bull; Playwright Core &bull; v2.0
+  </footer>
 
   <script>
     const API_BASE = window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin;
-    const STORAGE_KEY = "ui_scanner_last_result";
-    const PANELS = ["panel-input", "panel-loading", "panel-error", "panel-results", "panel-generate", "panel-execute", "panel-report"];
+    const STORAGE_KEY = "cat_sentinel_active_run";
+
     const STEPS = [
-      "Scan Application",
-      "Analyze Routes",
-      "Generate Test",
-      "Execute Test",
-      "View Report"
-    ];
-    const RESULT_COLUMNS = ["TC_ID", "Screen", "Module", "Feature", "Test_Case", "Expected_Result", "Actual_Result", "Status", "Failure_Info", "Bug_Priority"];
-    const METRICS = [
-      ["total_routes", "Routes"],
-      ["total_buttons", "Buttons"],
-      ["total_inputs", "Inputs"],
-      ["total_tables", "Tables"]
+      { id: 1, title: "Target & Auth", icon: "fa-shield-halved" },
+      { id: 2, title: "Module Selection", icon: "fa-list-check" },
+      { id: 3, title: "Scan Progress", icon: "fa-network-wired" },
+      { id: 4, title: "Checkpoint Review", icon: "fa-clipboard-check" },
+      { id: 5, title: "Test Planning", icon: "fa-wand-magic-sparkles" },
+      { id: 6, title: "Execution", icon: "fa-play" },
+      { id: 7, title: "Report & Regression", icon: "fa-chart-pie" }
     ];
 
-    let state = initialState();
-    let isMockMode = true;
-    let scanToken = 0;
-    let messageTimer = null;
-
-    function initialState() {
-      return {
-        step: 1,
-        completedStep: 1,
-        scanResult: null,
-        scanUrl: "",
-        generatedScript: "",
-        executionCommand: "",
-        planningNotes: "",
-        contextId: "",
-        testCases: [],
-        executionResult: null,
-        systemInfo: null
-      };
-    }
+    let state = {
+      currentStep: 1,
+      maxUnlockedStep: 1,
+      runId: "",
+      targetUrl: "https://www.saucedemo.com",
+      authSessionId: "",
+      isLive: true,
+      modules: [],
+      selectedModuleIds: [],
+      scanData: null,
+      generatedPlan: null,
+      executionResults: null,
+      regressionResults: null
+    };
 
     document.addEventListener("DOMContentLoaded", () => {
-      clearStorage();
-      bindEvents();
-      setMode(true);
-      resetWorkflow(true);
-      fetchSystemInfo();
+      // Safe storage check - NEVER call localStorage.clear()
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.runId) {
+            state.runId = parsed.runId;
+            state.targetUrl = parsed.targetUrl || state.targetUrl;
+            document.getElementById("url-input").value = state.targetUrl;
+          }
+        }
+      } catch (_) {}
+
+      renderStepper();
+      bindAllEvents();
+      switchStep(1);
     });
 
-    function bindEvents() {
-      document.getElementById("btn-demo").addEventListener("click", () => setMode(true));
-      document.getElementById("btn-live").addEventListener("click", () => setMode(false));
-      document.getElementById("scan-btn").addEventListener("click", startScan);
-      document.getElementById("btn-cancel-scan").addEventListener("click", resetWorkflow);
-      document.getElementById("btn-try-again").addEventListener("click", resetWorkflow);
-      document.getElementById("demo-retry-btn").addEventListener("click", () => { setMode(true); showPanel("panel-input"); });
-      document.getElementById("btn-newscan").addEventListener("click", resetWorkflow);
-      document.getElementById("btn-report-newscan").addEventListener("click", resetWorkflow);
-      document.getElementById("btn-backscan").addEventListener("click", goBack);
-      document.getElementById("btn-continue").addEventListener("click", goToGenerate);
-      document.getElementById("btn-execute").addEventListener("click", executeTest);
-      document.getElementById("btn-viewresults").addEventListener("click", goToReport);
-      document.getElementById("btn-export-json").addEventListener("click", () => downloadScan("json"));
-      document.getElementById("btn-export-yaml").addEventListener("click", () => downloadScan("yaml"));
-      document.getElementById("btn-export-excel").addEventListener("click", downloadExcel);
-      document.getElementById("btn-generate-test").addEventListener("click", generateTest);
-      document.querySelectorAll(".js-back").forEach(btn => btn.addEventListener("click", goBack));
-      document.querySelectorAll(".js-continue").forEach(btn => btn.addEventListener("click", goToGenerate));
-      document.querySelectorAll(".js-execute").forEach(btn => btn.addEventListener("click", executeTest));
-      document.querySelectorAll(".js-view-report").forEach(btn => btn.addEventListener("click", goToReport));
-      document.querySelectorAll(".js-json").forEach(btn => btn.addEventListener("click", () => downloadScan("json")));
-      document.querySelectorAll(".js-yaml").forEach(btn => btn.addEventListener("click", () => downloadScan("yaml")));
-      document.querySelectorAll(".js-excel").forEach(btn => btn.addEventListener("click", downloadExcel));
-    }
+    function renderStepper() {
+      const container = document.getElementById("stepper");
+      container.innerHTML = "";
+      STEPS.forEach(s => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        const isActive = state.currentStep === s.id;
+        const isDone = state.maxUnlockedStep > s.id;
+        const isEnabled = s.id <= state.maxUnlockedStep;
 
-    function setMode(mock) {
-      isMockMode = mock;
-      const demo = document.getElementById("btn-demo");
-      const live = document.getElementById("btn-live");
-      const creds = document.getElementById("credentials-block");
-      const interactive = document.getElementById("interactive-block");
-      const hint = document.getElementById("mode-hint");
-      demo.className = mock
-        ? "px-4 py-2 rounded-md text-sm font-semibold bg-white text-emerald-700 shadow-sm"
-        : "px-4 py-2 rounded-md text-sm font-semibold text-slate-600";
-      live.className = mock
-        ? "px-4 py-2 rounded-md text-sm font-semibold text-slate-600"
-        : "px-4 py-2 rounded-md text-sm font-semibold bg-white text-amber-700 shadow-sm";
-      creds.classList.toggle("hidden", mock);
-      interactive.classList.toggle("hidden", mock);
-      interactive.classList.toggle("flex", !mock);
-      hint.textContent = mock
-        ? "Demo mode returns instant testable scan data."
-        : "Live scan launches a real browser and may take several minutes.";
-      hint.className = mock ? "text-sm text-emerald-700" : "text-sm text-amber-700";
-      if (mock) {
-        document.getElementById("interactive-input").checked = false;
-      }
-    }
-
-    function resetWorkflow(keepUrl) {
-      scanToken += 1;
-      stopMessages();
-      state = initialState();
-      clearStorage();
-      clearRenderedData();
-      document.getElementById("scan-btn").disabled = false;
-      document.getElementById("btn-label").textContent = "Start Scan";
-      document.getElementById("creds-warning").classList.add("hidden");
-      document.getElementById("demo-retry-btn").classList.add("hidden");
-      document.getElementById("username-input").value = "";
-      document.getElementById("password-input").value = "";
-      if (!keepUrl) document.getElementById("url-input").value = "https://demo.yourapp.com";
-      showPanel("panel-input");
-      renderStepper();
-      updateTopBar();
-    }
-
-    function clearStorage() {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.clear();
-      } catch (_) {}
-    }
-
-    function clearRenderedData() {
-      [
-        "metric-cards", "routes-list", "components-summary", "scan-summary-text",
-        "generated-script", "execution-command", "planning-notes", "exec-results-body",
-        "report-results-body", "report-summary", "system-insights"
-      ].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = "";
+        btn.className = `p-2 rounded-lg border text-left text-xs transition flex flex-col justify-between ${
+          isActive ? "step-active border-blue-500 font-bold" :
+          isDone ? "step-done border-emerald-500 font-semibold" :
+          isEnabled ? "bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500" :
+          "step-disabled"
+        }`;
+        btn.innerHTML = `
+          <div class="flex items-center justify-between text-[10px] uppercase opacity-75">
+            <span>Step ${s.id}</span>
+            <i class="fa-solid ${s.icon}"></i>
+          </div>
+          <span class="truncate mt-1">${s.title}</span>
+        `;
+        btn.disabled = !isEnabled;
+        btn.onclick = () => switchStep(s.id);
+        container.appendChild(btn);
       });
-      document.getElementById("result-url").textContent = "";
-      document.getElementById("llm-routes-context").textContent = "";
-      document.getElementById("llm-components-context").textContent = "";
-      document.getElementById("execution-artifacts").classList.add("hidden");
-      document.getElementById("execution-artifacts").textContent = "";
-      hideStatusBanner();
     }
 
-    function showPanel(panelId) {
-      PANELS.forEach(id => document.getElementById(id).classList.add("hidden"));
-      document.getElementById(panelId).classList.remove("hidden");
-      updateTopBar();
+    function switchStep(stepId) {
+      if (stepId > state.maxUnlockedStep) return;
+      state.currentStep = stepId;
+      for (let i = 1; i <= 7; i++) {
+        const el = document.getElementById(`panel-${i}`);
+        if (el) el.classList.toggle("hidden", i !== stepId);
+      }
       renderStepper();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
-    function renderStepper() {
-      const host = document.getElementById("stepper");
-      host.innerHTML = "";
-      STEPS.forEach((label, index) => {
-        const step = index + 1;
-        const active = state.step === step;
-        const done = state.completedStep > step;
-        const enabled = canNavigate(step);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.disabled = !enabled;
-        btn.className = [
-          "step-btn rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
-          active ? "border-blue-600 bg-blue-50 text-blue-800" : "",
-          !active && done ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "",
-          !active && !done ? "border-slate-200 bg-white text-slate-500" : "",
-          enabled ? "hover:border-blue-300" : "opacity-60 cursor-not-allowed"
-        ].join(" ");
-        btn.innerHTML = `<span class="block text-[10px] uppercase tracking-wide">Step ${step}</span><span>${escapeHtml(label)}</span>`;
-        btn.addEventListener("click", () => navigateTo(step));
-        host.appendChild(btn);
-      });
+    function unlockStep(stepId) {
+      state.maxUnlockedStep = Math.max(state.maxUnlockedStep, stepId);
+      renderStepper();
     }
 
-    function canNavigate(step) {
-      if (step === 1) return true;
-      if (step === 2) return !!state.scanResult;
-      if (step === 3) return !!state.scanResult;
-      if (step === 4) return !!state.generatedScript;
-      if (step === 5) return !!state.executionResult;
-      return false;
+    function bindAllEvents() {
+      // Step 1
+      document.getElementById("btn-mode-live").onclick = () => setMode(true);
+      document.getElementById("btn-mode-demo").onclick = () => setMode(false);
+      document.getElementById("btn-discover").onclick = handleDiscoverModules;
+
+      // Step 2
+      document.getElementById("modules-select-all").onchange = (e) => {
+        document.querySelectorAll("input[name='mod-check']").forEach(cb => cb.checked = e.target.checked);
+      };
+      document.getElementById("btn-modules-back").onclick = () => switchStep(1);
+      document.getElementById("btn-start-scan").onclick = handleStartScan;
+
+      // Step 3
+      document.getElementById("btn-cancel-scan").onclick = () => switchStep(2);
+
+      // Step 4
+      document.getElementById("btn-confirm-continue").onclick = () => {
+        unlockStep(5);
+        switchStep(5);
+      };
+      document.getElementById("btn-end-save-scan").onclick = () => {
+        unlockStep(5);
+        switchStep(5);
+      };
+
+      // Step 5
+      document.getElementById("btn-test-provider").onclick = handleTestProvider;
+      document.getElementById("btn-generate-plan").onclick = handleGeneratePlan;
+      document.getElementById("btn-plan-back").onclick = () => switchStep(4);
+      document.getElementById("btn-plan-proceed").onclick = () => {
+        unlockStep(6);
+        switchStep(6);
+      };
+
+      // Step 6
+      document.getElementById("btn-run-execution").onclick = handleRunExecution;
+      document.getElementById("btn-exec-back").onclick = () => switchStep(5);
+      document.getElementById("btn-exec-proceed").onclick = () => {
+        unlockStep(7);
+        renderReportView();
+        switchStep(7);
+      };
+
+      // Step 7
+      document.getElementById("btn-run-regression").onclick = handleRunRegression;
+      document.getElementById("btn-dl-json").onclick = () => downloadFile("json");
+      document.getElementById("btn-dl-yaml").onclick = () => downloadFile("yaml");
+      document.getElementById("btn-dl-excel").onclick = downloadExcel;
+      document.getElementById("btn-dl-markdown").onclick = () => downloadFile("markdown");
+
+      // Modals
+      document.getElementById("btn-close-modal").onclick = () => document.getElementById("screenshot-modal").classList.add("hidden");
+      document.getElementById("btn-banner-refresh-session").onclick = openRefreshModal;
+      document.getElementById("btn-top-refresh-session").onclick = openRefreshModal;
+      document.getElementById("btn-close-refresh-modal").onclick = closeRefreshModal;
+      document.getElementById("btn-cancel-refresh").onclick = closeRefreshModal;
+      document.getElementById("btn-submit-refresh").onclick = handleRefreshSessionSubmit;
+
+      document.getElementById("btn-top-newscan").onclick = resetRun;
     }
 
-    function navigateTo(step) {
-      if (!canNavigate(step)) return;
-      state.step = step;
-      if (step === 1) showPanel("panel-input");
-      if (step === 2) { renderAnalyze(); showPanel("panel-results"); }
-      if (step === 3) { prepareGenerate(); showPanel("panel-generate"); }
-      if (step === 4) { renderExecution(); showPanel("panel-execute"); }
-      if (step === 5) { renderReport(); showPanel("panel-report"); }
+    function setMode(isLive) {
+      state.isLive = isLive;
+      document.getElementById("btn-mode-live").className = isLive ?
+        "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm" :
+        "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
+      document.getElementById("btn-mode-demo").className = !isLive ?
+        "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-700 shadow-sm" :
+        "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
+      document.getElementById("creds-block").classList.toggle("hidden", !isLive);
     }
 
-    function updateTopBar() {
-      ["btn-newscan", "btn-backscan", "btn-continue", "btn-execute", "btn-viewresults", "btn-export-json", "btn-export-yaml", "btn-export-excel"]
-        .forEach(id => document.getElementById(id).classList.add("hidden"));
-
-      if (state.step > 1 || state.scanResult) document.getElementById("btn-newscan").classList.remove("hidden");
-      if (state.step > 1 && state.step < 5) document.getElementById("btn-backscan").classList.remove("hidden");
-      if (state.step === 2 && state.scanResult) document.getElementById("btn-continue").classList.remove("hidden");
-      if (state.step === 3 && state.generatedScript) document.getElementById("btn-execute").classList.remove("hidden");
-      if (state.step === 4 && state.executionResult) document.getElementById("btn-viewresults").classList.remove("hidden");
-      if (state.step >= 2 && state.scanResult) {
-        document.getElementById("btn-export-json").classList.remove("hidden");
-        document.getElementById("btn-export-yaml").classList.remove("hidden");
-      }
-      if (state.step === 5 && state.executionResult) document.getElementById("btn-export-excel").classList.remove("hidden");
-    }
-
-    function goBack() {
-      if (state.step <= 1) {
-        resetWorkflow(true);
-        return;
-      }
-      navigateTo(state.step - 1);
-    }
-
-    async function startScan() {
+    async function handleDiscoverModules() {
       const url = document.getElementById("url-input").value.trim();
       const username = document.getElementById("username-input").value.trim();
       const password = document.getElementById("password-input").value;
-      if (!/^https?:\/\//i.test(url)) {
-        showError("Invalid URL", "Please enter a URL starting with http:// or https://.", false);
-        return;
-      }
-      if (!isMockMode && (!username || !password)) {
-        document.getElementById("creds-warning").classList.remove("hidden");
-        return;
-      }
 
-      clearRenderedData();
-      state.scanResult = null;
-      state.generatedScript = "";
-      state.executionResult = null;
-      state.step = 1;
-      state.completedStep = 1;
-      clearStorage();
-      document.getElementById("scan-btn").disabled = true;
-      document.getElementById("btn-label").textContent = "Scanning...";
-      showPanel("panel-loading");
-      startMessages();
-      const token = ++scanToken;
-      const interactive = !isMockMode && document.getElementById("interactive-input").checked;
-      const scanId = crypto.randomUUID().replaceAll("-", "");
-      const body = isMockMode
-        ? { url, mock: true }
-        : { url, mock: false, username, password, interactive_mode: interactive, interactive_timeout: 300, scan_id: scanId };
-      let eventSocket = null;
+      if (!url) return alert("Application URL is required.");
+      state.targetUrl = url;
+
+      const btn = document.getElementById("btn-discover");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...`;
 
       try {
-        if (!isMockMode) eventSocket = connectScanEvents(scanId);
-        const data = await callAPI("/scan", body);
-        if (eventSocket) eventSocket.close();
-        if (token !== scanToken) return;
-        state.scanResult = data;
-        state.scanUrl = url;
-        state.step = 2;
-        state.completedStep = 3;
-        stopMessages();
-        document.getElementById("scan-btn").disabled = false;
-        document.getElementById("btn-label").textContent = "Start Scan";
-        renderAnalyze();
-        showPanel("panel-results");
-      } catch (err) {
-        if (eventSocket) eventSocket.close();
-        if (token !== scanToken) return;
-        stopMessages();
-        document.getElementById("scan-btn").disabled = false;
-        document.getElementById("btn-label").textContent = "Start Scan";
-        showError(...mapError(err.message || ""));
-      }
-    }
+        if (!state.isLive) {
+          // Mock mode
+          state.modules = [
+            { id: "mod_inventory", label: "Product Inventory", route: "/inventory.html", hierarchy_level: 0 },
+            { id: "mod_cart", label: "Shopping Cart", route: "/cart.html", hierarchy_level: 1 },
+            { id: "mod_checkout", label: "Checkout Flow", route: "/checkout-step-one.html", hierarchy_level: 1 }
+          ];
+          state.runId = "mock_" + Date.now();
+          state.authSessionId = "mock_auth_" + Date.now();
+        } else {
+          const res = await fetch(`${API_BASE}/discover-modules`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, username, password })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "Module discovery failed");
 
-    function connectScanEvents(scanId) {
-      const scheme = location.protocol === "https:" ? "wss:" : "ws:";
-      const socket = new WebSocket(`${scheme}//${location.host}/ws/scan-events?scan_id=${encodeURIComponent(scanId)}`);
-      let elementCount = 0;
-      socket.onmessage = event => {
-        let message;
-        try { message = JSON.parse(event.data); } catch { return; }
-        stopMessages();
-        if (message.type === "route_started") {
-          document.getElementById("loading-msg").textContent = `Scanning ${message.route || "route"}...`;
-        } else if (message.type === "route_discovered") {
-          document.getElementById("loading-msg").textContent = `Queued ${message.label || message.route || "route"} for route scan...`;
-        } else if (message.type === "submenu_opened") {
-          document.getElementById("loading-msg").textContent = `Exploring menu ${message.label || "submenu"}...`;
-        } else if (message.type === "manual_review_started") {
-          document.getElementById("loading-msg").textContent = "Automatic scan complete for this module. Waiting for your confirmation...";
-        } else if (message.type === "manual_review_completed") {
-          document.getElementById("loading-msg").textContent = `Manual review saved (${message.interaction_count || 0} interactions). Continuing route queue...`;
-        } else if (message.type === "scan_stopped") {
-          document.getElementById("loading-msg").textContent = "Ending scan and exporting discovered results...";
-        } else if (message.type === "element_found") {
-          elementCount += 1;
-          if (elementCount % 10 === 0) {
-            document.getElementById("loading-msg").textContent = `Discovered ${elementCount} UI elements...`;
-          }
-        } else if (message.type === "route_completed") {
-          document.getElementById("loading-msg").textContent = `Completed ${message.route || "route"} (${message.element_count || 0} elements)`;
-        } else if (message.type === "route_failed") {
-          document.getElementById("loading-msg").textContent = `Could not scan ${message.route || "route"}`;
+          state.runId = data.run_id;
+          state.authSessionId = data.auth_session_id;
+          state.modules = data.modules || [];
         }
-      };
-      return socket;
-    }
 
-    function startMessages() {
-      const messages = [
-        "Initializing scan engine...",
-        "Discovering routes...",
-        "Detecting components...",
-        "Building automation intelligence...",
-        "Preparing analysis..."
-      ];
-      let index = 0;
-      document.getElementById("loading-msg").textContent = messages[index];
-      messageTimer = setInterval(() => {
-        index = Math.min(index + 1, messages.length - 1);
-        document.getElementById("loading-msg").textContent = messages[index];
-      }, 900);
-    }
-
-    function stopMessages() {
-      if (messageTimer) clearInterval(messageTimer);
-      messageTimer = null;
-    }
-
-    function renderAnalyze() {
-      const data = state.scanResult;
-      if (!data) return;
-      const routes = data.routes || [];
-      const summary = data.summary || {};
-      document.getElementById("result-url").textContent = state.scanUrl;
-      renderStatusBanner(data.status || "success", data.message || "");
-      renderMetrics("metric-cards", summary);
-      document.getElementById("route-badge").textContent = `${routes.length} routes`;
-      renderRoutes(routes);
-      renderComponents(routes);
-      document.getElementById("scan-summary-text").textContent =
-        `${summary.total_routes || routes.length || 0} routes analyzed with ${summary.total_buttons || 0} buttons, ${summary.total_inputs || 0} inputs, and ${summary.total_tables || 0} tables. Continue to generate executable test coverage from this structure.`;
-    }
-
-    function renderMetrics(hostId, summary) {
-      const host = document.getElementById(hostId);
-      host.innerHTML = "";
-      METRICS.forEach(([key, label]) => {
-        const card = document.createElement("div");
-        card.className = "rounded-lg border border-slate-200 bg-slate-50 p-4";
-        card.innerHTML = `<p class="text-xs font-semibold text-slate-500 uppercase">${label}</p><p class="text-3xl font-bold mt-2">${summary[key] || 0}</p>`;
-        host.appendChild(card);
-      });
-    }
-
-    function renderRoutes(routes) {
-      const host = document.getElementById("routes-list");
-      host.innerHTML = "";
-      if (!routes.length) {
-        host.innerHTML = `<p class="text-sm text-slate-500">No routes were discovered.</p>`;
-        return;
+        updateRunUI();
+        renderModuleList();
+        unlockStep(2);
+        switchStep(2);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-compass"></i> Discover Modules`;
       }
-      routes.forEach(route => {
-        const item = document.createElement("div");
-        item.className = "border border-slate-200 rounded-lg px-4 py-3";
-        item.innerHTML = `
-          <p class="font-mono text-sm font-semibold">${escapeHtml(route.path || "/")}</p>
-          <p class="text-xs text-slate-500 mt-1">${escapeHtml(route.menu_name || "Module not named")}</p>
-          <p class="text-xs text-slate-600 mt-2">${escapeHtml(route.purpose || "Automation route discovered")}</p>
+    }
+
+    function renderModuleList() {
+      const container = document.getElementById("module-options-container");
+      container.innerHTML = "";
+      document.getElementById("module-count-badge").textContent = `${state.modules.length} modules discovered`;
+
+      state.modules.forEach(m => {
+        const label = document.createElement("label");
+        label.className = "flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition";
+        label.innerHTML = `
+          <input type="checkbox" name="mod-check" value="${m.id}" checked class="mt-1 h-4 w-4 accent-blue-600 rounded" />
+          <div class="flex-grow">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800">${escapeHtml(m.label)}</span>
+              <span class="text-[10px] text-slate-400 font-mono">L${m.hierarchy_level || 0}</span>
+            </div>
+            <p class="text-[11px] font-mono text-slate-500 mt-0.5 truncate">${escapeHtml(m.route || m.source || "/")}</p>
+          </div>
         `;
-        host.appendChild(item);
+        container.appendChild(label);
       });
     }
 
-    function renderComponents(routes) {
-      const host = document.getElementById("components-summary");
-      host.innerHTML = "";
-      routes.forEach(route => {
-        const comp = route.components || {};
-        const counts = [
-          ["Buttons", comp.buttons || []],
-          ["Inputs", comp.inputs || []],
-          ["Dropdowns", comp.dropdowns || []],
-          ["Tables", comp.tables || []],
-          ["Charts", comp.charts || []],
-          ["Maps", comp.maps || []]
-        ];
-        const box = document.createElement("div");
-        box.className = "border border-slate-200 rounded-lg p-3";
-        box.innerHTML = `<p class="font-mono text-sm font-semibold mb-2">${escapeHtml(route.path || "/")}</p>` +
-          counts.map(([label, values]) => `<p class="text-xs text-slate-600"><span class="font-semibold">${label}:</span> ${values.length ? escapeHtml(values.join(", ")) : "None"}</p>`).join("");
-        host.appendChild(box);
-      });
-    }
-
-    function goToGenerate() {
-      if (!state.scanResult) return showToast("Scan required first");
-      state.step = 3;
-      state.completedStep = Math.max(state.completedStep, 3);
-      prepareGenerate();
-      showPanel("panel-generate");
-    }
-
-    function prepareGenerate() {
-      const routes = state.scanResult?.routes || [];
-      document.getElementById("llm-routes-context").textContent = routes.map(r => r.path).join(", ");
-      const componentTypes = new Set();
-      routes.forEach(route => Object.keys(route.components || {}).forEach(key => componentTypes.add(key)));
-      document.getElementById("llm-components-context").textContent = Array.from(componentTypes).join(", ");
-      document.getElementById("generated-script").textContent = state.generatedScript || "";
-      document.getElementById("execution-command").textContent = state.executionCommand || "";
-      document.getElementById("planning-notes").textContent = state.planningNotes || "";
-      document.getElementById("planning-notes-wrap").classList.toggle("hidden", !state.planningNotes);
-    }
-
-    async function generateTest() {
-      if (!state.scanResult) return showToast("Scan required first");
-      const button = document.getElementById("btn-generate-test");
-      button.disabled = true;
-      button.textContent = "Generating...";
-      try {
-        state.contextId = await uploadTestContext();
-        const data = await callAPI("/generate-test", {
-          base_url: state.scanUrl,
-          scan: state.scanResult,
-          description: document.getElementById("llm-user-prompt").value.trim(),
-          user_prompt: document.getElementById("llm-user-prompt").value.trim(),
-          feature_focus: document.getElementById("llm-feature-focus").value.trim(),
-          context_id: state.contextId || null,
-          provider: document.getElementById("llm-provider").value,
-          model: document.getElementById("llm-model").value.trim() || null
-        });
-        state.generatedScript = data.script || "";
-        state.executionCommand = data.execution_command || "";
-        state.planningNotes = data.planning_notes || "";
-        state.testCases = data.test_cases || [];
-        state.executionResult = null;
-        state.completedStep = Math.max(state.completedStep, 4);
-        prepareGenerate();
-        updateTopBar();
-        renderStepper();
-      } catch (err) {
-        showToast(err.message || "Test generation failed");
-      } finally {
-        button.disabled = false;
-        button.textContent = "Generate Test";
-      }
-    }
-
-    async function uploadTestContext() {
-      const requirements = document.getElementById("requirements-file").files[0];
-      const testcases = document.getElementById("testcases-file").files[0];
-      const prompt = document.getElementById("llm-user-prompt").value.trim();
-      if (!requirements && !testcases && !prompt) return "";
-      const form = new FormData();
-      if (requirements) form.append("requirements_file", requirements);
-      if (testcases) form.append("testcases_file", testcases);
-      form.append("user_prompt", prompt);
-      const res = await fetch(`${API_BASE}/test-context/upload`, { method: "POST", body: form });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Could not store test context");
-      return data.context_id || "";
-    }
-
-    async function executeTest() {
-      if (!state.generatedScript) return showToast("Generate test first");
-      state.step = 4;
-      state.completedStep = Math.max(state.completedStep, 4);
-      showPanel("panel-execute");
-      document.getElementById("execution-status").textContent = "Executing through backend...";
-      setExecuteButtons(true);
-      try {
-        const data = await callAPI("/execute-test", {
-          base_url: state.scanUrl,
-          scan: state.scanResult,
-          script: state.generatedScript,
-          test_cases: state.testCases,
-          allow_mutating_actions: false
-        });
-        state.executionResult = data;
-        state.completedStep = Math.max(state.completedStep, 5);
-        document.getElementById("execution-status").textContent =
-          `Execution complete: ${data.summary?.passed || 0} passed, ${data.summary?.failed || 0} failed.`;
-        renderExecution();
-      } catch (err) {
-        document.getElementById("execution-status").textContent = err.message || "Execution failed";
-      } finally {
-        setExecuteButtons(false);
-        updateTopBar();
-        renderStepper();
-      }
-    }
-
-    function setExecuteButtons(disabled) {
-      document.querySelectorAll(".js-execute, #btn-execute").forEach(btn => {
-        btn.disabled = disabled;
-        btn.classList.toggle("opacity-60", disabled);
-      });
-    }
-
-    function renderExecution() {
-      renderResultsTable("exec-results-body", state.executionResult?.rows || []);
-      const artifacts = state.executionResult?.artifacts || {};
-      const host = document.getElementById("execution-artifacts");
-      const reportPath = artifacts.markdown || artifacts.excel || artifacts.directory;
-      host.classList.toggle("hidden", !reportPath);
-      host.textContent = reportPath ? `Execution artifacts saved locally: ${reportPath}` : "";
-    }
-
-    function goToReport() {
-      if (!state.executionResult) return showToast("Execute test first");
-      state.step = 5;
-      state.completedStep = 5;
-      renderReport();
-      showPanel("panel-report");
-    }
-
-    function renderReport() {
-      renderMetrics("report-summary", state.scanResult?.summary || {});
-      renderSystemInsights();
-      renderResultsTable("report-results-body", state.executionResult?.rows || []);
-    }
-
-    function renderResultsTable(hostId, rows) {
-      const host = document.getElementById(hostId);
-      host.innerHTML = "";
-      if (!rows.length) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td class="table-cell text-slate-500" colspan="10">No execution results yet.</td>`;
-        host.appendChild(tr);
+    async function handleStartScan() {
+      const selected = Array.from(document.querySelectorAll("input[name='mod-check']:checked")).map(cb => cb.value);
+      if (!selected.length) {
+        document.getElementById("module-selection-warning").classList.remove("hidden");
         return;
       }
-      rows.forEach(row => {
-        const tr = document.createElement("tr");
-        RESULT_COLUMNS.forEach(col => {
-          const td = document.createElement("td");
-          td.className = "table-cell";
-          if (col === "Status") {
-            td.className += row[col] === "Pass" ? " text-emerald-700 font-bold" : " text-red-700 font-bold";
-          }
-          td.textContent = row[col] || "";
-          tr.appendChild(td);
-        });
-        host.appendChild(tr);
-      });
-    }
+      document.getElementById("module-selection-warning").classList.add("hidden");
+      state.selectedModuleIds = selected;
 
-    function renderSystemInsights() {
-      const routes = state.scanResult?.routes || [];
-      const modules = routes.map(r => r.menu_name).filter(Boolean);
-      const info = state.systemInfo || {};
-      const values = [
-        ["Base URL", state.scanUrl || ""],
-        ["Detected Routes", routes.map(r => r.path).join(", ") || "None"],
-        ["Modules", modules.join(", ") || "None"],
-        ["OS", info.os || "Unknown"],
-        ["Browser", info.browser || "Unknown"],
-        ["Python version", info.python_version || "Unknown"],
-        ["Environment", info.environment || "Unknown"]
-      ];
-      const host = document.getElementById("system-insights");
-      host.innerHTML = "";
-      values.forEach(([label, value]) => {
-        const card = document.createElement("div");
-        card.className = "rounded-lg border border-slate-200 bg-slate-50 p-4";
-        card.innerHTML = `<p class="text-xs font-semibold text-slate-500 uppercase">${escapeHtml(label)}</p><p class="text-sm font-mono mt-2 break-words">${escapeHtml(value)}</p>`;
-        host.appendChild(card);
-      });
-    }
+      unlockStep(3);
+      switchStep(3);
 
-    async function fetchSystemInfo() {
+      const log = document.getElementById("scan-event-log");
+      log.innerHTML = `<p class="text-blue-400">[SCAN_START] Connecting to Playwright crawler engine for run ${state.runId}...</p>`;
+
       try {
-        state.systemInfo = await fetch(`${API_BASE}/system-info`).then(r => r.ok ? r.json() : null);
-      } catch (_) {
-        state.systemInfo = {
-          os: navigator.platform || "Unknown",
-          browser: navigator.userAgent || "Unknown",
-          python_version: "Unavailable",
-          environment: "browser"
+        const isInteractive = document.getElementById("interactive-input").checked;
+        // Attach the live event stream to the same opaque run identifier sent
+        // to /scan. This keeps route/element telemetry visible while the
+        // synchronous scan is running instead of leaving the panel frozen at
+        // "Initializing scanner" until the response returns.
+        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+        const eventSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/scan-events?scan_id=${encodeURIComponent(state.runId)}`);
+        eventSocket.onmessage = (message) => {
+          try {
+            const event = JSON.parse(message.data || "{}");
+            if (event.type === "heartbeat") return;
+            const label = event.type || "event";
+            const detail = event.route || event.label || event.reason || "";
+            log.innerHTML += `<p class="text-slate-300">[${escapeHtml(label.toUpperCase())}] ${escapeHtml(String(detail))}</p>`;
+            log.scrollTop = log.scrollHeight;
+          } catch (_) {}
         };
+        eventSocket.onerror = () => {
+          log.innerHTML += `<p class="text-amber-300">[TELEMETRY] Live event stream unavailable; scan result will still be saved.</p>`;
+        };
+        eventSocket.onclose = () => { try { eventSocket.close(); } catch (_) {} };
+
+        const res = await fetch(`${API_BASE}/scan`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: state.targetUrl,
+            mock: !state.isLive,
+            run_id: state.runId,
+            scan_id: state.runId,
+            auth_session_id: state.authSessionId,
+            selected_module_ids: selected,
+            interactive_mode: isInteractive,
+            interactive_timeout: 300
+          })
+        });
+
+        if (res.status === 401) {
+          triggerSessionExpired();
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Scan failed");
+
+        state.scanData = data;
+        state.runId = data.run_id || state.runId;
+        updateRunUI();
+
+        // Populate Step 4 (Checkpoint review)
+        renderCheckpointReview(data);
+        unlockStep(4);
+        switchStep(4);
+      } catch (err) {
+        log.innerHTML += `<p class="text-rose-400">[ERROR] ${escapeHtml(err.message)}</p>`;
       }
     }
 
-    function renderStatusBanner(status, message) {
-      const banner = document.getElementById("status-banner");
-      if (status === "success") return hideStatusBanner();
-      const isError = status === "error";
-      banner.className = `${isError ? "bg-red-50 border-red-200 text-red-800" : "bg-amber-50 border-amber-200 text-amber-800"} mt-4 rounded-lg border px-4 py-3 text-sm`;
-      banner.textContent = message || `Scan status: ${status}`;
-      banner.classList.remove("hidden");
+    function renderCheckpointReview(scanData) {
+      const routes = scanData.routes || [];
+      const primaryRoute = routes[0] || {};
+      document.getElementById("checkpoint-route").textContent = primaryRoute.path || state.targetUrl;
+      document.getElementById("checkpoint-module-badge").textContent = primaryRoute.menu_name || "Discovered Route";
+
+      const targetsList = document.getElementById("checkpoint-targets-list");
+      targetsList.innerHTML = "";
+      const components = primaryRoute.components || {};
+      const allComp = [
+        ...(components.buttons || []).map(l => ({ label: l, type: "Button", safe: true })),
+        ...(components.inputs || []).map(l => ({ label: l, type: "Input", safe: true })),
+        ...(components.dropdowns || []).map(l => ({ label: l, type: "Dropdown", safe: true })),
+        ...(components.tables || []).map(l => ({ label: l, type: "Table", safe: true }))
+      ];
+
+      document.getElementById("checkpoint-target-count").textContent = `${allComp.length} targets`;
+      allComp.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "py-1.5 flex items-center justify-between";
+        div.innerHTML = `
+          <div>
+            <span class="font-semibold text-slate-800">${escapeHtml(c.label)}</span>
+            <span class="text-[10px] text-slate-400 font-mono ml-2">[${c.type}]</span>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">SAFE</span>
+        `;
+        targetsList.appendChild(div);
+      });
+
+      const parkingList = document.getElementById("checkpoint-parking-list");
+      parkingList.innerHTML = `<p class="text-slate-400 py-2">No destructive or high-risk actions encountered in selected boundary.</p>`;
     }
 
-    function hideStatusBanner() {
-      const banner = document.getElementById("status-banner");
-      banner.classList.add("hidden");
-      banner.textContent = "";
+    async function handleTestProvider() {
+      const provider = document.getElementById("llm-provider-select").value;
+      const badge = document.getElementById("provider-conn-badge");
+      badge.className = "text-[11px] mt-1 text-slate-500 font-medium";
+      badge.textContent = `Connecting to ${provider}...`;
+      badge.classList.remove("hidden");
+
+      try {
+        const res = await fetch(`${API_BASE}/llm/test-connection?provider=${encodeURIComponent(provider)}`, { method: "POST" });
+        const data = await res.json();
+        if (data.ok) {
+          badge.className = "text-[11px] mt-1 text-emerald-600 font-semibold";
+          badge.textContent = `Connected to ${provider} successfully.`;
+        } else {
+          badge.className = "text-[11px] mt-1 text-rose-600 font-semibold";
+          badge.textContent = `Failed: ${data.detail || "Provider offline"}`;
+        }
+      } catch (err) {
+        badge.className = "text-[11px] mt-1 text-rose-600 font-semibold";
+        badge.textContent = `Error: ${err.message}`;
+      }
     }
 
-    function downloadScan(format) {
-      if (!state.scanResult) return showToast("No scan data to export");
-      const stamp = timestamp();
-      const content = format === "yaml" ? toYaml(state.scanResult) : JSON.stringify(state.scanResult, null, 2);
-      downloadBlob(content, `scan-${stamp}.${format === "yaml" ? "yaml" : "json"}`, format === "yaml" ? "text/yaml" : "application/json");
+    async function handleGeneratePlan() {
+      if (!state.scanData) return alert("Scan required before generating test plans.");
+      const btn = document.getElementById("btn-generate-plan");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Planning...`;
+
+      try {
+        const provider = document.getElementById("llm-provider-select").value;
+        const model = document.getElementById("llm-model-input").value.trim() || null;
+        const prompt = document.getElementById("planning-prompt").value.trim() || null;
+
+        const res = await fetch(`${API_BASE}/generate-test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base_url: state.targetUrl,
+            scan: state.scanData,
+            provider,
+            model,
+            user_prompt: prompt,
+            run_id: state.runId
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Plan generation failed");
+
+        state.generatedPlan = data;
+        document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
+        renderPlanCases(data.test_cases || []);
+        unlockStep(6);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
+      }
+    }
+
+    function renderPlanCases(testCases) {
+      const body = document.getElementById("plan-cases-body");
+      body.innerHTML = "";
+      document.getElementById("plan-case-count").textContent = `${testCases.length} test cases`;
+
+      if (!testCases.length) {
+        body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400">No test cases generated.</td></tr>`;
+        return;
+      }
+
+      testCases.forEach(tc => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(tc.tc_id)}</td>
+          <td class="table-cell font-semibold text-slate-800">${escapeHtml(tc.title)}</td>
+          <td class="table-cell text-slate-600">${escapeHtml(tc.module || tc.route)}</td>
+          <td class="table-cell font-mono">${(tc.steps || []).length} steps</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function handleRunExecution() {
+      if (!state.generatedPlan) return alert("Generate test plan before running execution.");
+      const btn = document.getElementById("btn-run-execution");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Steps...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/execute-test`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base_url: state.targetUrl,
+            scan: state.scanData,
+            script: state.generatedPlan.script,
+            test_cases: state.generatedPlan.test_cases,
+            auth_session_id: state.authSessionId,
+            run_id: state.runId,
+            allow_mutating_actions: false
+          })
+        });
+
+        if (res.status === 401) {
+          triggerSessionExpired();
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Execution failed");
+
+        state.executionResults = data;
+        renderExecutionResults(data.rows || []);
+        unlockStep(7);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-play"></i> Run Test Execution`;
+      }
+    }
+
+    function renderExecutionResults(rows) {
+      const body = document.getElementById("exec-table-body");
+      body.innerHTML = "";
+
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400">No execution rows.</td></tr>`;
+        return;
+      }
+
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        const isPass = r.Status === "Pass";
+        const isFail = r.Status === "Fail";
+        tr.className = isFail ? "bg-rose-50/50" : "";
+
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold text-slate-700">${escapeHtml(r.TC_ID)}</td>
+          <td class="table-cell font-mono text-slate-600">${escapeHtml(r.Step_ID)}</td>
+          <td class="table-cell text-slate-700 font-semibold">${escapeHtml(r.Action)}</td>
+          <td class="table-cell font-mono text-[10px] text-slate-600 max-w-xs truncate" title="${escapeHtml(r.locator_used || "")}">${escapeHtml(r.locator_used || "--")}</td>
+          <td class="table-cell text-slate-600 text-[11px]">${escapeHtml(r.Expected_Result || "")}</td>
+          <td class="table-cell text-[11px] ${isFail ? "text-rose-700 font-semibold" : "text-slate-600"}">${escapeHtml(r.Actual_Result || "")}</td>
+          <td class="table-cell text-center">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+              isPass ? "bg-emerald-100 text-emerald-800" :
+              isFail ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600"
+            }">${escapeHtml(r.Status)}</span>
+          </td>
+          <td class="table-cell text-center">
+            ${r.Artifact_Path ? `
+              <button class="text-blue-600 hover:text-blue-800 text-xs" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')">
+                <i class="fa-solid fa-image"></i> View
+              </button>
+            ` : `<span class="text-slate-300">--</span>`}
+          </td>
+          <td class="table-cell text-center">
+            <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[10px] font-semibold px-2 py-1 rounded" onclick="handleRerunStep('${escapeHtml(r.TC_ID)}', '${escapeHtml(r.Step_ID)}')">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Rerun
+            </button>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function handleRerunStep(tcId, stepId) {
+      const tc = (state.generatedPlan?.test_cases || []).find(c => c.tc_id === tcId);
+      if (!tc) return alert("Test case not found");
+
+      try {
+        const res = await fetch(`${API_BASE}/rerun-step`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base_url: state.targetUrl,
+            test_case: tc,
+            step_id: stepId,
+            auth_session_id: state.authSessionId,
+            run_id: state.runId
+          })
+        });
+
+        if (res.status === 401) {
+          triggerSessionExpired();
+          return;
+        }
+
+        const data = await res.json();
+        alert(`Step Rerun Result: ${data.status}\n${data.actual_result}`);
+      } catch (err) {
+        alert("Rerun step failed: " + err.message);
+      }
+    }
+
+    function renderReportView() {
+      const metricsContainer = document.getElementById("report-metric-cards");
+      metricsContainer.innerHTML = "";
+
+      const scanSummary = state.scanData?.summary || {};
+      const execSummary = state.executionResults?.summary || {};
+
+      const cards = [
+        { title: "Discovered Routes", val: scanSummary.total_routes || 0, color: "text-blue-600" },
+        { title: "Discovered Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0), color: "text-purple-600" },
+        { title: "Passed Steps", val: execSummary.passed || 0, color: "text-emerald-600" },
+        { title: "Failed Steps", val: execSummary.failed || 0, color: "text-rose-600" }
+      ];
+
+      cards.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "bg-slate-50 border border-slate-200 rounded-xl p-4";
+        div.innerHTML = `
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">${c.title}</p>
+          <p class="text-2xl font-bold mt-1 ${c.color}">${c.val}</p>
+        `;
+        metricsContainer.appendChild(div);
+      });
+    }
+
+    async function handleRunRegression() {
+      const btn = document.getElementById("btn-run-regression");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Replaying Baseline...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/regression-run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base_url: state.targetUrl,
+            run_id: state.runId
+          })
+        });
+
+        if (res.status === 401) {
+          triggerSessionExpired();
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Regression run failed");
+
+        state.regressionResults = data;
+        renderRegressionDiff(data.diff || {});
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay`;
+      }
+    }
+
+    function renderRegressionDiff(diff) {
+      document.getElementById("regression-diff-container").classList.remove("hidden");
+      document.getElementById("reg-prev-total").textContent = diff.previous_total || 0;
+      document.getElementById("reg-curr-total").textContent = diff.current_total || 0;
+      document.getElementById("reg-newly-passing").textContent = diff.newly_passing || 0;
+      document.getElementById("reg-newly-failing").textContent = diff.newly_failing || 0;
+
+      const changesList = document.getElementById("reg-status-changes");
+      changesList.innerHTML = "";
+      (diff.status_changes || []).forEach(sc => {
+        const p = document.createElement("p");
+        p.className = sc.to === "Pass" ? "text-emerald-700 font-semibold" : "text-rose-700 font-semibold";
+        p.innerHTML = `<i class="fa-solid fa-arrows-turn-right mr-1"></i> ${escapeHtml(sc.step)} changed from ${escapeHtml(sc.from)} to <strong>${escapeHtml(sc.to)}</strong>`;
+        changesList.appendChild(p);
+      });
+    }
+
+    function triggerSessionExpired() {
+      document.getElementById("session-expired-banner").classList.remove("hidden");
+      document.getElementById("btn-top-refresh-session").classList.remove("hidden");
+      document.getElementById("nav-session-badge").classList.add("hidden");
+    }
+
+    function openRefreshModal() {
+      document.getElementById("refresh-session-modal").classList.remove("hidden");
+    }
+
+    function closeRefreshModal() {
+      document.getElementById("refresh-session-modal").classList.add("hidden");
+    }
+
+    async function handleRefreshSessionSubmit() {
+      const username = document.getElementById("refresh-username").value.trim();
+      const password = document.getElementById("refresh-password").value;
+      const btn = document.getElementById("btn-submit-refresh");
+      btn.disabled = true;
+      btn.textContent = "Refreshing...";
+
+      try {
+        const res = await fetch(`${API_BASE}/session/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            run_id: state.runId,
+            url: state.targetUrl,
+            username,
+            password
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Session refresh failed");
+
+        state.authSessionId = data.auth_session_id;
+        document.getElementById("session-expired-banner").classList.add("hidden");
+        document.getElementById("btn-top-refresh-session").classList.add("hidden");
+        document.getElementById("nav-session-badge").classList.remove("hidden");
+        closeRefreshModal();
+        alert("Session refreshed successfully! You can now continue your workflow.");
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Refresh & Continue";
+      }
+    }
+
+    function updateRunUI() {
+      if (state.runId) {
+        document.getElementById("nav-run-badge").classList.remove("hidden");
+        document.getElementById("nav-run-id").textContent = state.runId.substring(0, 12);
+        document.getElementById("nav-session-badge").classList.remove("hidden");
+        // Safe key storage
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ runId: state.runId, targetUrl: state.targetUrl }));
+        } catch (_) {}
+      }
+    }
+
+    function viewScreenshot(path) {
+      document.getElementById("modal-title").textContent = path;
+      document.getElementById("modal-img").src = `/reports/${encodeURIComponent(path.split(/[\\\\/]/).pop())}`;
+      document.getElementById("screenshot-modal").classList.remove("hidden");
+    }
+
+    function downloadFile(type) {
+      if (!state.runId) return alert("No scan run is loaded");
+      const suffix = type === "markdown" ? "summary.md" : `.${type}`;
+      const source = type === "markdown"
+        ? `/reports/${encodeURIComponent(state.runId)}_crawl_results_summary.md`
+        : `/reports/${encodeURIComponent(state.runId)}_crawl_results${suffix}`;
+      const link = document.createElement("a");
+      link.href = source;
+      link.download = source.split("/").pop();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
 
     function downloadExcel() {
-      const rows = state.executionResult?.rows || [];
-      if (!rows.length) return showToast("No execution results to export");
-      const html = `
-        <html><head><meta charset="UTF-8"></head><body>
-        <table border="1"><thead><tr>${RESULT_COLUMNS.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map(row => `<tr>${RESULT_COLUMNS.map(c => `<td>${escapeHtml(row[c] || "")}</td>`).join("")}</tr>`).join("")}</tbody></table>
-        </body></html>`;
-      downloadBlob(html, `execution-results-${timestamp()}.xls`, "application/vnd.ms-excel");
+      if (!state.runId) return alert("No scan run is loaded");
+      const link = document.createElement("a");
+      link.href = `/reports/${encodeURIComponent(state.runId)}_crawl_results.xlsx`;
+      link.download = `${state.runId}_crawl_results.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
 
     function downloadBlob(content, filename, type) {
@@ -937,98 +1222,22 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 0);
     }
 
-    async function callAPI(path, body) {
-      const res = await fetch(`${API_BASE}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || `Request failed with ${res.status}`);
-      return data;
+    function resetRun() {
+      state.currentStep = 1;
+      state.maxUnlockedStep = 1;
+      state.scanData = null;
+      state.generatedPlan = null;
+      state.executionResults = null;
+      state.regressionResults = null;
+      document.getElementById("nav-run-badge").classList.add("hidden");
+      document.getElementById("session-expired-banner").classList.add("hidden");
+      switchStep(1);
     }
 
-    function showError(title, message, offerDemo) {
-      document.getElementById("error-title").textContent = title;
-      document.getElementById("error-msg").textContent = message;
-      document.getElementById("demo-retry-btn").classList.toggle("hidden", !(offerDemo && !isMockMode));
-      showPanel("panel-error");
-    }
-
-    function mapError(raw) {
-      const text = String(raw).toLowerCase();
-      if (text.includes("credential") || text.includes("login") || text.includes("password")) {
-        return ["Login Required", "Login required. Please enter valid credentials.", true];
-      }
-      if (text.includes("failed to fetch") || text.includes("network")) {
-        return ["Connection Failed", "Could not reach the backend service.", true];
-      }
-      return ["Request Failed", raw || "The workflow request failed.", true];
-    }
-
-    function showToast(message) {
-      let toast = document.getElementById("toast");
-      if (!toast) {
-        toast = document.createElement("div");
-        toast.id = "toast";
-        toast.className = "fixed top-5 right-5 z-50 bg-slate-950 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-semibold transition";
-        document.body.appendChild(toast);
-      }
-      toast.textContent = message;
-      toast.style.opacity = "1";
-      setTimeout(() => { toast.style.opacity = "0"; }, 1800);
-    }
-
-    function toYaml(value, indent = 0) {
-      const pad = "  ".repeat(indent);
-      if (value === null || value === undefined) return "null";
-      if (typeof value === "string") return yamlScalar(value);
-      if (typeof value === "number" || typeof value === "boolean") return String(value);
-      if (Array.isArray(value)) {
-        if (!value.length) return "[]";
-        return value.map(item => {
-          if (item && typeof item === "object" && !Array.isArray(item)) {
-            return `${pad}- ${toYaml(item, indent + 1).replace(/^ {2}/, "")}`;
-          }
-          return `${pad}- ${toYaml(item, indent + 1)}`;
-        }).join("\n");
-      }
-      if (typeof value === "object") {
-        const keys = Object.keys(value);
-        if (!keys.length) return "{}";
-        return keys.map(key => {
-          const child = value[key];
-          if (child !== null && typeof child === "object") {
-            const body = toYaml(child, indent + 1);
-            const inline = (Array.isArray(child) && child.length === 0) || (!Array.isArray(child) && Object.keys(child).length === 0);
-            return `${pad}${key}:${inline ? " " : "\n"}${body}`;
-          }
-          return `${pad}${key}: ${toYaml(child, indent + 1)}`;
-        }).join("\n");
-      }
-      return String(value);
-    }
-
-    function yamlScalar(value) {
-      if (value === "") return '""';
-      if (/[:#\-?&*!,\[\]{}|>'"%@`\n]/.test(value) || /^\s|\s$/.test(value)) {
-        return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-      }
-      return value;
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "").replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-      }[char]));
-    }
-
-    function timestamp() {
-      return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
     }
   </script>
 </body>

@@ -88,7 +88,12 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
         page.wait_for_timeout(500)
 
         logger.info("[login] Submitting form")
-        submit_button.click(timeout=LOGIN_TIMEOUT)
+        if submit_button is None:
+            # Some custom controls have no button element at all, but their
+            # form still implements native Enter-to-submit behavior.
+            password_field.press("Enter", timeout=LOGIN_TIMEOUT)
+        else:
+            submit_button.click(timeout=LOGIN_TIMEOUT)
 
         _wait_for_login_completion(page)
         _validate_login_success(page)
@@ -152,29 +157,51 @@ def _find_password_field(page: Page) -> Locator:
 # ---------------------------------------------------------------------------
 
 
-def _find_submit_button(page: Page) -> tuple[Locator, str]:
-    """Return the real login submit button (never an SSO/social button)."""
-    # Priority 1: a submit button that lives inside a <form>.
-    candidate = _first_safe_button(page.locator("form button[type='submit']"))
-    if candidate is not None:
-        return candidate, "form button[type='submit']"
-
-    # Priority 2: any submit button on the page.
-    candidate = _first_safe_button(page.locator("button[type='submit']"))
-    if candidate is not None:
-        return candidate, "button[type='submit']"
-
-    # Priority 3: text-based fallback. Each variant is tried separately.
-    text_selectors = (
-        'button:has-text("Sign in")',
-        'button:has-text("Login")',
-        'button:has-text("Log in")',
-        'button:has-text("Sign In")',
+def _find_submit_button(page: Page) -> tuple[Locator | None, str]:
+    """Return a safe submit control, or a form-Enter fallback."""
+    # A login control is not necessarily a <button>.  Native HTML forms,
+    # SauceDemo, and several older enterprise applications use
+    # <input type="submit"> instead.  Keep form-scoped candidates first so a
+    # page-level search cannot accidentally select an unrelated CTA.
+    selectors = (
+        "form input[type='submit']",
+        "form button[type='submit']",
+        "form [role='button']",
+        "form button",
+        "form input[type='button']",
+        "input[type='submit']",
+        "button[type='submit']",
+        "[type='submit']",
+        "[role='button']",
     )
-    for selector in text_selectors:
+    for selector in selectors:
         candidate = _first_safe_button(page.locator(selector))
         if candidate is not None:
             return candidate, selector
+
+    # Text/accessibility fallback for framework controls which omit a native
+    # submit type.  get_by_role also sees accessible names supplied by
+    # aria-label/title, not just visible button text.
+    for name in ("sign in", "login", "log in", "submit", "continue"):
+        for locator in (
+            page.get_by_role("button", name=name, exact=True),
+            page.get_by_role("button", name=name, exact=False),
+            page.get_by_text(name, exact=True),
+        ):
+            candidate = _first_safe_button(locator)
+            if candidate is not None:
+                return candidate, f"accessible/text:{name}"
+
+    # Last resort: a visible form can often be submitted by pressing Enter in
+    # the password field even when the UI uses a custom div/span control.
+    forms = page.locator("form")
+    try:
+        for index in range(forms.count()):
+            form = forms.nth(index)
+            if _is_visible(form):
+                return None, "form:Enter"
+    except Exception:
+        pass
 
     raise RuntimeError("could not locate a non-SSO login submit button")
 

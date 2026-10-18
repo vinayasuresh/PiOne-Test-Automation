@@ -28,8 +28,11 @@ ELEMENT_TIMEOUT = 2000
 # Bounded work units make a large application scan recoverable. These are
 # per-node limits, not a global wall-clock limit.
 ROUTE_NAVIGATION_TIMEOUT = 12000
-LOGIN_TIMEOUT = 10000
-ROUTE_LOAD_TIMEOUT = 15000
+# Public and enterprise SPAs can deliver the shell before their login form is
+# hydrated. Keep the waits bounded, but allow the form a realistic render
+# window before classifying the target as unavailable.
+LOGIN_TIMEOUT = 30000
+ROUTE_LOAD_TIMEOUT = 30000
 ROUTE_SCAN_TIMEOUT = 60000
 MENU_EXPANSION_TIMEOUT = 1500
 SUBMENU_TIMEOUT = 25000

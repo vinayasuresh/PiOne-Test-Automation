@@ -14,8 +14,12 @@ from automation_framework.config.settings import (
     ROUTE_LOAD_TIMEOUT,
     ROUTE_SCAN_TIMEOUT,
 )
-from automation_framework.crawler.hidden_navigation_explorer import explore_hidden_navigation
-from automation_framework.crawler.viewport_explorer import explore_viewport_states
+from automation_framework.crawler.action_classifier import (
+    ActionType,
+    classify_action,
+    is_safe_action,
+    is_parking_lot_action,
+)
 from automation_framework.crawler.interactive_capture import (
     events_to_interactions,
     extract_events,
@@ -24,9 +28,15 @@ from automation_framework.crawler.interactive_capture import (
     interactions_to_targets,
     wait_for_user,
 )
+from automation_framework.crawler.auth_exceptions import AuthenticationExpiredError
+from automation_framework.crawler.interaction_probe_engine import InteractionProbeEngine
 from automation_framework.crawler.login_handler import login
 from automation_framework.crawler.menu_detector import detect_menus
+from automation_framework.crawler.menu_overlay_engine import MenuOverlayEngine
+from automation_framework.crawler.route_graph import RouteGraph
+from automation_framework.crawler.route_health_scorer import RouteStatus, score_route
 from automation_framework.crawler.route_tracker import RouteTracker
+from automation_framework.crawler.session_manager import SessionManager
 from automation_framework.crawler.shell_detector import detect_application_shell
 from automation_framework.crawler.ui_wait_engine import wait_for_ui_stability
 from automation_framework.crawler.url_filter import (
@@ -34,11 +44,21 @@ from automation_framework.crawler.url_filter import (
     is_internal_url,
     is_valid_url,
 )
+from automation_framework.crawler.ui_state_fingerprint import (
+    compute_selector_quality_score,
+    compute_ui_state_fingerprint,
+)
+from automation_framework.crawler.viewport_deep_scanner import ViewportDeepScanner
+from automation_framework.engine.element_identity_registry import (
+    ElementIdentityRegistry,
+    compute_element_identity,
+)
 from automation_framework.engine.ui_intelligence_engine import (
     CATEGORY_ORDER,
     build_component_registry,
     build_ui_intelligence,
 )
+from automation_framework.storage.checkpoint_store import CheckpointStore, compute_namespace
 from automation_framework.utils.logger import logger
 
 
@@ -55,38 +75,26 @@ def _recount_sections(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def _normalized_route_score(
-    components: dict[str, int], api_present: bool, interaction_attempted: bool,
-) -> tuple[int, int]:
-    """Normalize weighted route signals while excluding unavailable signals.
-
-    API traffic and interactions are often legitimately absent (e.g. a static
-    page or a scan with no safe user actions). Missing evidence must not count
-    as a failure; actual failed API responses and failed attempted interactions
-    still lower the score.
-    """
-    available_weight = 25 + 20 + 20  # DOM, redirect, and element signals
-    if api_present:
-        available_weight += 20
-    if interaction_attempted:
-        available_weight += 15
-    earned = sum(components.values())
-    return round(earned * 100 / available_weight), available_weight
-
-
 class CrawlerEngine:
-    """Structured, menu-driven UI exploration engine.
+    """Structured, menu-driven UI exploration and intelligence engine.
 
-    Flow:
-        1. Detect application shell + menus
-        2. Build deduplicated menu list (sidebar + top nav)
-        3. For each menu item: navigate -> wait for stability -> scan -> store
-        4. Each route is scanned exactly once (RouteTracker enforces this)
+    Consolidated production flow per route:
+        1. Validate application scope
+        2. Scan the current route and register element identities
+        3. Deep-scroll document and nested scroll containers using ViewportDeepScanner
+        4. Re-scan newly revealed DOM states into ElementIdentityRegistry
+        5. Detect and safely open overlays using MenuOverlayEngine
+        6. Gather candidate actions and classify with ActionClassifier
+        7. Send unsafe and unknown actions to parking_lot_actions
+        8. Probe safe actions with InteractionProbeEngine
+        9. On route change: add edge to RouteGraph, scan child route, save checkpoint,
+           restore parent route/state, and continue probing remaining candidates
+        10. Score route health using RouteHealthScorer.score_route()
+        11. Handle manual-assist checkpoints (Confirm & Continue vs End Scan & Save)
+        12. Export comprehensive artifacts (JSON, YAML, Excel, Markdown)
     """
 
-    # Minimum on-page time per route (seconds). Ensures slow-rendering UI has
-    # time to settle and prevents instant DOM snapshots.
-    _MIN_SCAN_SECONDS: float = 2.5
+    _MIN_SCAN_SECONDS: float = 2.0
 
     def __init__(
         self,
@@ -107,6 +115,7 @@ class CrawlerEngine:
         self.interactive_mode = interactive_mode
         self.interactive_timeout = interactive_timeout
         self.checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
+        self.checkpoint_store = CheckpointStore(self.checkpoint_path) if self.checkpoint_path else None
         self.checkpoint_loaded = False
         self.event_callback = event_callback
         self.route_tracker = RouteTracker()
@@ -115,8 +124,6 @@ class CrawlerEngine:
         self.menu_hierarchy: dict[str, Any] = {}
         self.manual_interactions: list[dict[str, Any]] = []
         self.interaction_flow: list[dict[str, Any]] = []
-        # Kept for compatibility with the intelligence engine. It is not used
-        # to suppress targets across routes: identity includes the route.
         self._global_seen: set[tuple[str, str]] = set()
         self.route_validations: dict[str, dict[str, Any]] = {}
         self._api_responses: list[dict[str, Any]] = []
@@ -126,6 +133,18 @@ class CrawlerEngine:
         self._discovered_route_queue: list[dict[str, str]] = []
         self._queued_routes: set[str] = set()
         self.scan_stop_requested = False
+        self.parking_lot_actions: list[dict[str, Any]] = []
+        self.scan_events: list[dict[str, Any]] = []
+        self.session_manager = SessionManager(self.base_url, credentials=self.credentials)
+
+        # Core intelligence & exploration engines
+        self.element_registry = ElementIdentityRegistry()
+        self.viewport_scanner = ViewportDeepScanner(self.page)
+        self.menu_overlay_engine = MenuOverlayEngine(self.page)
+        self.probe_engine = InteractionProbeEngine(self.page)
+        self._active_module_id: str = ""
+        self._current_ui_state_id: str = "state_base"
+
         self.page.on("response", self._record_api_response)
         install_document_scope_guard(self.page, self.base_url, self._emit_event)
         self._seed_loaded_api_responses()
@@ -136,55 +155,128 @@ class CrawlerEngine:
     # Public API
     # ------------------------------------------------------------------
 
-    def crawl(self, start_url: str | None = None) -> dict[str, object]:
+    def crawl(
+        self,
+        start_url: str | None = None,
+        selected_module_ids: list[str] | None = None,
+    ) -> dict[str, object]:
+        """Crawl selected top-level modules and their safe in-module routes.
+
+        ``selected_module_ids`` comes from authenticated menu discovery. This
+        prevents an all-menu traversal when a user asked for only one module.
+        """
         self._ensure_authenticated()
-        # Include same-app API activity that occurred during the service's
-        # initial navigation before this engine attached its response listener.
-        landing_api_marker = 0
         wait_for_ui_stability(self.page)
 
         application_shell = detect_application_shell(self.page, event_callback=self._emit_event)
         self.menu_hierarchy = application_shell.get("global_navigation", {})
+        menu_items = self._build_menu_list(application_shell)
+        selected_items = self._select_menu_items(menu_items, selected_module_ids)
+        logger.info("Discovered %d modules; %d selected for this run", len(menu_items), len(selected_items))
 
-        # Step 1: scan the landing page itself once. Use the page title (or URL
-        # path tail) instead of a hardcoded "home" so the menu_name reflects
-        # the actual landing screen.
-        self._scan_route(start_url or self.page.url, menu_name=self._landing_label(),
-                         expected_url=start_url or self.page.url, api_marker=landing_api_marker)
-
-        if self.scan_stop_requested:
+        # An application with no detectable navigation still has one usable
+        # module: its authenticated landing screen. An explicit empty user
+        # selection never falls back to this behavior.
+        if selected_module_ids is None and not selected_items:
+            landing = start_url or self.page.url
+            self._active_module_id = f"route:{self._normalize(landing)}"
+            self._scan_route(landing, menu_name=self._landing_label(), expected_url=landing, api_marker=0)
+            self._review_module(self._landing_label(), landing)
             self._save_checkpoint()
             return self._result_snapshot()
 
-        # Step 2: build a flat, deduplicated menu list.
-        menu_items = self._build_menu_list(application_shell)
-        logger.info(f"Discovered {len(menu_items)} menu items to explore")
-
-        # Step 3: visit each menu item exactly once.
+        # Finish one selected module, including safe child routes, then pause
+        # for an explicit continue/end decision before opening the next one.
         for menu_item in menu_items:
             if self.scan_stop_requested:
                 break
+            if menu_item not in selected_items:
+                continue
+            self._active_module_id = menu_item.get("id") or menu_item.get("module_id") or f"route:{menu_item.get('url', '')}"
             self._visit_menu_item(menu_item)
+            self._drain_discovered_routes()
+            self._review_module(menu_item["label"], menu_item.get("url", ""))
 
-        # Step 4: breadth-first traversal of every route exposed by content
-        # links and router-backed buttons. Each route is scanned once; the
-        # crawler navigates back to the next queued route rather than relying
-        # on browser history or stale UI locators.
+        self._save_checkpoint()
+        return self._result_snapshot()
+
+    def discover_modules(self) -> list[dict[str, Any]]:
+        """Passively return the current application's authenticated modules."""
+        self._ensure_authenticated()
+        wait_for_ui_stability(self.page)
+        application_shell = detect_application_shell(self.page, event_callback=self._emit_event)
+        self.menu_hierarchy = application_shell.get("global_navigation", {})
+        modules = self._build_menu_list(application_shell)
+
+        # Supplement with direct link inspection in header/nav/aside (especially for icon-only or collapsed navigation)
+        try:
+            fallback_links = self.page.locator(
+                "header a[href], nav a[href], aside a[href], [role='navigation'] a[href], "
+                "[role='menubar'] a[href], mat-sidenav a[href]"
+            ).evaluate_all("""els => els.map(el => {
+                let text = (el.innerText || el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
+                if (!text) {
+                    const child = el.querySelector('[aria-label], [title], svg title, img[alt]');
+                    if (child) {
+                        text = (child.getAttribute('aria-label') || child.getAttribute('title') || child.getAttribute('alt') || child.textContent || '').trim();
+                    }
+                }
+                return { href: el.getAttribute('href') || '', text: text || '' };
+            })""")
+            for fl in fallback_links:
+                href = fl.get("href")
+                resolved = self._normalize(href) if href else ""
+                if resolved and is_valid_url(resolved, self.base_url):
+                    mid = f"route:{resolved}"
+                    if not any(m.get("id") == mid for m in modules):
+                        label = fl.get("text") or resolved.rsplit("/", 1)[-1] or "Home"
+                        modules.append({
+                            "id": mid,
+                            "module_id": mid,
+                            "url": resolved,
+                            "label": label,
+                            "source": "fallback_navigation",
+                            "hierarchy_level": 0,
+                            "parent_module": None,
+                            "confidence": 0.85,
+                        })
+        except Exception:
+            pass
+
+        # Fallback 2: Single-page or no visible navigation shell -> default to authenticated landing module
+        if not modules:
+            landing_url = self._normalize(self.page.url)
+            landing_label = self._landing_label()
+            landing_id = f"route:{landing_url}"
+            modules.append({
+                "id": landing_id,
+                "module_id": landing_id,
+                "url": landing_url,
+                "label": landing_label,
+                "source": "landing_page",
+                "hierarchy_level": 0,
+                "parent_module": None,
+                "confidence": 0.8,
+            })
+
+        return modules
+
+    def _drain_discovered_routes(self) -> None:
         while self._discovered_route_queue and not self.scan_stop_requested:
             candidate = self._discovered_route_queue.pop(0)
             self._visit_discovered_route(candidate)
 
-        self._save_checkpoint()
-
-        return self._result_snapshot()
+    @staticmethod
+    def _select_menu_items(
+        menu_items: list[dict[str, str]], selected_module_ids: list[str] | None,
+    ) -> list[dict[str, str]]:
+        if selected_module_ids is None:
+            return menu_items
+        selected = set(selected_module_ids)
+        return [item for item in menu_items if item.get("id") in selected]
 
     def _queue_page_routes(self, source_route: str, source_label: str) -> None:
-        """Queue visible in-scope navigation targets from the current route.
-
-        Only explicit links/router targets are followed. Generic buttons can
-        save, delete, download, or mutate application data, so they are
-        recorded as elements but never blindly clicked by the crawler.
-        """
+        """Queue visible in-scope navigation targets from explicit links and router bindings."""
         if len(self._queued_routes) >= MAX_DISCOVERED_ROUTES:
             return
         try:
@@ -197,12 +289,18 @@ class CrawlerEngine:
                     el.getAttribute('ng-reflect-router-link') || '';
                 return { value, label: (el.getAttribute('aria-label') || el.getAttribute('title') ||
                     el.innerText || el.textContent || '').trim().slice(0, 80),
-                    visible: style.display !== 'none' && style.visibility !== 'hidden' && !!(box.width || box.height) };
+                    visible: style.display !== 'none' && style.visibility !== 'hidden' && !!(box.width || box.height),
+                    inShell: !!el.closest('nav, aside, header, [role="navigation"], .sidebar, .sidenav, .side-nav') };
             })""")
         except Exception:
             return
+
         for candidate in candidates:
-            if not candidate.get("visible") or not candidate.get("value"):
+            # Global navigation is selected explicitly before scanning.  It is
+            # not a child route of the active module and must never re-enqueue
+            # unrelated modules through ordinary link discovery.
+            if (not candidate.get("visible") or not candidate.get("value")
+                    or candidate.get("inShell")):
                 continue
             destination = self._normalize(str(candidate["value"]))
             if (not is_valid_url(destination, self.base_url)
@@ -216,6 +314,14 @@ class CrawlerEngine:
                 "label": str(candidate.get("label") or destination),
                 "source": source_label,
             })
+            if hasattr(self.route_tracker, "graph"):
+                self.route_tracker.graph.add_route(
+                    route=destination,
+                    parent_route=source_route,
+                    navigation_cause="content_link",
+                    return_strategy="navigate_url",
+                    menu_name=str(candidate.get("label") or destination),
+                )
             self._emit_event("route_discovered", {
                 "route": destination, "source_route": source_route,
                 "label": candidate.get("label") or destination,
@@ -238,7 +344,7 @@ class CrawlerEngine:
     def replay_route(
         self, url: str, menu_name: str = "route_replay", api_marker: int | None = None,
     ) -> dict[str, object]:
-        """Force a single in-scope route through the current scanner and checkpoint it."""
+        """Force a single in-scope route through the consolidated scanner and checkpoint it."""
         if not is_valid_url(url, self.base_url):
             raise ValueError(f"Refusing to replay route outside requested app scope: {url}")
         normalized = self.route_tracker.normalize_url(url)
@@ -264,10 +370,13 @@ class CrawlerEngine:
             "route_namespace": self._checkpoint_namespace(),
             "menu_hierarchy": self.menu_hierarchy,
             "scan_stopped_early": self.scan_stop_requested,
+            "parking_lot_actions": self.parking_lot_actions,
+            "scan_events": self.scan_events,
+            "route_graph": self.route_tracker.graph.to_dict(),
         }
 
     # ------------------------------------------------------------------
-    # Menu discovery
+    # Menu discovery & navigation
     # ------------------------------------------------------------------
 
     def _build_menu_list(self, application_shell: dict[str, Any]) -> list[dict[str, str]]:
@@ -285,27 +394,30 @@ class CrawlerEngine:
                     if not label:
                         continue
                     if menu_type == "overlay_menus" and not href:
-                        # Dropdown options are UI data, not route candidates.
                         continue
 
                     resolved_url = self._normalize(href) if href else ""
                     if resolved_url and not is_valid_url(resolved_url, self.base_url):
                         continue
 
-                    # Dedup key: prefer URL when known; otherwise (label, container).
                     dedup_key = (resolved_url, "") if resolved_url else (label.lower(), container_selector)
                     if dedup_key in seen_keys:
                         continue
                     seen_keys.add(dedup_key)
 
+                    mid = self._module_id(resolved_url, label, item.get("selector", ""))
                     menu_items.append(
                         {
+                            "id": mid,
+                            "module_id": mid,
                             "url": resolved_url,
                             "label": label,
                             "source": menu_type,
                             "container_selector": container_selector,
                             "selector": item.get("selector", ""),
                             "hierarchy_level": item.get("hierarchy_level", 0),
+                            "parent_module": item.get("parent_module"),
+                            "confidence": 1.0 if resolved_url else 0.9,
                         }
                     )
                     if resolved_url:
@@ -317,9 +429,12 @@ class CrawlerEngine:
 
         return menu_items
 
-    # ------------------------------------------------------------------
-    # Per-menu visit
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _module_id(url: str, label: str, selector: str) -> str:
+        """Stable selection ID: route when available, otherwise control+label."""
+        if url:
+            return f"route:{url}"
+        return f"control:{selector.strip()}|{label.strip().lower()}"
 
     def _visit_menu_item(self, menu_item: dict[str, str]) -> None:
         url = menu_item.get("url", "")
@@ -373,16 +488,10 @@ class CrawlerEngine:
                     return
                 logger.warning(f"Navigation failed for '{label}', retrying once")
 
-        # Capture URL AFTER navigation/click so SPAs that update history land correctly.
         self._scan_route(self.page.url, menu_name=label, expected_url=url or self.page.url,
                          api_marker=api_marker)
 
     def _click_menu_item(self, label: str, container_selector: str, selector: str = "") -> bool:
-        """Click the menu item by visible text within its container.
-
-        Returns True if a click was performed and a navigation/state change
-        was observed; False if the item could not be located/clicked.
-        """
         if not container_selector and not selector:
             return False
 
@@ -398,7 +507,6 @@ class CrawlerEngine:
             previous_count = int(self.page.evaluate("() => document.body ? document.body.querySelectorAll('*').length : 0"))
             item.click(timeout=ROUTE_NAVIGATION_TIMEOUT)
 
-            # Wait for either a URL change or network idle — 2 s is enough for most SPAs.
             try:
                 self.page.wait_for_url(lambda new_url: new_url != previous_url, timeout=2000)
             except PlaywrightTimeoutError:
@@ -406,12 +514,16 @@ class CrawlerEngine:
             try:
                 self.page.wait_for_load_state("networkidle", timeout=4000)
             except PlaywrightTimeoutError:
-                logger.warning(f"Network idle timeout after clicking menu: {label}")
+                pass
             current_count = int(self.page.evaluate("() => document.body ? document.body.querySelectorAll('*').length : 0"))
             return self.page.url != previous_url or current_count != previous_count
         except Exception:
-            logger.warning(f"Click failed for menu '{label}', will fall back to URL navigation")
+            logger.warning(f"Click failed for menu '{label}', falling back to URL navigation")
             return False
+
+    # ------------------------------------------------------------------
+    # Consolidated Route Scanner
+    # ------------------------------------------------------------------
 
     def _scan_route(
         self, url: str, menu_name: str, expected_url: str | None = None,
@@ -439,9 +551,14 @@ class CrawlerEngine:
         api_marker = len(self._api_responses) if api_marker is None else api_marker
         logger.info(f"Scanning route: {normalized} (menu: {menu_name})")
 
-        # Behave like a real user: wait, observe, scroll, then scan.
+        # 1. Page stabilization
         stable = self._stabilize_page(normalized)
+        base_state = compute_ui_state_fingerprint(self.page, normalized)
+        self._current_ui_state_id = base_state.get("ui_state_id", "state_base")
+        if hasattr(self.route_tracker, "graph"):
+            self.route_tracker.graph.record_ui_state(normalized, base_state)
 
+        # 2. Extract initial passive UI intelligence
         try:
             remaining = self._remaining_route_timeout()
             if time.monotonic() >= self._route_deadline:
@@ -455,8 +572,6 @@ class CrawlerEngine:
                 deadline=self._route_deadline,
             )
         except Exception as exc:
-            # A broken page must not erase previous checkpoints or abort the
-            # route queue. Store a deterministic failed node and continue.
             logger.exception(f"Route scan failed: {normalized}")
             route_doc = {
                 "route": self.page.url,
@@ -471,54 +586,92 @@ class CrawlerEngine:
                 "route": normalized, "reason": route_doc["scan_error"],
                 "menu_name": menu_name,
             })
+
+        active_mid = self._active_module_id or f"route:{normalized}"
+        # Register initial targets with ElementIdentityRegistry
+        initial_targets = list(route_doc.get("automation_targets", []))
+        for target in initial_targets:
+            target.setdefault("ui_state_id", self._current_ui_state_id)
+            target.setdefault("module_id", active_mid)
+            target.setdefault("discovery_mechanism", "passive_dom")
+            ident, is_new = self.element_registry.register(normalized, target)
+            if is_new:
+                self._emit_event("element_found", {
+                    "route": normalized, "id": ident,
+                    "element_type": target.get("type", ""), "label": target.get("label", ""),
+                })
         route_doc["auto_detected_elements"] = list(route_doc.get("automation_targets", []))
 
-        # Empty-page handling: if nothing was detected, give the page a short
-        # extra wait and retry once. Replace fixed sleep with a load-state check.
+        # Retry if empty
         if not route_doc["automation_targets"]:
             logger.info(f"Empty scan on {normalized}, retrying after domcontentloaded")
             try:
                 self.page.wait_for_load_state("domcontentloaded", timeout=2000)
-            except PlaywrightTimeoutError:
-                pass
-            try:
                 remaining = self._remaining_route_timeout()
-                if time.monotonic() >= self._route_deadline:
-                    raise TimeoutError(f"Route scan budget exceeded before retry: {normalized}")
-                self.page.set_default_timeout(remaining)
-                route_doc = build_ui_intelligence(
-                    self.page,
-                    feature_name=menu_name,
-                    menu_name=menu_name,
-                    global_seen=self._global_seen,
-                    deadline=self._route_deadline,
-                )
-                route_doc["auto_detected_elements"] = list(route_doc.get("automation_targets", []))
+                if time.monotonic() < self._route_deadline:
+                    self.page.set_default_timeout(remaining)
+                    route_doc = build_ui_intelligence(
+                        self.page,
+                        feature_name=menu_name,
+                        menu_name=menu_name,
+                        global_seen=self._global_seen,
+                        deadline=self._route_deadline,
+                    )
+                    for target in route_doc.get("automation_targets", []):
+                        target.setdefault("ui_state_id", self._current_ui_state_id)
+                        target.setdefault("module_id", active_mid)
+                        target.setdefault("discovery_mechanism", "passive_dom")
+                        ident, is_new = self.element_registry.register(normalized, target)
+                        if is_new:
+                            self._emit_event("element_found", {
+                                "route": normalized, "id": ident,
+                                "element_type": target.get("type", ""), "label": target.get("label", ""),
+                            })
+                    route_doc["auto_detected_elements"] = list(route_doc.get("automation_targets", []))
             except Exception:
                 logger.exception(f"Retry scan failed: {normalized}")
-            if not route_doc["automation_targets"]:
-                logger.warning(
-                    f"low confidence scan: no automation targets detected on {normalized}"
-                )
 
         self.page_intelligence[normalized] = route_doc
-        self.route_validations[normalized] = self._validate_route(
+
+        # 3. Deep scroll document and nested containers using ViewportDeepScanner
+        self._deep_scroll_viewport(normalized, menu_name, route_doc)
+
+        # 4. Safely detect and open menu/dropdown overlays using MenuOverlayEngine
+        self._detect_and_open_overlays(normalized, menu_name, route_doc)
+
+        # 5. Gather candidate actions, classify with ActionClassifier, divert to parking lot or probe safely
+        self._probe_candidate_actions(normalized, menu_name, route_doc)
+
+        # Re-sync automation targets and sections from the registry
+        route_doc["automation_targets"] = self.element_registry.get_elements_for_route(normalized)
+        route_doc["sections"] = _recount_sections(route_doc["automation_targets"])
+
+        # 6. Health scoring via RouteHealthScorer.score_route()
+        page_load_success, document_status = self._page_load_health()
+        validation = score_route(
             expected_url=self.route_tracker.normalize_url(expected_url or normalized),
+            actual_url=self.route_tracker.normalize_url(self.page.url),
             stable=stable,
             target_count=len(route_doc["automation_targets"]),
-            api_marker=api_marker,
+            api_responses=self._api_responses[api_marker:],
+            interaction_stats=self._route_interactions.get(normalized, {"attempted": 0, "succeeded": 0}),
+            page_load_success=page_load_success,
+            document_status=document_status,
             scan_error=bool(route_doc.get("scan_error")),
+            is_login_page=self._is_login_page(),
         )
-        route_doc["route_validation"] = self.route_validations[normalized]
-        for target in route_doc.get("automation_targets", []):
-            self._emit_event("element_found", {
-                "route": normalized, "id": target.get("id", ""),
-                "element_type": target.get("type", ""), "label": target.get("label", ""),
-            })
-        self._save_checkpoint()
+        self.route_validations[normalized] = validation
+        route_doc["route_validation"] = validation
+        # Keep the persisted graph truthful.  A route is marked as visited
+        # before scanning to prevent traversal loops, but its final health and
+        # score are only known after the route pipeline has completed.
+        self.route_tracker.graph.mark_visited(
+            normalized,
+            status=validation["status"],
+            score=validation["score"],
+        )
 
-        # Enforce minimum 2 s on-page time so the user perceives a real scan
-        # and any late-arriving widgets had a chance to render.
+        # Enforce minimum on-page time for user perception and late widgets
         elapsed = time.monotonic() - _scan_start
         if elapsed < self._MIN_SCAN_SECONDS:
             self.page.wait_for_timeout(int((self._MIN_SCAN_SECONDS - elapsed) * 1000))
@@ -528,37 +681,14 @@ class CrawlerEngine:
             f"{len(route_doc['automation_targets'])} targets | "
             f"{time.monotonic() - _scan_start:.2f}s"
         )
-        # Cover lazy/virtualized content at deterministic viewport positions
-        # before opening nested navigation/accordion states.
-        self._explore_viewport_states(menu_name)
-        # Deep exploration: try expanding hidden navigation (dropdowns, tabs,
-        # accordions, framework expanders) and scan any new states discovered.
-        if ENABLE_DEEP_EXPLORATION:
-            self._explore_hidden_state(menu_name)
-
-        # Manual review belongs at the end of automatic route discovery.
-        # Previously this appeared before scrolling and hidden-state expansion,
-        # so pressing Confirm looked like the scanner had become stuck while
-        # it continued its undisclosed automatic work afterwards.
-        if self.interactive_mode:
-            self._emit_event("manual_review_started", {
-                "route": normalized, "menu_name": menu_name,
-                "message": "Automatic discovery complete; waiting for user confirmation.",
-            })
-            self._capture_interactions(normalized, route_doc)
-            validation = self.route_validations[normalized]
-            self.route_validations[normalized] = self._rescore_route(
-                validation, len(route_doc["automation_targets"])
-            )
-            route_doc["route_validation"] = self.route_validations[normalized]
-            self._emit_event("manual_review_completed", {
-                "route": normalized, "interaction_count": len(route_doc.get("interactions", [])),
-            })
         self._save_checkpoint()
-        # This occurs after every scan (including routes discovered through a
-        # button/router link), so traversal grows deterministically until the
-        # bounded queue is exhausted.
+
+        # Queue visible explicit links from this page
         self._queue_page_routes(normalized, menu_name)
+        # Route discovery is part of the checkpointed state.  Saving only
+        # before this call loses the resume queue after an interruption.
+        self._save_checkpoint()
+
         if not route_doc.get("scan_error"):
             self._emit_event("route_completed", {
                 "route": normalized,
@@ -567,7 +697,277 @@ class CrawlerEngine:
                 "element_count": len(route_doc.get("automation_targets", [])),
             })
 
+    def _deep_scroll_viewport(self, normalized: str, menu_name: str, route_doc: dict[str, Any]) -> None:
+        """Deep-scroll document and nested containers using ViewportDeepScanner."""
+        deadline = self._route_deadline if self._route_deadline > 0 else (time.monotonic() + ROUTE_SCAN_TIMEOUT / 1000)
+        active_mid = self._active_module_id or f"route:{normalized}"
+
+        def on_viewport_change(scroll_label: str) -> None:
+            if self._route_deadline > 0 and time.monotonic() >= self._route_deadline:
+                return
+            extra = build_ui_intelligence(
+                self.page,
+                feature_name=f"{menu_name} > {scroll_label}",
+                menu_name=menu_name,
+                global_seen=self._global_seen,
+                deadline=deadline,
+            )
+            for target in extra.get("automation_targets", []):
+                target["discovery_mechanism"] = "viewport_scroll"
+                target["module_id"] = active_mid
+                target["ui_state_id"] = self._current_ui_state_id
+                ident, is_new = self.element_registry.register(normalized, target)
+                if is_new:
+                    route_doc["automation_targets"].append(target)
+                    self._emit_event("element_found", {
+                        "route": normalized, "id": ident,
+                        "element_type": target.get("type", ""), "label": target.get("label", ""),
+                    })
+
+        try:
+            self.viewport_scanner.deep_scroll(on_viewport_change, deadline=deadline)
+        except Exception:
+            logger.exception("Viewport deep scan failed; continuing with route scan")
+
+    def _detect_and_open_overlays(self, normalized: str, menu_name: str, route_doc: dict[str, Any]) -> None:
+        """Detect and safely open menus and dropdowns using MenuOverlayEngine."""
+        active_mid = self._active_module_id or f"route:{normalized}"
+        try:
+            triggers = self.page.locator(
+                "[aria-haspopup], [aria-expanded], [role='combobox'], select, "
+                "mat-select, .p-dropdown, .dropdown-toggle, [data-radix-popper-content-wrapper]"
+            )
+            count = min(triggers.count(), 10)
+            for i in range(count):
+                if self._route_deadline > 0 and time.monotonic() >= self._route_deadline:
+                    break
+                trigger = triggers.nth(i)
+                if not trigger.is_visible():
+                    continue
+                items = self.menu_overlay_engine.safely_open_and_capture(trigger)
+                for item in items:
+                    href = item.get("href")
+                    if href:
+                        dest = self._normalize(href)
+                        if is_valid_url(dest, self.base_url) and not self.route_tracker.is_visited(dest) and dest not in self._queued_routes:
+                            self._queued_routes.add(dest)
+                            self._discovered_route_queue.append({
+                                "url": dest,
+                                "label": item.get("text") or dest,
+                                "source": f"{menu_name} > overlay",
+                            })
+                            if hasattr(self.route_tracker, "graph"):
+                                self.route_tracker.graph.add_route(
+                                    route=dest,
+                                    parent_route=normalized,
+                                    navigation_cause="overlay_menu",
+                                    return_strategy="navigate_url",
+                                    menu_name=item.get("text") or dest,
+                                )
+                    overlay_target = {
+                        "label": item.get("text", ""),
+                        "type": "menu_item" if item.get("role") in {"menuitem", "option"} else item.get("role", "button"),
+                        "category": "dropdowns" if item.get("role") == "option" else "navigation",
+                        "element_xpath": f"//overlay//{item.get('role', 'item')}[text()='{item.get('text', '')}']",
+                        "element_role": item.get("role", "menuitem"),
+                        "element_index": i + 1,
+                        "selector": {"primary": {"strategy": "text", "value": item.get("text", "")}, "fallback": []},
+                        "is_dynamic": True,
+                        "hierarchy_level": 2,
+                        "discovery_mechanism": "menu_overlay",
+                        "module_id": active_mid,
+                        "ui_state_id": self._current_ui_state_id,
+                    }
+                    ident, is_new = self.element_registry.register(normalized, overlay_target)
+                    if is_new:
+                        route_doc["automation_targets"].append(overlay_target)
+                        self._emit_event("element_found", {
+                            "route": normalized, "id": ident,
+                            "element_type": overlay_target["type"],
+                            "label": overlay_target["label"],
+                        })
+        except Exception:
+            logger.debug("Overlay detection encountered non-fatal error; continuing")
+
+    def _probe_candidate_actions(self, normalized: str, menu_name: str, route_doc: dict[str, Any]) -> None:
+        """Gather candidate controls, classify them, divert unsafe actions to the parking lot,
+        and safely probe navigation/expand/filter/sort/pagination buttons."""
+        candidate_selector = (
+            "button, [role='button'], input[type='button'], input[type='submit'], "
+            "[role='tab'], [role='switch'], [role='search'], "
+            "[data-route], [data-href]"
+        )
+        try:
+            candidates = self.page.locator(candidate_selector).evaluate_all("""els => els.map((el, index) => {
+                const style = window.getComputedStyle(el);
+                const box = el.getBoundingClientRect();
+                const visible = style.display !== 'none' && style.visibility !== 'hidden' && (box.width > 0 || box.height > 0);
+                return {
+                    index,
+                    label: (el.getAttribute('aria-label') || el.innerText || el.value || el.getAttribute('title') || '').trim().slice(0, 80),
+                    role: el.getAttribute('role') || el.tagName.toLowerCase(),
+                    tagName: el.tagName.toLowerCase(),
+                    type: el.getAttribute('type') || '',
+                    aria_expanded: el.getAttribute('aria-expanded') || '',
+                    aria_haspopup: el.getAttribute('aria-haspopup') || '',
+                    href: el.getAttribute('href') || '',
+                    routerlink: el.getAttribute('routerlink') || el.getAttribute('ng-reflect-router-link') || el.getAttribute('data-route') || el.getAttribute('data-href') || '',
+                    visible
+                };
+            })""")
+        except Exception:
+            return
+
+        known_parked = {p.get("label", "").lower() for p in self.parking_lot_actions if p.get("route") == normalized}
+        probed_count = 0
+        max_probes = 10
+
+        for item in candidates:
+            if not item.get("visible") or not item.get("label"):
+                continue
+            if (self._route_deadline > 0 and time.monotonic() >= self._route_deadline) or self.scan_stop_requested:
+                break
+
+            classification = classify_action(item)
+
+            # Divert unsafe / unconfirmed / destructive actions to the parking lot
+            if is_parking_lot_action(classification):
+                lbl_lower = item["label"].lower()
+                if lbl_lower not in known_parked:
+                    known_parked.add(lbl_lower)
+                    entry = {
+                        "route": normalized,
+                        "label": item["label"],
+                        "classification": classification,
+                        "selector": item.get("routerlink") or item.get("tagName"),
+                        "reason": (
+                            "Destructive action blocked by safety policy"
+                            if classification == ActionType.BLOCKED_DESTRUCTIVE
+                            else "Action requires manual user confirmation"
+                        ),
+                        "timestamp": time.time(),
+                    }
+                    self.parking_lot_actions.append(entry)
+                    self._emit_event("parking_lot_action_added", entry)
+                continue
+
+            # Safe action: probe via InteractionProbeEngine
+            if is_safe_action(classification) and probed_count < max_probes:
+                probed_count += 1
+                interaction = self._route_interactions.setdefault(normalized, {"attempted": 0, "succeeded": 0})
+                interaction["attempted"] += 1
+
+                try:
+                    # The candidate index is captured from this exact selector.
+                    # Reusing a label-based locator causes repeated labels to
+                    # probe the first matching control and silently skip the
+                    # others, which breaks full-page coverage.
+                    locator = self.page.locator(candidate_selector).nth(int(item["index"]))
+                    if not locator.is_visible():
+                        continue
+
+                    state_before = compute_ui_state_fingerprint(self.page, normalized)
+                    if hasattr(self.route_tracker, "graph"):
+                        self.route_tracker.graph.record_ui_state(normalized, state_before)
+
+                    probe_res = self.probe_engine.probe_action(
+                        item, locator, current_route=normalized,
+                        parking_lot=self.parking_lot_actions, auto_restore=False,
+                    )
+                    if probe_res.get("success"):
+                        interaction["succeeded"] += 1
+
+                    if hasattr(self.route_tracker, "graph"):
+                        self.route_tracker.graph.record_action(normalized, {
+                            "label": item.get("label"),
+                            "role": item.get("role"),
+                            "classification": classification,
+                            "success": probe_res.get("success", False),
+                        })
+
+                    if probe_res.get("url_changed"):
+                        after_url = probe_res.get("after_url", "")
+                        child_route = self.route_tracker.normalize_url(after_url)
+                        if is_valid_url(child_route, self.base_url):
+                            parent_node = (
+                                self.route_tracker.graph.nodes.get(normalized)
+                                if hasattr(self.route_tracker, "graph")
+                                else None
+                            )
+                            current_depth = parent_node.depth if parent_node else 0
+                            if current_depth < 5:
+                                if hasattr(self.route_tracker, "graph"):
+                                    self.route_tracker.graph.add_route(
+                                        route=child_route,
+                                        parent_route=normalized,
+                                        navigation_cause="safe_button_navigation",
+                                        return_strategy="navigate_url",
+                                        menu_name=item["label"],
+                                    )
+                                if (
+                                    not self.route_tracker.is_visited(child_route)
+                                    and child_route not in self.page_intelligence
+                                ):
+                                    logger.info(
+                                        "Safe button navigation revealed child route: %s -> %s (depth=%d)",
+                                        normalized, child_route, current_depth + 1,
+                                    )
+                                    self._scan_route(
+                                        child_route,
+                                        menu_name=f"{menu_name} > {item['label']}",
+                                        expected_url=child_route,
+                                    )
+                                    self._save_checkpoint()
+
+                        # Restore parent route state
+                        try:
+                            self._navigate(normalized)
+                            wait_for_ui_stability(self.page)
+                        except Exception:
+                            logger.warning("Could not restore parent route after safe probe: %s", normalized)
+
+                    else:
+                        state_after = compute_ui_state_fingerprint(self.page, normalized)
+                        if state_after["ui_state_id"] != state_before["ui_state_id"]:
+                            if hasattr(self.route_tracker, "graph"):
+                                self.route_tracker.graph.record_ui_state(normalized, state_after)
+                                self.route_tracker.graph.record_state_transition(
+                                    normalized,
+                                    state_before["ui_state_id"],
+                                    state_after["ui_state_id"],
+                                    item,
+                                )
+                            self._current_ui_state_id = state_after["ui_state_id"]
+
+                        if probe_res.get("dom_delta", 0) > 0:
+                            extra = build_ui_intelligence(
+                                self.page,
+                                feature_name=f"{menu_name} > {item['label']}",
+                                menu_name=menu_name,
+                                global_seen=self._global_seen,
+                                deadline=self._route_deadline,
+                            )
+                            active_mid = self._active_module_id or f"route:{normalized}"
+                            for target in extra.get("automation_targets", []):
+                                target["discovery_mechanism"] = "interaction_probe"
+                                target["module_id"] = active_mid
+                                target["ui_state_id"] = self._current_ui_state_id
+                                ident, is_new = self.element_registry.register(normalized, target)
+                                if is_new:
+                                    route_doc["automation_targets"].append(target)
+                                    self._emit_event("element_found", {
+                                        "route": normalized, "id": ident,
+                                        "element_type": target.get("type", ""), "label": target.get("label", ""),
+                                    })
+                except Exception as exc:
+                    logger.debug("Failed probing safe action '%s': %s", item["label"], exc)
+
     def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        self.scan_events.append({
+            "event_type": event_type,
+            "timestamp": time.time(),
+            "data": data,
+        })
         if not self.event_callback:
             return
         try:
@@ -580,26 +980,13 @@ class CrawlerEngine:
     # ------------------------------------------------------------------
 
     def _stabilize_page(self, route_label: str) -> bool:
-        """Behave like a real user: wait for network/render, scroll, observe.
-
-        Order:
-            1. networkidle (so XHR-driven content has arrived)
-            2. 3 s settle window (covers fade-ins, async rerenders)
-            3. body must be present
-            4. opportunistic waits for table/button/input (best-effort)
-            5. scroll wheel + 1 s wait (triggers lazy-load/virtualized lists)
-            6. scroll back to top so extraction starts from a stable viewport
-        """
-        # 1. Network idle.
         try:
             self.page.wait_for_load_state("networkidle", timeout=self._remaining_route_timeout(8000))
         except PlaywrightTimeoutError:
             logger.debug(f"networkidle timeout: {route_label}")
 
-        # 2. Real-user settle window (mandatory).
-        self.page.wait_for_timeout(min(3000, self._remaining_route_timeout(3000)))
+        self.page.wait_for_timeout(min(2000, self._remaining_route_timeout(2000)))
 
-        # 3. Body must be visible — fail fast if the page never rendered.
         body_visible = False
         try:
             self.page.wait_for_selector("body", timeout=self._remaining_route_timeout(5000), state="visible")
@@ -607,8 +994,6 @@ class CrawlerEngine:
         except PlaywrightTimeoutError:
             logger.warning(f"body never became visible: {route_label}")
 
-        # 4. Opportunistic waits for interactive content. Each is best-effort:
-        #    if a selector never appears the page legitimately may not have it.
         for selector in (
             "table, [role='table'], mat-table",
             "button, [role='button'], mat-button, [mat-button], [mat-raised-button]",
@@ -616,21 +1001,10 @@ class CrawlerEngine:
             "[role='combobox'], mat-select, [aria-haspopup='listbox']",
         ):
             try:
-                self.page.wait_for_selector(selector, timeout=self._remaining_route_timeout(2500), state="visible")
+                self.page.wait_for_selector(selector, timeout=self._remaining_route_timeout(2000), state="visible")
             except PlaywrightTimeoutError:
-                logger.debug(f"no '{selector}' visible on {route_label}")
+                pass
 
-        # 5. Simulate user scroll to surface lazy/virtualized rows.
-        try:
-            self.page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
-            self.page.wait_for_timeout(min(1500, self._remaining_route_timeout(1500)))
-            self.page.mouse.wheel(0, 2000)
-            self.page.wait_for_timeout(min(500, self._remaining_route_timeout(500)))
-            self.page.mouse.wheel(0, -2000)
-            self.page.evaluate("() => window.scrollTo(0, 0)")
-            self.page.wait_for_timeout(min(400, self._remaining_route_timeout(400)))
-        except Exception:
-            logger.debug(f"scroll simulation failed: {route_label}")
         dom_stable = False
         try:
             self.page.wait_for_function(
@@ -638,31 +1012,79 @@ class CrawlerEngine:
                   let timer;
                   const observer = new MutationObserver(() => {
                     clearTimeout(timer);
-                    timer = setTimeout(() => { observer.disconnect(); resolve(true); }, 250);
+                    timer = setTimeout(() => { observer.disconnect(); resolve(true); }, 200);
                   });
                   observer.observe(document.body, {childList:true, subtree:true, attributes:true});
-                  timer = setTimeout(() => { observer.disconnect(); resolve(true); }, 250);
+                  timer = setTimeout(() => { observer.disconnect(); resolve(true); }, 200);
                 })""",
                 timeout=self._remaining_route_timeout(1500),
             )
             dom_stable = True
         except PlaywrightTimeoutError:
-            logger.warning(f"DOM did not settle within scan window: {route_label}")
+            logger.debug(f"DOM did not settle within window: {route_label}")
         return body_visible and dom_stable
 
     # ------------------------------------------------------------------
     # Interactive learning
     # ------------------------------------------------------------------
 
-    def _capture_interactions(self, normalized: str, route_doc: dict[str, Any]) -> None:
-        """Inject the recorder, wait for the user, harvest interactions.
+    def _review_module(self, module_label: str, module_url: str) -> None:
+        """Pause only after a selected module is complete, never per child route."""
+        if not self.interactive_mode or self.scan_stop_requested:
+            return
 
-        Falls back gracefully: if injection fails or no events are captured
-        the route keeps its passive-scan results untouched.
-        """
+        # Content-link traversal may leave the browser on a child screen.
+        # Return to the selected module before showing the user's review UI.
+        if module_url:
+            try:
+                expected = self.route_tracker.normalize_url(module_url)
+                if self.route_tracker.normalize_url(self.page.url) != expected:
+                    self._navigate(expected)
+                    wait_for_ui_stability(self.page)
+            except Exception:
+                logger.warning("Could not restore selected module before review: %s", module_label)
+
+        normalized = self.route_tracker.normalize_url(module_url or self.page.url)
+        route_doc = self.page_intelligence.get(normalized)
+        if route_doc is None:
+            # Click-only menu entries may not expose a URL. Use the latest
+            # document carrying this menu label rather than blocking the run.
+            route_doc = next(
+                (doc for doc in self.page_intelligence.values()
+                 if doc.get("menu_name") == module_label),
+                None,
+            )
+            if route_doc is None:
+                return
+            normalized = self.route_tracker.normalize_url(route_doc.get("route") or self.page.url)
+
+        self._emit_event("module_review_started", {
+            "route": normalized,
+            "module_name": module_label,
+            "message": "Selected module is complete; waiting for continue or end.",
+        })
+        summary = {
+            "module_name": module_label,
+            "element_count": len(route_doc.get("automation_targets", [])),
+            "route_count": len(self.page_intelligence),
+        }
+        self._capture_interactions(normalized, route_doc, summary=summary)
+        self._emit_event("module_review_completed", {
+            "route": normalized,
+            "module_name": module_label,
+            "interaction_count": len(route_doc.get("interactions", [])),
+            "ended": self.scan_stop_requested,
+        })
+
+    def _capture_interactions(
+        self, normalized: str, route_doc: dict[str, Any], summary: dict[str, Any] | None = None,
+    ) -> None:
         logger.info(f"Interactive mode: capturing on {normalized}")
         try:
-            inject_capture(self.page)
+            if summary:
+                inject_capture(self.page, summary=summary)
+            else:
+                inject_capture(self.page)
         except Exception:
             logger.exception("Interactive mode: injection failed, falling back to passive scan")
             route_doc["interactions"] = []
@@ -699,126 +1121,24 @@ class CrawlerEngine:
             target["element_xpath"] = self._xpath_for_selector(target, index)
             target["element_role"] = target.get("element_role") or self._role_for_target(target)
             target["element_index"] = int(target.get("element_index") or index)
-            target["element_identity"] = "|".join((
-                normalized, target["element_xpath"], target["element_role"],
-                target.get("label", ""), str(target["element_index"]),
-            ))
-            target["id"] = target["element_identity"]
+            ident, is_new = self.element_registry.register(normalized, target)
+            target["id"] = ident
             target["hierarchy_level"] = 2
             target["interaction_probability"] = 1.0
             target["interaction_probability_method"] = "user_confirmed_interaction"
-        route_doc["user_confirmed_elements"] = user_targets
-        existing = {target.get("element_identity") for target in route_doc["automation_targets"]}
-        for target in user_targets:
-            identity = target.get("element_identity")
-            if identity not in existing:
+            if is_new:
                 route_doc["automation_targets"].append(target)
-                existing.add(identity)
                 self._emit_event("element_found", {
-                    "route": normalized, "id": identity,
+                    "route": normalized, "id": ident,
                     "element_type": target.get("type", ""), "label": target.get("label", ""),
                 })
+
+        route_doc["user_confirmed_elements"] = user_targets
         route_doc["sections"] = _recount_sections(route_doc["automation_targets"])
         self.manual_interactions.extend(
             {**interaction, "route": normalized} for interaction in interactions
         )
         self.interaction_flow.extend({**step, "route": normalized} for step in flow)
-
-    def _explore_hidden_state(self, menu_name: str) -> None:
-        if self._deep_exploration_active:
-            return
-        starting_url = self.page.url
-
-        def on_state_change(trigger_label: str) -> None:
-            current_url = self.page.url
-            normalized = self.route_tracker.normalize_url(current_url)
-            sub_menu_name = f"{menu_name} > {trigger_label}" if trigger_label else menu_name
-
-            if normalized in self.page_intelligence:
-                # Same route URL but new visible state: merge new components in
-                # using the global_seen registry so duplicates are skipped.
-                logger.info(f"Deep exploration scanning sub-state of {normalized}: {sub_menu_name}")
-                extra = build_ui_intelligence(
-                    self.page,
-                    feature_name=sub_menu_name,
-                    menu_name=sub_menu_name,
-                    global_seen=self._global_seen,
-                    deadline=self._route_deadline,
-                )
-                if extra["automation_targets"]:
-                    existing = self.page_intelligence[normalized]
-                    known = {target.get("element_identity") for target in existing["automation_targets"]}
-                    for target in extra["automation_targets"]:
-                        identity = target.get("element_identity")
-                        if identity not in known:
-                            existing["automation_targets"].append(target)
-                            known.add(identity)
-                            self._emit_event("element_found", {
-                                "route": normalized, "id": target.get("id", ""),
-                                "element_type": target.get("type", ""), "label": target.get("label", ""),
-                            })
-                    # Recompute sections from the merged target list.
-                    existing["sections"] = _recount_sections(existing["automation_targets"])
-                    existing["route_validation"] = self._rescore_route(
-                        self.route_validations[normalized], len(existing["automation_targets"])
-                    )
-                    self.route_validations[normalized] = existing["route_validation"]
-                    self._save_checkpoint()
-                return
-
-            # New URL surfaced via a hidden trigger: treat as a fresh route.
-            self._scan_route(current_url, menu_name=sub_menu_name)
-
-        try:
-            self._deep_exploration_active = True
-            explore_hidden_navigation(self.page, on_state_change)
-        except Exception:
-            logger.exception("Deep exploration failed; continuing without it")
-        finally:
-            self._deep_exploration_active = False
-            if self.page.url != starting_url and is_valid_url(starting_url, self.base_url):
-                try:
-                    self._navigate(starting_url)
-                    wait_for_ui_stability(self.page)
-                except Exception:
-                    logger.warning("Could not restore the route after hidden-state exploration")
-
-    def _explore_viewport_states(self, menu_name: str) -> None:
-        """Merge targets revealed by document/panel scrolling into this route."""
-        if self._deep_exploration_active:
-            return
-        normalized = self.route_tracker.normalize_url(self.page.url)
-        if normalized not in self.page_intelligence:
-            return
-
-        def on_viewport_change(label: str) -> None:
-            if time.monotonic() >= self._route_deadline:
-                return
-            extra = build_ui_intelligence(
-                self.page, feature_name=f"{menu_name} > {label}", menu_name=menu_name,
-                global_seen=self._global_seen, deadline=self._route_deadline,
-            )
-            existing = self.page_intelligence[normalized]
-            known = {target.get("element_identity") for target in existing["automation_targets"]}
-            for target in extra.get("automation_targets", []):
-                identity = target.get("element_identity")
-                if identity and identity not in known:
-                    existing["automation_targets"].append(target)
-                    known.add(identity)
-                    self._emit_event("element_found", {
-                        "route": normalized, "id": identity,
-                        "element_type": target.get("type", ""), "label": target.get("label", ""),
-                    })
-            existing["sections"] = _recount_sections(existing["automation_targets"])
-            existing["route_validation"] = self._rescore_route(
-                self.route_validations[normalized], len(existing["automation_targets"])
-            )
-            self.route_validations[normalized] = existing["route_validation"]
-
-        try:
-            explore_viewport_states(self.page, on_viewport_change, self._route_deadline)
-        except Exception:
-            logger.exception("Viewport exploration failed; continuing with route scan")
 
     def _xpath_for_selector(self, target: dict[str, Any], fallback_index: int) -> str:
         selector = (target.get("selector", {}).get("primary", {}) or {}).get("value", "")
@@ -837,8 +1157,6 @@ class CrawlerEngine:
                 ))
             except Exception:
                 pass
-        # Preserve the unresolved state instead of presenting a synthetic path
-        # as a browser XPath; the per-route event index still distinguishes it.
         return ""
 
     @staticmethod
@@ -848,7 +1166,6 @@ class CrawlerEngine:
                 "table": "table"}.get(element_type, "")
 
     def _landing_label(self) -> str:
-        """Best-effort label for the landing page (page title or URL path tail)."""
         try:
             title = self.page.title().strip()
         except Exception:
@@ -865,8 +1182,6 @@ class CrawlerEngine:
     # ------------------------------------------------------------------
 
     def _navigate(self, url: str) -> None:
-        # wait_until="domcontentloaded" is fast; the caller's wait_for_ui_stability
-        # handles the remaining stabilization (networkidle + DOM settle).
         if not is_valid_url(url, self.base_url):
             raise ValueError(f"Refusing to navigate outside requested app scope: {url}")
         self.page.goto(url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
@@ -877,7 +1192,6 @@ class CrawlerEngine:
         return max(1, min(preferred_ms, int((self._route_deadline - time.monotonic()) * 1000)))
 
     def _record_api_response(self, response: Any) -> None:
-        """Record only same-app XHR/fetch responses for route health."""
         try:
             if response.request.resource_type not in {"fetch", "xhr"}:
                 return
@@ -901,77 +1215,6 @@ class CrawlerEngine:
         except Exception:
             return
 
-    def _validate_route(
-        self, expected_url: str, stable: bool, target_count: int,
-        api_marker: int, scan_error: bool = False,
-    ) -> dict[str, Any]:
-        """Classify the currently displayed route without re-navigating it."""
-        actual_url = self.route_tracker.normalize_url(self.page.url)
-        responses = self._api_responses[api_marker:]
-        failed_api = [item for item in responses if int(item["status"]) >= 400]
-        api_present = bool(responses)
-        redirected = actual_url != expected_url
-        interaction = self._route_interactions.get(expected_url, {"attempted": 0, "succeeded": 0})
-        interaction_rate = (
-            interaction["succeeded"] / interaction["attempted"]
-            if interaction["attempted"] else 0.0
-        )
-        page_load_success, document_status = self._page_load_health()
-        components = {
-            "dom_stability": 25 if stable else 0,
-            "api_response": 20 if api_present and not failed_api else (8 if api_present else 0),
-            "redirect_consistency": 20 if not redirected else 0,
-            "interaction_success": round(15 * interaction_rate),
-            "element_detection": 20 if target_count >= 5 else (12 if target_count else 0),
-        }
-        score, available_weight = _normalized_route_score(
-            components, api_present, bool(interaction["attempted"]),
-        )
-        if scan_error or not stable or not page_load_success or self._is_login_page() or score < 40:
-            status = "NON-WORKING"
-        elif score < 70 or failed_api or redirected or target_count == 0:
-            status = "PARTIAL"
-        else:
-            status = "WORKING"
-        return {
-            "status": status,
-            "score": score,
-            "score_components": components,
-            "score_available_weight": available_weight,
-            "expected_url": expected_url,
-            "actual_url": actual_url,
-            "redirected": redirected,
-            "dom_stable": stable,
-            "page_load_success": page_load_success,
-            "document_status": document_status,
-            "api_response_present": api_present,
-            "failed_api_responses": len(failed_api),
-            "target_count": target_count,
-            "interaction_success_rate": round(interaction_rate, 3),
-            "interaction_attempted": bool(interaction["attempted"]),
-        }
-
-    def _rescore_route(self, validation: dict[str, Any], target_count: int) -> dict[str, Any]:
-        updated = dict(validation)
-        components = dict(updated.get("score_components", {}))
-        components["element_detection"] = 20 if target_count >= 5 else (12 if target_count else 0)
-        updated["target_count"] = target_count
-        updated["score_components"] = components
-        updated["score"], updated["score_available_weight"] = _normalized_route_score(
-            components,
-            bool(updated.get("api_response_present")),
-            bool(updated.get("interaction_attempted")),
-        )
-        if (not updated.get("dom_stable") or not updated.get("page_load_success")
-                or self._is_login_page() or updated["score"] < 40):
-            updated["status"] = "NON-WORKING"
-        elif (updated["score"] < 70 or updated.get("redirected")
-              or updated.get("failed_api_responses") or target_count == 0):
-            updated["status"] = "PARTIAL"
-        else:
-            updated["status"] = "WORKING"
-        return updated
-
     def _page_load_health(self) -> tuple[bool, int]:
         try:
             status = int(self.page.evaluate(
@@ -985,19 +1228,16 @@ class CrawlerEngine:
             return False, 0
 
     def _checkpoint_namespace(self) -> str:
-        """Bind a checkpoint to this exact requested origin and path prefix."""
-        from urllib.parse import urlparse
-        parsed = urlparse(self.base_url)
-        path = "/" + "/".join(part for part in parsed.path.split("/") if part)
-        return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path.rstrip('/') or '/'}"
+        return compute_namespace(self.base_url)
 
     def _load_checkpoint(self) -> None:
-        if not self.checkpoint_path or not self.checkpoint_path.exists():
+        if not self.checkpoint_store:
+            return
+        data = self.checkpoint_store.load(expected_base_url=self.base_url)
+        if not data:
+            logger.info("No compatible checkpoint found for namespace; starting fresh scan")
             return
         try:
-            data = json.loads(self.checkpoint_path.read_text(encoding="utf-8"))
-            if data.get("namespace") != self._checkpoint_namespace():
-                raise ValueError("Checkpoint app namespace does not match requested URL")
             self.checkpoint_loaded = True
             self.page_intelligence = {
                 route: doc for route, doc in data.get("page_intelligence", {}).items()
@@ -1011,9 +1251,12 @@ class CrawlerEngine:
                 route: item for route, item in data.get("feature_routes", {}).items()
                 if is_valid_url(route, self.base_url)
             }
-            # Rebuilt from the live app shell on each resumed scan; never reuse
-            # menu routes from a historical scan snapshot.
+            self.parking_lot_actions = data.get("parking_lot_actions", [])
+            self.scan_events = data.get("scan_events", [])
+            if "route_graph" in data:
+                self.route_tracker.graph = RouteGraph.from_dict(data["route_graph"])
             self.menu_hierarchy = {}
+
             failed_routes = {
                 route for route in data.get("failed_routes", [])
                 if is_valid_url(route, self.base_url)
@@ -1021,54 +1264,79 @@ class CrawlerEngine:
             for route in failed_routes:
                 self.page_intelligence.pop(route, None)
                 self.route_validations.pop(route, None)
+
             for route in data.get("visited_routes", []):
                 if is_valid_url(route, self.base_url) and route not in failed_routes:
-                    self.route_tracker.mark_visited(route)
+                    # Preserve the health score and status loaded from the
+                    # route graph; do not reset them to the tracker defaults.
+                    node = self.route_tracker.graph.get_node(route)
+                    if node:
+                        node.visited = True
+                    else:
+                        self.route_tracker.mark_visited(route)
+
+            # Resume the bounded traversal queue rather than only restoring
+            # completed routes.  Labels are rebuilt from durable graph/menu
+            # metadata when available; the URL remains the source of truth.
+            self._discovered_route_queue = []
+            self._queued_routes = set()
+            for route in data.get("pending_routes", []):
+                if not is_valid_url(route, self.base_url) or self.route_tracker.is_visited(route):
+                    continue
+                node = self.route_tracker.graph.get_node(route)
+                self._discovered_route_queue.append({
+                    "url": route,
+                    "label": (node.menu_name if node and node.menu_name else route),
+                    "source": "checkpoint_resume",
+                })
+                self._queued_routes.add(route)
+
+            # Re-register targets into ElementIdentityRegistry
+            for route, doc in self.page_intelligence.items():
+                for target in doc.get("automation_targets", []):
+                    self.element_registry.register(route, target)
+
             logger.info("Resumed scan checkpoint with %d routes", len(self.page_intelligence))
         except Exception:
-            logger.exception("Unable to load scan checkpoint; starting a fresh scan")
-            self.page_intelligence = {}
-            self.route_validations = {}
-            self.feature_routes = {}
-            self.menu_hierarchy = {}
-            self.route_tracker = RouteTracker()
+            logger.exception("Unable to process checkpoint; starting fresh scan")
 
     def _save_checkpoint(self) -> None:
-        if not self.checkpoint_path:
+        if not self.checkpoint_store:
             return
         try:
-            self.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            # Do not persist interactive event values, which may contain secrets.
-            page_snapshot = {}
-            for route, doc in self.page_intelligence.items():
-                safe_doc = dict(doc)
-                safe_doc.pop("interactions", None)
-                safe_doc.pop("interaction_flow", None)
-                page_snapshot[route] = safe_doc
-            payload = {
+            session_id = (self.checkpoint_path.stem.removeprefix("checkpoint_")
+                          if self.checkpoint_path else "")
+            data = {
+                "session_id": session_id,
                 "namespace": self._checkpoint_namespace(),
                 "visited_routes": sorted(self.route_tracker.get_visited_routes()),
+                "pending_routes": [item["url"] for item in self._discovered_route_queue],
                 "failed_routes": sorted(
                     route for route, item in self.route_validations.items()
-                    if item.get("status") == "NON-WORKING"
+                    if item.get("status") in {"NON-WORKING", "NON_WORKING_ROUTE"}
                 ),
                 "partial_routes": sorted(
                     route for route, item in self.route_validations.items()
-                    if item.get("status") == "PARTIAL"
+                    if item.get("status") in {"PARTIAL", "PARTIAL_ROUTE"}
                 ),
                 "route_validations": self.route_validations,
-                "page_intelligence": page_snapshot,
+                "page_intelligence": self.page_intelligence,
                 "element_map_snapshot": [
                     {"route": route, **target}
-                    for route, doc in page_snapshot.items()
+                    for route, doc in self.page_intelligence.items()
                     for target in doc.get("automation_targets", [])
                 ],
+                "parking_lot_actions": self.parking_lot_actions,
+                "scan_events": self.scan_events,
+                "manual_checkpoint_state": {
+                    "scan_stop_requested": self.scan_stop_requested,
+                    "interactive_mode": self.interactive_mode,
+                },
                 "feature_routes": self.feature_routes,
                 "menu_hierarchy": self.menu_hierarchy,
+                "route_graph": self.route_tracker.graph.to_dict(),
             }
-            temporary = self.checkpoint_path.with_suffix(self.checkpoint_path.suffix + ".tmp")
-            temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            temporary.replace(self.checkpoint_path)
+            self.checkpoint_store.save(data)
         except Exception:
             logger.exception("Could not persist route checkpoint")
 
@@ -1077,28 +1345,23 @@ class CrawlerEngine:
             return
 
         if not self.credentials:
-            raise RuntimeError("Authentication session lost and no credentials are available")
+            raise AuthenticationExpiredError("Authentication expired. Refresh the session to continue.")
 
         logger.warning("Authentication session appears to be lost. Attempting login recovery.")
         username, password = self.credentials
         login(self.page, username, password, self.base_url)
 
     def _is_login_page(self) -> bool:
-        # URL-keyword check: most reliable signal.
         from urllib.parse import unquote, urlparse
         login_url_indicators = {"login", "sign-in", "signin", "auth", "authenticate", "sso"}
         path_parts = {part.casefold() for part in unquote(urlparse(self.page.url).path).split("/") if part}
         if path_parts & login_url_indicators:
             return True
 
-        # Fallback: a visible password input is a strong login-page signal.
         try:
             return self.page.locator('input[type="password"]').first.is_visible()
         except Exception:
             return False
 
     def _normalize(self, url: str) -> str:
-        # Resolve a relative menu href exactly as the browser does from the
-        # currently loaded route; resolving it against a deep base URL can
-        # incorrectly climb out of the requested application path.
         return self.route_tracker.normalize_url(urljoin(self.page.url or self.base_url, url))
