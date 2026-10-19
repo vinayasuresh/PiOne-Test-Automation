@@ -87,7 +87,8 @@ class SessionManager:
 
         if not self.has_credentials:
             logger.error("Authentication lost on %s but no credentials provided", page.url)
-            return False
+            from automation_framework.crawler.auth_exceptions import AuthenticationExpiredError
+            raise AuthenticationExpiredError("Authentication expired. Refresh the session to continue.")
 
         username, password = self.credentials  # type: ignore[misc]
         logger.warning("Session lost on %s. Re-authenticating user %s...", page.url, username[:3] + "***")

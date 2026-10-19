@@ -1,8 +1,10 @@
 import time
 from typing import Any
+from urllib.parse import urljoin
 
 from playwright.sync_api import Error as PlaywrightError, Locator, Page
 
+from automation_framework.crawler.url_filter import is_valid_url
 from automation_framework.engine.element_identity_registry import compute_element_identity
 from automation_framework.utils.logger import logger
 
@@ -124,13 +126,18 @@ CATEGORY_RULES: dict[str, dict[str, str]] = {
         "selector": (
             "[tabindex]:not([tabindex='-1']), [onclick], [style*='cursor'], "
             "[class*='button' i], [class*='btn' i], [class*='click' i], "
-            "[class*='select' i], [class*='dropdown' i], app-root *, [ng-version] *"
+            "[class*='select' i], [class*='dropdown' i], [class*='card' i], "
+            "[class*='tile' i], app-root *, [ng-version] *"
         ),
         "interaction_type": "interact",
         "relevance": MEDIUM_RELEVANCE,
     },
     "navigation": {
-        "selector": "main a[href], [role='main'] a[href], main [role='link'], [role='main'] [role='link']",
+        "selector": (
+            "main a[href], [role='main'] a[href], #content a[href], .content a[href], "
+            "a[href]:not([href^='javascript:']):not([href^='#']), "
+            "main [role='link'], [role='main'] [role='link'], [role='link']"
+        ),
         "interaction_type": "navigate",
         "relevance": MEDIUM_RELEVANCE,
     },
@@ -380,6 +387,7 @@ _ELEMENT_DATA_SCRIPT = """
             tagName:      el.tagName.toLowerCase(),
             text:         (el.innerText || '').trim().slice(0, 120),
             value:        el.value || '',
+            href:         el.getAttribute('href') || (el.href ? el.href : ''),
             generatedSelector: classification.selector,
             elementXPath: xpathFor(el),
             elementIndex: el.parentElement ? Array.from(el.parentElement.children).indexOf(el) + 1 : 1,
@@ -398,6 +406,8 @@ _ELEMENT_DATA_SCRIPT = """
             inFilterOrForm:  isInFilterOrForm(el),
             width:        box.width,
             height:       box.height,
+            x:            box.x,
+            y:            box.y,
             rowCount:     rows.length,
             firstRowCols,
             controlCount,
@@ -419,6 +429,7 @@ def build_ui_intelligence(
     menu_name: str | None = None,
     global_seen: set[tuple[str, str]] | None = None,
     deadline: float | None = None,
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """Produce a normalized Route document for the current page.
 
@@ -429,6 +440,8 @@ def build_ui_intelligence(
     suppress targets across routes. Identity is route + XPath + label.
     """
     logger.info(f"Building UI intelligence for route: {page.url}")
+
+    effective_base_url = base_url or (page.url if page.url and not page.url.startswith("about:") else "")
 
     if global_seen is None:
         global_seen = set()
@@ -466,7 +479,7 @@ def build_ui_intelligence(
         for data in elements_data:
             if deadline is not None and time.monotonic() >= deadline:
                 break
-            if not _is_meaningful_from_data(data, category):
+            if not _is_meaningful_from_data(data, category, base_url=effective_base_url):
                 continue
 
             # Prevent filter controls from being re-classified as actions.
@@ -531,16 +544,35 @@ def build_ui_intelligence(
         if kept:
             category_counts[category] = kept
 
+    if not automation_targets:
+        logger.info(f"Zero targets detected via standard categories on {page.url}. Running deterministic fallback extraction from document.body.")
+        fallback_targets = extract_fallback_body_elements(
+            page,
+            base_url=effective_base_url,
+            menu_name=menu_name or feature_name,
+            deadline=deadline,
+        )
+        for target in fallback_targets:
+            ident = target.get("element_identity")
+            if ident and ident in seen_signatures:
+                continue
+            if ident:
+                seen_signatures.add(ident)
+            automation_targets.append(target)
+            cat = target.get("category", "interactive")
+            category_counts[cat] = category_counts.get(cat, 0) + 1
+
     sections = _build_sections(automation_targets)
 
     # Surface per-category detection counts so each route's profile is logged.
     route_label = page.url
-    for category in ("actions", "inputs", "dropdowns", "interactive", "filters", "tables", "charts", "maps"):
+    for category in ("actions", "inputs", "dropdowns", "interactive", "filters", "tables", "charts", "maps", "navigation", "tabs"):
         n = category_counts.get(category, 0)
         if n:
             human = {"actions": "buttons", "inputs": "inputs", "filters": "filters",
                      "dropdowns": "dropdowns", "interactive": "interactive elements",
-                     "tables": "tables", "charts": "charts", "maps": "maps"}[category]
+                     "tables": "tables", "charts": "charts", "maps": "maps",
+                     "navigation": "navigation links", "tabs": "tabs"}.get(category, category)
             logger.info(f"Detected {n} {human} on {route_label}")
 
     return {
@@ -551,6 +583,276 @@ def build_ui_intelligence(
         "sections": sections,
         "automation_targets": automation_targets,
     }
+
+
+FALLBACK_QUERY = (
+    "a, button, input:not([type='hidden']), textarea, select, "
+    "[role='button'], [role='link'], [role='combobox'], [role='textbox'], [role='tab'], "
+    "[onclick], [aria-label], [data-testid], [class*='card' i], [class*='btn' i]"
+)
+
+_FALLBACK_BODY_SCRIPT = """
+(query) => {
+    function generatedSelector(el) {
+        if (el.getAttribute('data-testid')) return `[data-testid="${el.getAttribute('data-testid')}"]`;
+        if (el.getAttribute('aria-label')) return `${el.tagName.toLowerCase()}[aria-label="${el.getAttribute('aria-label')}"]`;
+        if (el.id && !/\\d{4,}/.test(el.id)) return `#${el.id}`;
+        const tag = el.tagName.toLowerCase();
+        const name = el.getAttribute('name');
+        if (name) return `${tag}[name="${name}"]`;
+        let current = el;
+        const parts = [];
+        while (current && current.nodeType === 1 && current !== document.body && parts.length < 4) {
+            const currentTag = current.tagName.toLowerCase();
+            const parent = current.parentElement;
+            if (!parent) break;
+            const sameTagSiblings = Array.from(parent.children).filter(child => child.tagName === current.tagName);
+            const index = sameTagSiblings.indexOf(current) + 1;
+            parts.unshift(sameTagSiblings.length > 1 ? `${currentTag}:nth-of-type(${index})` : currentTag);
+            current = parent;
+        }
+        return parts.length ? parts.join(' > ') : tag;
+    }
+
+    function xpathFor(el) {
+        if (el.id && !/\\d{4,}/.test(el.id)) {
+            const val = el.id.indexOf("'") === -1 ? ("'" + el.id + "'") : ('"' + el.id.replace(/"/g, '') + '"');
+            return "//*[@id=" + val + "]";
+        }
+        const parts = [];
+        let current = el;
+        while (current && current.nodeType === 1 && current !== document.body) {
+            const tag = current.tagName.toLowerCase();
+            const siblings = Array.from(current.parentElement ? current.parentElement.children : [])
+                .filter(sibling => sibling.tagName === current.tagName);
+            parts.unshift(`${tag}[${siblings.indexOf(current) + 1}]`);
+            current = current.parentElement;
+        }
+        return `/html/body/${parts.join('/')}`;
+    }
+
+    const elements = Array.from(document.body ? document.body.querySelectorAll(query) : []);
+    return elements.map((el, idx) => {
+        const style = window.getComputedStyle(el);
+        const box = el.getBoundingClientRect();
+        const isVisible = (
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            parseFloat(style.opacity || '1') > 0 &&
+            (box.width > 0 || box.height > 0)
+        );
+
+        let label = (el.getAttribute('aria-label') || el.getAttribute('title') ||
+                     el.getAttribute('placeholder') || el.getAttribute('name') || '').trim();
+        if (!label) {
+            label = (el.innerText || el.value || '').trim();
+        }
+        if (!label) {
+            const img = el.querySelector('img[alt]');
+            if (img) label = img.getAttribute('alt') || '';
+        }
+        if (!label) {
+            const svgTitle = el.querySelector('svg title');
+            if (svgTitle) label = svgTitle.textContent || '';
+        }
+
+        return {
+            tagName: el.tagName.toLowerCase(),
+            role: (el.getAttribute('role') || '').toLowerCase(),
+            type: (el.getAttribute('type') || '').toLowerCase(),
+            ariaLabel: el.getAttribute('aria-label') || '',
+            title: el.getAttribute('title') || '',
+            placeholder: el.getAttribute('placeholder') || '',
+            name: el.getAttribute('name') || '',
+            id: el.id || '',
+            testId: el.getAttribute('data-testid') || '',
+            href: el.getAttribute('href') || (el.href ? el.href : ''),
+            label: label.slice(0, 80),
+            text: (el.innerText || el.value || '').trim().slice(0, 120),
+            disabled: !!el.disabled || el.getAttribute('aria-disabled') === 'true',
+            isVisible,
+            cursor: style.cursor || '',
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+            generatedSelector: generatedSelector(el),
+            elementXPath: xpathFor(el),
+            elementIndex: idx + 1,
+            hasNestedControl: !!el.querySelector("button, [role='button'], input, select, textarea"),
+            isClickable: !el.disabled && (
+                style.cursor === 'pointer' ||
+                el.hasAttribute('onclick') ||
+                el.tagName.toLowerCase() === 'button' ||
+                el.tagName.toLowerCase() === 'a' ||
+                (el.getAttribute('role') || '') === 'button' ||
+                (el.getAttribute('role') || '') === 'link'
+            )
+        };
+    });
+}
+"""
+
+
+def extract_fallback_body_elements(
+    page: Page,
+    base_url: str | None = None,
+    menu_name: str | None = None,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
+    """Deterministic fallback extraction from document.body.
+
+    Triggered when standard categorized rules find zero elements. Emits fully
+    qualified automation targets with stable XPath, CSS selector, role, label,
+    text, tag, visibility, and bounding-box data. Applies app boundary rules so
+    external CDNs and assets are excluded.
+    """
+    base = base_url or page.url
+    try:
+        raw_items = page.evaluate(_FALLBACK_BODY_SCRIPT, FALLBACK_QUERY)
+    except Exception as exc:
+        logger.warning(f"Fallback extraction evaluate failed on {page.url}: {exc}")
+        return []
+
+    results: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for item in raw_items:
+        if deadline is not None and time.monotonic() >= deadline:
+            break
+        if not item.get("isVisible") or item.get("disabled"):
+            continue
+
+        tag = item.get("tagName", "")
+        role = item.get("role", "")
+        type_attr = item.get("type", "")
+        href = (item.get("href") or "").strip()
+        label = (item.get("label") or "").strip()
+
+        # Reject pure wrappers that contain other buttons/inputs
+        if item.get("hasNestedControl") and tag not in {"a", "button", "select"}:
+            continue
+
+        # Asset and scheme filter for href
+        if href:
+            lower_href = href.lower()
+            if any(lower_href.startswith(prefix) for prefix in ("javascript:", "mailto:", "tel:")):
+                continue
+            path_part = lower_href.split("?")[0].split("#")[0]
+            if any(path_part.endswith(ext) for ext in (
+                ".png", ".jpg", ".jpeg", ".gif", ".svg", ".css", ".js", ".ico",
+                ".woff", ".woff2", ".ttf", ".pdf", ".zip", ".mp4", ".webm"
+            )):
+                continue
+
+            # Boundary guard: reject external domains / CDNs
+            resolved_url = urljoin(base, href)
+            if not is_valid_url(resolved_url, base):
+                continue
+
+        # Classify element type and category
+        if tag == "button" or role == "button" or type_attr in {"submit", "button"}:
+            element_type = "button"
+            category = "actions"
+            interaction_type = "click"
+        elif tag in {"input", "textarea"} or role == "textbox":
+            element_type = "input"
+            category = "inputs"
+            interaction_type = "input"
+        elif tag == "select" or role in {"combobox", "listbox"}:
+            element_type = "dropdown"
+            category = "dropdowns"
+            interaction_type = "select"
+        elif tag == "a" or role == "link" or href:
+            element_type = "link"
+            category = "navigation"
+            interaction_type = "navigate"
+        elif role in {"tab", "tablist"}:
+            element_type = "tab"
+            category = "tabs"
+            interaction_type = "switch_tab"
+        else:
+            element_type = "interactive"
+            category = "interactive"
+            interaction_type = "interact"
+
+        if not label:
+            label = item.get("text", "") or f"{element_type}_{item.get('elementIndex', 1)}"
+
+        # Candidate selectors
+        candidates: list[tuple[str, str]] = []
+        if item.get("testId"):
+            candidates.append(("testid", f'[data-testid="{item["testId"]}"]'))
+        if item.get("ariaLabel"):
+            candidates.append(("aria", f'[aria-label="{item["ariaLabel"]}"]'))
+        if role and label:
+            candidates.append(("role", f'role={role}[name="{label}"]'))
+        if item.get("id") and not _looks_dynamic(item["id"]):
+            candidates.append(("id", f"#{item['id']}"))
+        if item.get("name"):
+            candidates.append(("id", f'{tag}[name="{item["name"]}"]'))
+        if item.get("generatedSelector"):
+            candidates.append(("css", item["generatedSelector"]))
+
+        if not candidates:
+            continue
+
+        primary_strategy, primary_value = candidates[0]
+        fallback = [v for _, v in candidates[1:]]
+        selector = {
+            "primary": {"strategy": primary_strategy, "value": primary_value},
+            "fallback": fallback,
+        }
+
+        xpath = item.get("elementXPath") or primary_value
+        element_role = role or _implicit_role_from_data(item, category)
+        index = int(item.get("elementIndex") or 1)
+
+        ident = compute_element_identity(page.url, xpath, element_role, label, index)
+        if ident in seen:
+            continue
+        seen.add(ident)
+
+        target = {
+            "id": f"{category}::{label[:MAX_LABEL_LENGTH]}",
+            "element_identity": ident,
+            "element_id": ident,
+            "category": category,
+            "type": element_type,
+            "label": label[:MAX_LABEL_LENGTH],
+            "purpose": _purpose_for(category, label),
+            "interaction_type": interaction_type,
+            "relevance": HIGH_RELEVANCE if category in {"actions", "inputs"} else MEDIUM_RELEVANCE,
+            "selector": selector,
+            "element_xpath": xpath,
+            "element_role": element_role,
+            "element_index": index,
+            "text": item.get("text", "") or label,
+            "href": href,
+            "framework": "native",
+            "framework_type": "native",
+            "component_tag": tag,
+            "is_dynamic": False,
+            "is_clickable": bool(item.get("isClickable")),
+            "cursor": item.get("cursor", ""),
+            "visibility": True,
+            "bounding_box": {
+                "x": item.get("x", 0),
+                "y": item.get("y", 0),
+                "width": item.get("width", 0),
+                "height": item.get("height", 0),
+            },
+            "hierarchy_level": 2,
+            "hierarchy_path": f"{menu_name or 'current_page'} > {category}",
+            "discovery_mechanism": "fallback_body_dom",
+            "interaction_probability": 1.0 if item.get("isClickable") else 0.0,
+            "interaction_probability_method": "detected_clickability_signal",
+            "is_validation_target": category in VALIDATION_CATEGORIES,
+        }
+        results.append(target)
+
+    logger.info(f"Fallback extraction on {page.url} discovered {len(results)} interactive elements")
+    return results
 
 
 def build_component_registry(
@@ -661,7 +963,7 @@ def _build_selector_from_data(data: dict, category: str, label: str) -> dict | N
     }
 
 
-def _is_meaningful_from_data(data: dict, category: str) -> bool:
+def _is_meaningful_from_data(data: dict, category: str, base_url: str | None = None) -> bool:
     if not data.get("isVisible"):
         return False
     if data.get("disabled"):
@@ -674,6 +976,23 @@ def _is_meaningful_from_data(data: dict, category: str) -> bool:
 
     if category in {"actions", "navigation", "tabs"} and not label:
         return False
+
+    if category == "navigation":
+        href = (data.get("href") or "").strip()
+        if href:
+            lower = href.lower()
+            if any(lower.startswith(p) for p in ("javascript:", "mailto:", "tel:")):
+                return False
+            path_part = lower.split("?")[0].split("#")[0]
+            if any(path_part.endswith(ext) for ext in (
+                ".png", ".jpg", ".jpeg", ".gif", ".svg", ".css", ".js", ".ico",
+                ".woff", ".woff2", ".ttf", ".pdf", ".zip", ".mp4", ".webm"
+            )):
+                return False
+            if base_url:
+                resolved = urljoin(base_url, href)
+                if not is_valid_url(resolved, base_url):
+                    return False
     # Do not promote a wrapper to a button because its *descendant text*
     # happens to contain words such as "filter" or "apply".  Enterprise
     # dashboards frequently put their entire screen content in a clickable
@@ -751,6 +1070,13 @@ def _build_target_from_data(
         "is_clickable": bool(data.get("isClickable")),
         "event_listener_count": int(data.get("eventListenerCount") or 0),
         "cursor": data.get("cursor", "") or "",
+        "href": data.get("href", "") or "",
+        "bounding_box": {
+            "x": data.get("x", 0),
+            "y": data.get("y", 0),
+            "width": data.get("width", 0),
+            "height": data.get("height", 0),
+        },
         "is_validation_target": target_category in VALIDATION_CATEGORIES,
     }
 

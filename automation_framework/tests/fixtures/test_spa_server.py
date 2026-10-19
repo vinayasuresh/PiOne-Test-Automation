@@ -78,10 +78,25 @@ SPA_HTML = """<!DOCTYPE html>
                     </table>
                     <button id="btn-next-page">Next Page</button>
                 `;
+            } else if (path === '/info') {
+                root.innerHTML = `
+                    <h1>Platform Information</h1>
+                    <p id="info-desc">Platform Information and Documentation</p>
+                    <button id="btn-back-info" onclick="navigateTo('/')">Back to Home</button>
+                `;
             } else if (path === '/settings') {
                 root.innerHTML = `
                     <h1>System Settings</h1>
                     <button id="btn-save-settings">Save Settings</button>
+                `;
+            } else if (path === '/login') {
+                root.innerHTML = `
+                    <h1>Sign In Portal</h1>
+                    <form id="login-form" onsubmit="event.preventDefault(); navigateTo('/');">
+                        <input id="user-name" name="username" placeholder="Username" />
+                        <input id="password" name="password" type="password" placeholder="Password" />
+                        <button id="login-btn" type="submit">Log In</button>
+                    </form>
                 `;
             } else {
                 root.innerHTML = `
@@ -89,6 +104,19 @@ SPA_HTML = """<!DOCTYPE html>
                     <div role="tablist">
                         <button role="tab" id="tab-overview">Overview</button>
                         <button role="tab" id="tab-metrics">Metrics</button>
+                    </div>
+
+                    <!-- Accordion -->
+                    <details id="acc-details" style="margin: 10px 0;">
+                        <summary>FAQ Accordion</summary>
+                        <p id="faq-body">Accordion expanded panel details.</p>
+                    </details>
+
+                    <!-- Safe Link -->
+                    <div style="margin: 10px 0;">
+                        <a href="/info" id="link-view-info">Platform Information Link</a>
+                        <!-- External out-of-scope link -->
+                        <a href="https://external-domain.example.com/unauthorized" id="link-external">External Portal</a>
                     </div>
 
                     <div style="margin: 15px 0;">
@@ -100,10 +128,20 @@ SPA_HTML = """<!DOCTYPE html>
                         <button id="btn-filter-active" onclick="toggleFilter()">Filter Active</button>
                         <!-- Destructive Button (MUST GO TO PARKING LOT) -->
                         <button id="btn-delete-account" onclick="alert('DELETED')">Delete Account</button>
+                        <button id="btn-logout">Logout</button>
+                        <button id="btn-pay-now">Pay Now</button>
+                        <button id="btn-remove-cart">Remove Item</button>
                         <!-- Manual Confirmation Button (MUST GO TO PARKING LOT) -->
                         <button id="btn-submit-order">Submit Order</button>
                         <!-- Overlay Menu Opener -->
                         <button id="overlay-menu-btn" aria-haspopup="menu" onclick="toggleOverlay()">Options Menu</button>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination" style="margin: 10px 0;">
+                        <a href="/users?page=1" class="page-link">1</a>
+                        <a href="/users?page=2" class="page-link">2</a>
+                        <button class="page-link" id="btn-next-page-home">Next</button>
                     </div>
 
                     <!-- Nested Scrollable Container -->

@@ -21,6 +21,7 @@ _CAPTURE_SCRIPT = r"""
   if (window.__captureInstalled) {
     window.__events = [];
     window.__continueScan = false;
+    window.__retryScan = false;
     window.__endScan = false;
     const old = document.getElementById('__capture_banner');
     if (old) old.remove();
@@ -28,6 +29,7 @@ _CAPTURE_SCRIPT = r"""
   window.__captureInstalled = true;
   window.__events = [];
   window.__continueScan = false;
+  window.__retryScan = false;
   window.__endScan = false;
   window.__lastHighlight = null;
 
@@ -178,39 +180,53 @@ _CAPTURE_SCRIPT = r"""
     pushEvent('select', target, true);
   }, true);
 
-  let summaryText = 'Automatic scan is complete for this module. Confirm to continue, or end the scan and save all results found so far.';
+  let summaryText = 'Automatic scan is complete for this module. Choose an action:';
   if (window.__reviewSummary && window.__reviewSummary.module_name) {
-    const elCount = window.__reviewSummary.element_count || 0;
-    const rCount = window.__reviewSummary.route_count || 1;
-    summaryText = `Module <b>${window.__reviewSummary.module_name}</b> complete: <b>${elCount}</b> elements discovered across <b>${rCount}</b> routes.`;
+    const s = window.__reviewSummary;
+    summaryText = `Module <b>${s.module_name}</b> complete:<br/>` +
+      `• Routes: <b>${s.routes_scanned || s.route_count || 1}</b> | ` +
+      `• Elements: <b>${s.elements_found || s.element_count || 0}</b> | ` +
+      `• Safe actions: <b>${s.safe_actions_explored || 0}</b> | ` +
+      `• Parking lot: <b>${s.parking_lot_count || 0}</b> | ` +
+      `• Health: <b>${s.route_health || 'HEALTHY'}</b>` +
+      (s.errors_count ? ` | • Errors: <b style="color:#ef4444">${s.errors_count}</b>` : '');
   }
 
   const banner = document.createElement('div');
   banner.id = '__capture_banner';
   banner.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:20px', 'z-index:2147483647',
-    'background:#0f172a', 'color:#fff', 'padding:12px 16px', 'border-radius:10px',
-    'box-shadow:0 8px 24px rgba(0,0,0,.35)', 'font:600 13px system-ui,sans-serif',
-    'display:flex', 'align-items:center', 'gap:12px', 'max-width:700px',
+    'background:#0f172a', 'color:#fff', 'padding:14px 18px', 'border-radius:10px',
+    'box-shadow:0 8px 24px rgba(0,0,0,.35)', 'font:500 13px system-ui,sans-serif',
+    'display:flex', 'align-items:center', 'gap:14px', 'max-width:750px',
   ].join(';');
   banner.innerHTML = `
-    <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.35;">
+    <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.4;">
       <span style="width:8px;height:8px;background:#10b981;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.25);"></span>
-      ${summaryText}
+      <span>${summaryText}</span>
     </span>
     <button id="__capture_continue"
             style="background:#2563eb;color:#fff;border:none;border-radius:8px;
                    padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
-      Confirm & Continue
+      Continue Next
+    </button>
+    <button id="__capture_retry"
+            style="background:#d97706;color:#fff;border:none;border-radius:8px;
+                   padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
+      Retry Module
     </button>
     <button id="__capture_end"
             style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;
                    padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
-      End Scan & Save
+      End & Save
     </button>`;
   document.body.appendChild(banner);
   document.getElementById('__capture_continue').addEventListener('click', () => {
     window.__continueScan = true;
+    banner.style.opacity = '0.55';
+  });
+  document.getElementById('__capture_retry').addEventListener('click', () => {
+    window.__retryScan = true;
     banner.style.opacity = '0.55';
   });
   document.getElementById('__capture_end').addEventListener('click', () => {
@@ -252,12 +268,12 @@ def inject_capture(page: Page, summary: dict[str, Any] | None = None) -> None:
 
 
 def wait_for_user(page: Page, timeout_seconds: int = 45) -> str:
-    """Return ``continue``, ``end``, or ``timeout`` from the review overlay."""
+    """Return ``continue``, ``retry``, ``end``, or ``timeout`` from the review overlay."""
     deadline = time.monotonic() + max(1, timeout_seconds)
     logger.info(f"Interactive capture: waiting up to {timeout_seconds}s for user confirmation")
     while time.monotonic() < deadline:
         try:
-            choice = page.evaluate("() => window.__endScan ? 'end' : (window.__continueScan ? 'continue' : '')")
+            choice = page.evaluate("() => window.__endScan ? 'end' : (window.__retryScan ? 'retry' : (window.__continueScan ? 'continue' : ''))")
         except Exception:
             return "timeout"
         if choice:

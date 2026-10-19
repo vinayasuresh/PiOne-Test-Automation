@@ -56,6 +56,11 @@ def score_route(
     document_status: int = 200,
     scan_error: bool = False,
     is_login_page: bool = False,
+    visible_control_count: int = 0,
+    dom_element_count: int = 0,
+    readiness_timeout_reached: bool = False,
+    console_errors: list[str] | None = None,
+    redirect_chain: list[str] | None = None,
 ) -> dict[str, Any]:
     """Score a scanned route and classify its operational health status."""
     responses = api_responses or []
@@ -82,26 +87,46 @@ def score_route(
         components, api_present, interaction_attempted
     )
 
+    diagnostic_reason = ""
+    # Rule D: zero extracted elements on page with visible controls MUST be PARTIAL or NON_WORKING, score < 70
+    if target_count == 0 and visible_control_count > 0:
+        diagnostic_reason = "zero_extracted_elements_with_visible_controls"
+        score = min(score, 65)
+
+    if readiness_timeout_reached:
+        diagnostic_reason = diagnostic_reason or "readiness_timeout_reached"
+        score = min(score, 65)
+
     if scan_error or not stable or not page_load_success or is_login_page or score < 40:
         status = RouteStatus.NON_WORKING
-    elif score < 70 or failed_api or redirected or target_count == 0:
+    elif score < 70 or failed_api or redirected or target_count == 0 or readiness_timeout_reached or bool(diagnostic_reason):
         status = RouteStatus.PARTIAL
     else:
         status = RouteStatus.WORKING
 
+    chain = redirect_chain or ([expected_url, actual_url] if redirected else [actual_url])
+
     return {
         "status": status,
         "score": score,
+        "diagnostic_reason": diagnostic_reason,
         "score_components": components,
         "score_available_weight": available_weight,
         "expected_url": expected_url,
         "actual_url": actual_url,
+        "final_url": actual_url,
+        "redirect_chain": chain,
         "redirected": redirected,
         "dom_stable": stable,
+        "dom_element_count": dom_element_count,
+        "visible_element_count": visible_control_count,
+        "readiness_timeout_reached": readiness_timeout_reached,
+        "console_errors": console_errors or [],
         "page_load_success": page_load_success,
         "document_status": document_status,
         "api_response_present": api_present,
         "failed_api_responses": len(failed_api),
+        "failed_network_responses": len(failed_api),
         "target_count": target_count,
         "interaction_success_rate": round(interaction_rate, 3),
         "interaction_attempted": interaction_attempted,

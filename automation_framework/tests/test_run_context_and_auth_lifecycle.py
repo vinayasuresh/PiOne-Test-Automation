@@ -180,6 +180,78 @@ def test_refresh_session_preserves_run_id():
                 assert updated_ctx.auth_status == "authenticated"
 
 
+def test_refresh_session_failure_raises_error():
+    """Verify refresh_auth_session raises ValueError when login fails or credentials missing."""
+    url = "https://www.saucedemo.com"
+    # Missing credentials
+    with pytest.raises(ValueError, match="Username and password are required"):
+        refresh_auth_session(url=url, username="", password="", run_id="some_run")
+
+    # Login fails
+    with patch("api.services.auth_lifecycle_service.start_persistent_browser") as mock_browser:
+        mock_page = MagicMock()
+        mock_context = MagicMock()
+        mock_browser.return_value = (MagicMock(), MagicMock(), mock_context, mock_page)
+        with patch("api.services.auth_lifecycle_service.login", side_effect=RuntimeError("Invalid credentials")):
+            with pytest.raises(RuntimeError, match="Invalid credentials"):
+                refresh_auth_session(
+                    url=url,
+                    username="bad_user",
+                    password="bad_password",
+                    run_id="some_run",
+                )
+
+
+def test_session_manager_credentials_unavailable_raises_clear_error():
+    """Verify SessionManager raises AuthenticationExpiredError when credentials are not available."""
+    from automation_framework.crawler.session_manager import SessionManager
+    sm = SessionManager("https://www.saucedemo.com", credentials=None)
+    mock_page = MagicMock()
+    mock_page.url = "https://www.saucedemo.com/login"
+    with patch.object(sm, "is_login_page", return_value=True):
+        with pytest.raises(AuthenticationExpiredError, match="Authentication expired. Refresh the session to continue."):
+            sm.ensure_authenticated(mock_page)
+
+
+def test_session_manager_storage_state_restoration(tmp_path):
+    """Verify SessionManager passes storage_state to browser.new_context if file exists."""
+    from automation_framework.crawler.session_manager import SessionManager
+    state_file = tmp_path / "storage_state.json"
+    state_file.write_text('{"cookies": [], "origins": []}', encoding="utf-8")
+
+    sm = SessionManager("https://www.saucedemo.com", storage_state_path=state_file)
+    mock_browser = MagicMock()
+    sm.create_context(mock_browser)
+    assert mock_browser.new_context.called
+    kwargs = mock_browser.new_context.call_args.kwargs
+    assert kwargs.get("storage_state") == str(state_file)
+
+
+def test_test_execution_stops_on_authentication_expired():
+    """Verify execute_test_cases stops with AuthenticationExpiredError instead of producing misleading step failures."""
+    from api.services.test_execution_service import execute_test_cases
+    from api.models.scan_models import TestCase, TestStep
+    
+    test_cases = [
+        TestCase(
+            tc_id="TC_01",
+            title="Smoke check",
+            module="Inventory",
+            route="/inventory.html",
+            purpose="Smoke",
+            steps=[TestStep(step_id="step_1", action="navigate", route="/inventory.html")]
+        )
+    ]
+    # Check invalid/expired session raises AuthenticationExpiredError immediately
+    with patch("api.services.test_execution_service.check_auth_session_validity", return_value=(False, "No active session cookies found.")):
+        with pytest.raises(AuthenticationExpiredError, match="Authentication expired"):
+            execute_test_cases(
+                base_url="https://www.saucedemo.com",
+                test_cases=test_cases,
+                auth_session_id="expired_session_123",
+            )
+
+
 # ---------------------------------------------------------------------------
 # 4. 10-Sheet Excel Workbook Export
 # ---------------------------------------------------------------------------

@@ -117,3 +117,10 @@ class ElementIdentityRegistry:
 
     def get_all_elements(self) -> list[dict[str, Any]]:
         return list(self._registry.values())
+
+    def unregister_route(self, route: str) -> None:
+        """Remove all elements registered for a route."""
+        identities = self._route_elements.pop(route, [])
+        for ident in identities:
+            self._registry.pop(ident, None)
+

@@ -48,7 +48,7 @@ CONFIRMATION_WORDS = {
 
 # Words indicating safe, non-destructive navigation, view changes, or filtering
 EXPAND_WORDS = {
-    "expand", "collapse", "more", "details", "toggle", "accordion", "menu",
+    "expand", "collapse", "more", "toggle", "accordion", "menu",
     "dropdown", "show", "hide", "view more", "read more",
 }
 
@@ -107,11 +107,19 @@ def classify_action(
     if type_attr == "submit" or role == "submit":
         return ActionType.REQUIRES_MANUAL_CONFIRMATION
 
-    # 4. Safe expand / toggle
+    # 4. Safe expand / toggle / accordions / tabs
     if aria_expanded in {"true", "false"} or aria_haspopup in {"true", "menu", "listbox", "dialog"}:
         return ActionType.SAFE_EXPAND
 
-    if role in {"tab", "switch"} or "accordion" in tag or "mat-expansion-panel" in tag:
+    if (
+        role in {"tab", "switch"}
+        or "accordion" in tag
+        or "mat-expansion-panel" in tag
+        or tag == "summary"
+        or element.get("is_accordion")
+        or bool(element.get("aria_controls"))
+        or "accordion" in element.get("classes", "").lower()
+    ):
         return ActionType.SAFE_EXPAND
 
     if any(re.search(rf"\b{re.escape(word)}\b", label) for word in EXPAND_WORDS):
@@ -130,10 +138,23 @@ def classify_action(
         return ActionType.SAFE_SORT
 
     # 8. Safe pagination
-    if any(re.search(rf"\b{re.escape(word)}\b", label) for word in PAGINATION_WORDS):
+    if (
+        any(re.search(rf"\b{re.escape(word)}\b", label) for word in PAGINATION_WORDS)
+        or element.get("is_pagination")
+        or "page-link" in element.get("classes", "").lower()
+        or "pagination" in element.get("classes", "").lower()
+        or "p-paginator" in element.get("classes", "").lower()
+        or (re.match(r"^\d+$", label) and (element.get("is_pagination") or "page" in element.get("classes", "").lower()))
+    ):
         return ActionType.SAFE_PAGINATION
 
-    # 9. Safe navigation (links, routerLinks, navigation buttons)
+    # 9. Lazy-loaded menu items & safe dropdown options
+    if role in {"menuitem", "option"} or tag in {"option", "mat-option"} or "dropdown-item" in element.get("classes", "").lower():
+        if element.get("href") or element.get("routerlink") or element.get("data-route") or element.get("data-href"):
+            return ActionType.SAFE_NAVIGATION
+        return ActionType.SAFE_EXPAND
+
+    # 10. Safe navigation (links, routerLinks, navigation buttons)
     if (
         tag == "a"
         or role == "link"
