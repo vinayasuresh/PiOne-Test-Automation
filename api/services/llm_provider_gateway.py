@@ -155,14 +155,14 @@ def _safe_http_post(
                     content_chunks.append(chunk)
                 return b"".join(content_chunks).decode("utf-8", errors="replace")
         except (TimeoutError, socket.timeout) as exc:
-            logger.warning("[%s] Timeout on %s (attempt %d/%d): %s", correlation_id, redacted_url, attempt, attempts, exc)
+            logger.warning(f"[{correlation_id}] Timeout on {redacted_url} (attempt {attempt}/{attempts}): {exc}")
             if attempt < attempts:
                 time.sleep(0.5)
                 continue
             raise ProviderTimeoutError(f"Provider timed out after {timeout}s") from exc
         except HTTPError as exc:
             is_transient = exc.code in {429, 500, 502, 503, 504}
-            logger.warning("[%s] HTTP %d on %s (attempt %d/%d)", correlation_id, exc.code, redacted_url, attempt, attempts)
+            logger.warning(f"[{correlation_id}] HTTP {exc.code} on {redacted_url} (attempt {attempt}/{attempts})")
             if attempt < attempts and is_transient:
                 time.sleep(0.5)
                 continue
@@ -173,7 +173,7 @@ def _safe_http_post(
                     time.sleep(0.5)
                     continue
                 raise ProviderTimeoutError(f"Connection timed out: {exc}") from exc
-            logger.warning("[%s] Connection error on %s (attempt %d/%d): %s", correlation_id, redacted_url, attempt, attempts, exc)
+            logger.warning(f"[{correlation_id}] Connection error on {redacted_url} (attempt {attempt}/{attempts}): {exc}")
             if attempt < attempts:
                 time.sleep(0.5)
                 continue
@@ -181,7 +181,7 @@ def _safe_http_post(
         except ProviderResponseLimitError:
             raise
         except Exception as exc:
-            logger.warning("[%s] Unexpected error on %s: %s", correlation_id, redacted_url, exc)
+            logger.warning(f"[{correlation_id}] Unexpected error on {redacted_url}: {exc}")
             raise ProviderUnavailableError(f"Provider request error: {exc}") from exc
 
     raise ProviderUnavailableError(f"Provider request exhausted {attempts} attempts")
@@ -988,26 +988,17 @@ class LLMProviderGateway:
                     fallback_used = True
                     error_category = err_cat
                     fallback_reason = fail_reason
-                    logger.warning(
-                        "[%s] Grounding validation failed (%s): %s",
-                        correlation_id, err_cat, fail_reason
-                    )
+                    logger.warning(f"[{correlation_id}] Grounding validation failed ({err_cat}): {fail_reason}")
             except ProviderError as p_err:
                 fallback_used = True
                 error_category = p_err.category
                 fallback_reason = str(p_err)
-                logger.warning(
-                    "[%s] Provider '%s' error (%s): %s",
-                    correlation_id, chosen_provider, p_err.category, p_err
-                )
+                logger.warning(f"[{correlation_id}] Provider '{chosen_provider}' error ({p_err.category}): {p_err}")
             except Exception as exc:
                 fallback_used = True
                 error_category = "UNAVAILABLE"
                 fallback_reason = str(exc)
-                logger.warning(
-                    "[%s] Provider '%s' unexpected failure: %s",
-                    correlation_id, chosen_provider, exc
-                )
+                logger.warning(f"[{correlation_id}] Provider '{chosen_provider}' unexpected failure: {exc}")
 
         if not result or fallback_used:
             fallback_used = (chosen_provider != "deterministic")
