@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import re
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from time import monotonic
@@ -27,6 +29,9 @@ from automation_framework.config.settings import (
 )
 from automation_framework.crawler.url_filter import is_valid_url
 from automation_framework.utils.browser_manager import start_persistent_browser
+
+
+MAX_TRANSIENT_RETRIES = 2
 
 
 def execute_test_cases(
@@ -66,8 +71,7 @@ def execute_test_cases(
         page.on("requestfailed", lambda req: network_buffer.append(f"{req.method} {req.url} - {req.failure}") if req.failure else None)
 
         for test_case in test_cases:
-            rows.extend(
-                _execute_case(
+            case_rows = _execute_case(
                     page,
                     base_url,
                     test_case,
@@ -76,6 +80,11 @@ def execute_test_cases(
                     console_buffer,
                     network_buffer,
                 )
+            rows.extend(case_rows)
+            _save_execution_checkpoint(
+                artifact_dir,
+                rows,
+                completed_case_id=test_case.tc_id,
             )
     except AuthenticationExpiredError:
         raise
@@ -249,77 +258,122 @@ def _execute_case(
                 )
             )
             continue
-        try:
-            if step.action == "navigate":
-                target_url = urljoin(base_url.rstrip("/") + "/", step.route.lstrip("/"))
-                if not is_valid_url(target_url, base_url):
-                    raise ValueError("Route is outside the requested application scope")
-                page.goto(target_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
-                _assert_not_login(page)
-                locator_used = f"url: {target_url}"
-            elif step.action == "assert_visible":
-                locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
-            elif not allow_mutating_actions:
-                rows.append(
-                    _row(
-                        case,
-                        step,
-                        "Skipped",
-                        "Mutating actions are disabled for controlled execution.",
-                        locator_used=locator_used,
-                    )
-                )
-                continue
-            else:
-                raise ValueError(f"Unsupported action: {step.action}")
-
-            # Capture per-step screenshot
-            step_screenshot = artifact_dir / f"{case.tc_id}_{step.step_id}.png"
+        max_attempts = 1 + MAX_TRANSIENT_RETRIES
+        last_exc: Exception | None = None
+        completed = False
+        for attempt in range(1, max_attempts + 1):
             try:
-                page.screenshot(path=str(step_screenshot), full_page=False)
-            except Exception:
-                step_screenshot = None
+                if step.action == "navigate":
+                    target_url = urljoin(base_url.rstrip("/") + "/", step.route.lstrip("/"))
+                    if not is_valid_url(target_url, base_url):
+                        raise ValueError("Route is outside the requested application scope")
+                    page.goto(target_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+                    _assert_not_login(page)
+                    locator_used = f"url: {target_url}"
+                elif step.action == "assert_visible":
+                    locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                elif not allow_mutating_actions:
+                    rows.append(_row(case, step, "Skipped", "Mutating actions are disabled for controlled execution."))
+                    completed = True
+                    break
+                else:
+                    raise ValueError(f"Unsupported action: {step.action}")
 
-            step_console = console_buffer[console_start:]
-            step_network = network_buffer[network_start:]
-            row = _row(
-                case,
-                step,
-                "Pass",
-                step.expected_result or "Step completed.",
-                locator_used=locator_used,
-                artifact_path=str(step_screenshot) if step_screenshot and step_screenshot.exists() else "",
-                console_errors=step_console,
-                network_errors=step_network,
-            )
-            rows.append(row)
+                step_screenshot = artifact_dir / f"{case.tc_id}_{step.step_id}.png"
+                try:
+                    page.screenshot(path=str(step_screenshot), full_page=False)
+                except Exception:
+                    step_screenshot = None
+                step_console = console_buffer[console_start:]
+                step_network = network_buffer[network_start:]
+                rows.append(_row(
+                    case, step, "Pass", step.expected_result or "Step completed.",
+                    locator_used=locator_used,
+                    artifact_path=str(step_screenshot) if step_screenshot and step_screenshot.exists() else "",
+                    console_errors=step_console,
+                    network_errors=step_network,
+                ))
+                completed = True
+                break
+            except AuthenticationExpiredError:
+                raise
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_attempts and _is_transient_execution_error(exc):
+                    try:
+                        page.wait_for_timeout(min(500 * attempt, 1000))
+                    except Exception:
+                        pass
+                    continue
+                break
 
-        except AuthenticationExpiredError:
-            raise
-        except Exception as exc:
+        if not completed:
             case_failed = True
             step_screenshot = artifact_dir / f"{case.tc_id}_{step.step_id}_fail.png"
             try:
                 page.screenshot(path=str(step_screenshot), full_page=False)
             except Exception:
                 step_screenshot = None
-
             step_console = console_buffer[console_start:]
             step_network = network_buffer[network_start:]
-            row = _row(
-                case,
-                step,
-                "Fail",
-                f"{type(exc).__name__}: {exc}",
-                priority="Medium",
+            category = _failure_category(last_exc or RuntimeError("step failed"))
+            rows.append(_row(
+                case, step, "Fail",
+                f"[{category}] {type(last_exc).__name__}: {last_exc}",
+                priority="High" if category in {"authentication", "environment"} else "Medium",
                 locator_used=locator_used,
                 artifact_path=str(step_screenshot) if step_screenshot and step_screenshot.exists() else "",
                 console_errors=step_console,
                 network_errors=step_network,
-            )
-            rows.append(row)
+            ))
 
     return rows
+
+
+def _is_transient_execution_error(exc: Exception) -> bool:
+    """Return whether a failed step is safe to retry."""
+    if isinstance(exc, (PlaywrightTimeoutError, TimeoutError, ConnectionError)):
+        return True
+    message = str(exc).lower()
+    return any(token in message for token in (
+        "detached", "stale element", "target closed", "net::err", "temporarily unavailable",
+    ))
+
+
+def _failure_category(exc: Exception) -> str:
+    """Classify failures without converting environment failures into product bugs."""
+    if isinstance(exc, AuthenticationExpiredError):
+        return "authentication"
+    if isinstance(exc, (PlaywrightTimeoutError, TimeoutError)):
+        return "timeout"
+    message = str(exc).lower()
+    if "outside the requested application scope" in message or "invalid url" in message:
+        return "scope"
+    if "locator" in message or "visible" in message or "detached" in message:
+        return "locator"
+    if "net::" in message or "connection" in message or "target closed" in message:
+        return "environment"
+    return "product"
+
+
+def _save_execution_checkpoint(directory: Path, rows: list[ExecutionResultRow], completed_case_id: str) -> None:
+    """Atomically persist resumable execution progress and sanitized evidence."""
+    payload = {
+        "completed_case_id": completed_case_id,
+        "completed_steps": [row.Step_ID for row in rows if row.Step_ID],
+        "rows": [row.model_dump() for row in rows],
+    }
+    target = directory / "execution_checkpoint.json"
+    fd, temp_name = tempfile.mkstemp(prefix="execution_checkpoint_", suffix=".tmp", dir=str(directory))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+        os.replace(temp_name, target)
+    finally:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
 
 
 def _locator_for(page: Any, selector: dict[str, Any], label: str):
