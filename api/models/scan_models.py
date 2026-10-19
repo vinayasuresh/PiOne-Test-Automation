@@ -270,6 +270,10 @@ class GeneratedTestResponse(BaseModel):
     test_cases: list["TestCase"] = []
     planning_metadata: dict[str, Any] = {}
     coverage_gaps: list[dict[str, Any]] = []
+    provider: str = "deterministic"
+    model: str = ""
+    fallback_used: bool = False
+    warnings: list[str] = []
 
 
 class TestStep(BaseModel):

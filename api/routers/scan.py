@@ -368,7 +368,12 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         test_cases=test_cases,
         planning_metadata=metadata,
         coverage_gaps=plan_result.get("coverage_gaps", []),
+        provider=plan_result.get("provider", metadata.get("provider", "deterministic")),
+        model=plan_result.get("model", metadata.get("model", "")),
+        fallback_used=plan_result.get("fallback_used", metadata.get("fallback_used", False)),
+        warnings=plan_result.get("warnings", []),
     )
+
 
 
 @router.get("/llm/providers", response_model=list[LLMProviderInfo], summary="List configured test-planning providers")

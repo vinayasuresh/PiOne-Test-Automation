@@ -44,10 +44,17 @@ def provider_catalog() -> list[dict[str, Any]]:
             "detail": "Uses Google AI Studio API key. Securely validated without key exposure.",
         },
         {
+            "id": "hosted",
+            "label": "Hosted OpenAI-compatible API",
+            "available": bool((os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL")) and (os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"))),
+            "default_model": os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            "detail": "Configure LLM_BASE_URL and LLM_API_KEY.",
+        },
+        {
             "id": "openai_compatible",
             "label": "OpenAI-compatible API",
-            "available": bool(os.getenv("LLM_BASE_URL") and os.getenv("LLM_API_KEY")),
-            "default_model": os.getenv("LLM_MODEL", ""),
+            "available": bool((os.getenv("LLM_BASE_URL") or os.getenv("OPENAI_BASE_URL")) and (os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"))),
+            "default_model": os.getenv("LLM_MODEL") or os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
             "detail": "Configure LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL.",
         },
         {
