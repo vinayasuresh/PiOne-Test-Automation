@@ -115,6 +115,9 @@ class ElementIdentityRegistry:
         identities = self._route_elements.get(route, [])
         return [self._registry[ident] for ident in identities if ident in self._registry]
 
+    def __len__(self) -> int:
+        return len(self._registry)
+
     def get_all_elements(self) -> list[dict[str, Any]]:
         return list(self._registry.values())
 

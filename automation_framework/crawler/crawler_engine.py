@@ -109,6 +109,8 @@ class CrawlerEngine:
         checkpoint_store: CheckpointStore | None = None,
         resume_from_checkpoint: bool = False,
         event_callback: Callable[[str, dict[str, Any]], None] | None = None,
+        run_id: str | None = None,
+        scan_id: str | None = None,
     ) -> None:
         self.page = page
         self.page.set_default_timeout(ROUTE_SCAN_TIMEOUT)
@@ -128,6 +130,10 @@ class CrawlerEngine:
             self.checkpoint_store = None
         self.checkpoint_loaded = False
         self.event_callback = event_callback
+        self.run_id = run_id
+        self.scan_id = scan_id
+        self._selected_module_ids: list[str] | None = None
+        self._retry_count = 0
         self.route_tracker = RouteTracker()
         self.page_intelligence: dict[str, dict[str, Any]] = {}
         self.feature_routes: dict[str, dict[str, Any]] = {}
@@ -186,6 +192,7 @@ class CrawlerEngine:
         ``selected_module_ids`` comes from authenticated menu discovery. This
         prevents an all-menu traversal when a user asked for only one module.
         """
+        self._selected_module_ids = selected_module_ids
         self._ensure_authenticated()
         wait_for_ui_stability(self.page)
 
@@ -227,6 +234,7 @@ class CrawlerEngine:
         # Finish one selected module, including safe child routes, then pause
         # for an explicit continue/end decision before opening the next one.
         for menu_item in menu_items:
+            self._check_pause_or_stop()
             if self.scan_stop_requested:
                 break
             if menu_item not in selected_items:
@@ -977,6 +985,10 @@ class CrawlerEngine:
                 continue
 
             self._probed_action_identities.add(action_identity)
+            self._check_pause_or_stop()
+            if self.scan_stop_requested:
+                break
+
             self._probed_element_identities.add((normalized, elem_ident))
 
             if probed_count >= max_probes:
@@ -1177,17 +1189,101 @@ class CrawlerEngine:
                 logger.debug("Failed probing safe action '%s': %s", item.get("label"), exc)
                 self._restore_parent_state(normalized, scroll_pos)
 
+    def _build_telemetry_snapshot(self, event_type: str) -> dict[str, Any]:
+        validations = self.route_validations or {}
+        working_count = sum(1 for v in validations.values() if v.get("status") == "WORKING")
+        partial_count = sum(1 for v in validations.values() if v.get("status") == "PARTIAL")
+        non_working_count = sum(1 for v in validations.values() if v.get("status") in {"NON-WORKING", "NON_WORKING_ROUTE"})
+
+        status = "running"
+        if event_type in {"scan_completed", "scan_stopped"}:
+            status = "completed"
+        elif event_type in {"scan_failed", "route_failed"}:
+            status = "failed"
+        elif event_type == "module_review_started":
+            status = "waiting_approval"
+        elif event_type == "scan_paused":
+            status = "paused"
+        elif self.run_id:
+            try:
+                from api.services.scan_control_service import is_scan_paused
+                if is_scan_paused(self.run_id):
+                    status = "paused"
+            except Exception:
+                pass
+
+        try:
+            current_route = getattr(self.page, "url", "") or ""
+        except Exception:
+            current_route = ""
+        current_module = getattr(self, "_active_module_id", "") or ""
+
+        total_elements = len(self.element_registry) if hasattr(self, "element_registry") else 0
+        if total_elements == 0:
+            total_elements = sum(len(d.get("automation_targets", [])) for d in self.page_intelligence.values())
+
+        safe_actions_explored = len(getattr(self, "_probed_action_identities", set()))
+        parking_lot_actions = len(getattr(self, "parking_lot_actions", []))
+
+        mod_total = len(self._selected_module_ids or []) if self._selected_module_ids else 1
+        mod_curr = min(mod_total, len(getattr(self, "completed_modules", [])) + 1)
+
+        routes_scanned = len(self.page_intelligence)
+        routes_pending = len(getattr(self, "_discovered_route_queue", []))
+
+        errors_count = len(getattr(self, "_current_console_errors", [])) + non_working_count
+
+        return {
+            "run_id": self.run_id or "",
+            "scan_id": self.scan_id or self.run_id or "",
+            "timestamp": time.time(),
+            "status": status,
+            "current_module": current_module,
+            "current_route": current_route,
+            "module_progress": {"current": mod_curr, "total": mod_total},
+            "route_progress": {"scanned": routes_scanned, "pending": routes_pending},
+            "elements_found": total_elements,
+            "safe_actions_explored": safe_actions_explored,
+            "parking_lot_actions": parking_lot_actions,
+            "route_health": {
+                "working_count": working_count,
+                "partial_count": partial_count,
+                "non_working_count": non_working_count,
+            },
+            "retry_count": getattr(self, "_retry_count", 0),
+            "errors": errors_count,
+        }
+
+    def _check_pause_or_stop(self) -> None:
+        if not self.run_id:
+            return
+        try:
+            from api.services.scan_control_service import is_scan_paused, is_scan_stop_requested
+            if is_scan_stop_requested(self.run_id):
+                self.scan_stop_requested = True
+                return
+            while is_scan_paused(self.run_id) and not self.scan_stop_requested:
+                self._emit_event("scan_paused", {"route": getattr(self.page, "url", ""), "message": "Scan paused at route boundary."})
+                time.sleep(0.5)
+                if is_scan_stop_requested(self.run_id):
+                    self.scan_stop_requested = True
+                    break
+        except Exception:
+            pass
+
     def _emit_event(self, event_type: str, data: dict[str, Any]) -> None:
+        telemetry = self._build_telemetry_snapshot(event_type)
+        merged_data = {**telemetry, **data}
         self.scan_events.append({
             "event": event_type,
             "event_type": event_type,
             "timestamp": time.time(),
-            "data": data,
+            "data": merged_data,
         })
         if not self.event_callback:
             return
         try:
-            self.event_callback(event_type, data)
+            self.event_callback(event_type, merged_data)
         except Exception:
             logger.debug("Scan event callback failed for %s", event_type)
 
@@ -1326,7 +1422,11 @@ class CrawlerEngine:
             route_doc["interactions"] = []
             return "continue"
 
-        choice = wait_for_user(self.page, timeout_seconds=self.interactive_timeout)
+        run_id = getattr(self, "run_id", None)
+        try:
+            choice = wait_for_user(self.page, timeout_seconds=self.interactive_timeout, run_id=run_id)
+        except TypeError:
+            choice = wait_for_user(self.page, timeout_seconds=self.interactive_timeout)
         raw_events = extract_events(self.page)
         interactions = events_to_interactions(raw_events)
         flow = interactions_to_flow(interactions)

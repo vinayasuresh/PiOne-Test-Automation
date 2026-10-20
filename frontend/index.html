@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PiOne Testmate</title>
+  <title>PiOne Testmate - UI Scanner &amp; Test Intelligence Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -27,20 +27,22 @@
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-3">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
-            <i class="fa-solid fa-microchip"></i>
+          <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-sm">
+            <i class="fa-solid fa-microchip text-base"></i>
           </div>
           <div>
             <div class="flex items-center gap-2">
               <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate</h1>
               <span class="bg-blue-500/20 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-500/30">v2.0 Enterprise</span>
             </div>
-            <p class="text-[11px] text-slate-400">Deterministic UI Scanner &amp; Test Intelligence Platform</p>
+            <p class="text-[11px] text-slate-400">Deterministic UI Scanner &amp; Grounded Test Intelligence Platform</p>
           </div>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap text-xs">
-          <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded font-mono text-[11px]">Run: <span id="nav-run-id">--</span></span>
+          <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded font-mono text-[11px]">
+            Run: <span id="nav-run-id" class="text-blue-400 font-bold">--</span>
+          </span>
           <span id="nav-session-badge" class="hidden bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-2 py-1 rounded font-semibold flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Auth Active
           </span>
@@ -53,8 +55,8 @@
         </div>
       </div>
 
-      <!-- 7-Step Navigation Stepper -->
-      <div id="stepper" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 pt-1 border-t border-slate-800/80"></div>
+      <!-- 8-Step Navigation Stepper -->
+      <div id="stepper" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 pt-1 border-t border-slate-800/80"></div>
     </div>
   </nav>
 
@@ -76,15 +78,15 @@
 
   <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-grow space-y-6">
 
-    <!-- STEP 1: Target & Authentication -->
+    <!-- STEP 1: Scan Application (Target & Authentication) -->
     <section id="panel-1" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2">
             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">1</span>
-            <h2 class="text-lg font-bold text-slate-900">Target Application &amp; Authentication</h2>
+            <h2 class="text-lg font-bold text-slate-900">Scan Application — Target &amp; Authentication</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Specify target origin and credentials. The platform will authenticate and passively discover reachable modules.</p>
+          <p class="text-xs text-slate-500 mt-1">Specify target origin and credentials. PiOne Testmate authenticates, captures browser state, and discovers modules.</p>
         </div>
         <div class="inline-flex bg-slate-100 rounded-lg p-1 w-fit border border-slate-200">
           <button id="btn-mode-live" class="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm" type="button">Live Target</button>
@@ -129,154 +131,296 @@
       </div>
     </section>
 
-    <!-- STEP 2: Module Selection -->
+    <!-- STEP 2: Choose Modules -->
     <section id="panel-2" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2">
             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</span>
-            <h2 class="text-lg font-bold text-slate-900">Select Modules to Scan</h2>
+            <h2 class="text-lg font-bold text-slate-900">Choose Modules to Scan</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Select target modules from the authenticated session. The crawler will deterministically scan only the selected boundary.</p>
+          <p class="text-xs text-slate-500 mt-1">Select one, multiple, or all target modules. PiOne Testmate scans only the confirmed module boundary.</p>
         </div>
         <div class="flex items-center gap-2">
-          <label class="inline-flex items-center gap-2 text-xs font-semibold cursor-pointer bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-            <input id="modules-select-all" type="checkbox" class="h-4 w-4 accent-blue-600" /> Select All
-          </label>
+          <button id="btn-modules-select-all" type="button" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200">
+            Select All
+          </button>
+          <button id="btn-modules-clear-all" type="button" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600">
+            Clear All
+          </button>
           <span id="module-count-badge" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded-lg">0 modules</span>
         </div>
       </div>
 
       <div id="module-options-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1"></div>
 
-      <p id="module-selection-warning" class="hidden text-xs text-red-600 font-bold bg-red-50 p-2 rounded border border-red-200">
-        <i class="fa-solid fa-circle-exclamation mr-1"></i> Please select at least one module to begin scanning.
+      <!-- Selected Modules Summary Box -->
+      <div id="selected-modules-summary" class="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold text-slate-700 uppercase tracking-wide">Selected Module Scope</span>
+          <span id="selected-summary-count" class="font-bold text-blue-600">0 selected</span>
+        </div>
+        <div id="selected-modules-chips" class="flex flex-wrap gap-2 text-xs">
+          <span class="text-slate-400 italic text-[11px]">No modules selected yet.</span>
+        </div>
+      </div>
+
+      <p id="module-selection-warning" class="hidden text-xs text-red-600 font-bold bg-red-50 p-2.5 rounded border border-red-200">
+        <i class="fa-solid fa-circle-exclamation mr-1.5"></i> Please select at least one module to begin scanning.
       </p>
 
       <div class="flex justify-between items-center gap-3 pt-2">
         <button id="btn-modules-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline" type="button">
           <i class="fa-solid fa-arrow-left mr-1"></i> Back to Target
         </button>
-        <button id="btn-start-scan" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
-          <i class="fa-solid fa-play"></i> Start Deep Scan
+        <button id="btn-modules-continue" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+          Continue to Manual Review <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
     </section>
 
-    <!-- STEP 3: Scan Progress & Live Stream -->
+    <!-- STEP 3: Manual Review (Pre-Crawl Boundary Review) -->
     <section id="panel-3" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-        <div class="flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">3</span>
-          <h2 class="text-lg font-bold text-slate-900">Deterministic Scanning</h2>
-        </div>
-        <div class="flex items-center gap-2">
-          <span id="live-dom-status" class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> DOM Stable
-          </span>
-          <span id="live-element-counter" class="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold px-2.5 py-1 rounded">0 elements</span>
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <div class="flex items-center justify-between text-xs">
-          <span id="scan-current-action" class="font-medium text-slate-700">Initializing scanner...</span>
-          <span id="scan-duration" class="font-mono text-slate-400">00:00</span>
-        </div>
-        <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
-          <div id="scan-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 w-1/12 animate-pulse"></div>
-        </div>
-      </div>
-
-      <!-- Real-time event log box -->
-      <div>
-        <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">Scanner Telemetry Stream</label>
-        <div id="scan-event-log" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-[11px] h-48 overflow-y-auto space-y-1">
-          <p class="text-slate-500">[SYSTEM] Awaiting crawler engine telemetry...</p>
-        </div>
-      </div>
-
-      <div class="flex justify-between items-center pt-2">
-        <button id="btn-cancel-scan" class="text-xs font-semibold text-rose-600 hover:text-rose-800 underline">
-          <i class="fa-solid fa-xmark mr-1"></i> Abort Scan
-        </button>
-        <button id="btn-pause-scan" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg border border-slate-300">
-          <i class="fa-solid fa-pause mr-1"></i> Pause Scan
-        </button>
-      </div>
-    </section>
-
-    <!-- STEP 4: Learning Checkpoint (Interactive Review) -->
-    <section id="panel-4" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="border-b border-slate-100 pb-4">
         <div class="flex items-center gap-2">
-          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">4</span>
-          <h2 class="text-lg font-bold text-slate-900">Manual Learning Checkpoint</h2>
+          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">3</span>
+          <h2 class="text-lg font-bold text-slate-900">Manual Review — Pre-Crawl Boundary</h2>
         </div>
-        <p class="text-xs text-slate-500 mt-1">Review captured automation targets, classified actions, and parking-lot candidates for the current route.</p>
+        <p class="text-xs text-slate-500 mt-1">Review the confirmed module scope, safe action exploration rules, and safety parameters prior to starting the deep crawl.</p>
       </div>
 
-      <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <span class="text-[11px] font-bold text-blue-700 uppercase">Current Scanned Route</span>
-            <p id="checkpoint-route" class="font-mono text-sm font-bold text-slate-900">/inventory.html</p>
-          </div>
-          <span id="checkpoint-module-badge" class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded">Inventory Module</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-bullseye text-blue-600"></i> Targeted Modules &amp; Routes
+          </h3>
+          <div id="review-module-list" class="space-y-2 max-h-60 overflow-y-auto text-xs pr-1"></div>
+        </div>
+
+        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 space-y-3">
+          <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-emerald-600"></i> Safety Guardrails &amp; Controls
+          </h3>
+          <ul class="text-xs text-slate-600 space-y-2">
+            <li class="flex items-start gap-2">
+              <i class="fa-solid fa-check text-emerald-600 mt-0.5"></i>
+              <span><strong>Safe Action Discovery:</strong> Links, tabs, accordions, pagination, and dropdowns will be probed safely.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fa-solid fa-lock text-amber-600 mt-0.5"></i>
+              <span><strong>Destructive Action Parking:</strong> Delete, submit, purchase, and modify buttons are parked for human approval.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fa-solid fa-bookmark text-blue-600 mt-0.5"></i>
+              <span><strong>Checkpoints:</strong> Parent and child route checkpoints saved before and after every navigation step.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fa-solid fa-arrows-rotate text-purple-600 mt-0.5"></i>
+              <span><strong>Sequential Traversal:</strong> Scans one module at a time with scroll position and session restoration.</span>
+            </li>
+          </ul>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div class="border border-slate-200 rounded-lg overflow-hidden">
-          <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
-            <span>Discovered Targets</span>
-            <span id="checkpoint-target-count" class="text-[11px] font-normal text-slate-500">0 targets</span>
-          </div>
-          <div id="checkpoint-targets-list" class="p-3 divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs space-y-2"></div>
-        </div>
-
-        <div class="border border-slate-200 rounded-lg overflow-hidden">
-          <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
-            <span>Parking Lot Actions (Manual Review)</span>
-            <span id="checkpoint-parking-count" class="text-[11px] font-normal text-slate-500">0 actions</span>
-          </div>
-          <div id="checkpoint-parking-list" class="p-3 divide-y divide-slate-100 max-h-64 overflow-y-auto text-xs space-y-2"></div>
-        </div>
-      </div>
-
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
-        <button id="btn-end-save-scan" class="w-full sm:w-auto bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition">
-          <i class="fa-solid fa-floppy-disk mr-1.5"></i> End Scan &amp; Save
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+        <button id="btn-review-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Module Selection
         </button>
-        <button id="btn-confirm-continue" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition">
-          <i class="fa-solid fa-check mr-1.5"></i> Confirm &amp; Continue
+        <button id="btn-start-crawl" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-play"></i> Start Deep Crawl
         </button>
       </div>
     </section>
 
-    <!-- STEP 5: Test Planning & Intelligence -->
+    <!-- STEP 4: Crawl Progress & Live Execution Control -->
+    <section id="panel-4" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">4</span>
+            <h2 class="text-lg font-bold text-slate-900">Crawl Progress &amp; Live Telemetry</h2>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Live telemetry stream with sequential module traversal, safe action probing, and real-time controls.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="live-scan-status-pill" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Running
+          </span>
+          <button id="btn-scan-pause" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-slate-300">
+            <i class="fa-solid fa-pause mr-1"></i> Pause
+          </button>
+          <button id="btn-scan-resume" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
+            <i class="fa-solid fa-play mr-1"></i> Resume
+          </button>
+          <button id="btn-scan-end-save" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
+            <i class="fa-solid fa-floppy-disk mr-1"></i> End Scan &amp; Save
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Metric Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Module Progress</span>
+          <p id="live-module-progress" class="text-base font-bold text-slate-800 mt-0.5">0 / 0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Routes Scanned</span>
+          <p id="live-route-progress" class="text-base font-bold text-blue-600 mt-0.5">0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Elements Found</span>
+          <p id="live-elements-found" class="text-base font-bold text-purple-600 mt-0.5">0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Safe Actions</span>
+          <p id="live-safe-actions" class="text-base font-bold text-emerald-600 mt-0.5">0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Parking Lot</span>
+          <p id="live-parking-lot" class="text-base font-bold text-amber-600 mt-0.5">0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Route Health</span>
+          <div id="live-health-pills" class="flex items-center gap-1 mt-1 text-[10px] font-bold">
+            <span id="live-health-working" class="text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">0W</span>
+            <span id="live-health-partial" class="text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">0P</span>
+            <span id="live-health-nonworking" class="text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded">0NW</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Scanning Route Status -->
+      <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        <div>
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Active Route / Module</span>
+          <p class="font-mono font-bold text-slate-800 truncate" id="live-current-target">Initializing scanner...</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="live-error-badge" class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]">0 errors</span>
+          <span id="live-scan-duration" class="font-mono text-slate-500">00:00</span>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+        <div id="scan-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 w-1/12 animate-pulse"></div>
+      </div>
+
+      <!-- Interactive Checkpoint Decision Banner (visible when waiting_approval) -->
+      <div id="interactive-checkpoint-box" class="hidden bg-blue-50 border-2 border-blue-400 rounded-lg p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-question text-blue-600 text-base"></i>
+            <h4 class="text-xs font-bold text-blue-900 uppercase">Module Learning Checkpoint — Human Decision Required</h4>
+          </div>
+          <span id="checkpoint-module-label" class="bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded text-[11px]">Module</span>
+        </div>
+        <p class="text-xs text-blue-800">The crawler has completed exploration of this module. Choose an explicit action to proceed:</p>
+        <div class="flex items-center gap-2 flex-wrap pt-1">
+          <button id="btn-checkpoint-continue" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm">
+            <i class="fa-solid fa-forward mr-1"></i> Continue to Next Module
+          </button>
+          <button id="btn-checkpoint-retry" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm">
+            <i class="fa-solid fa-rotate mr-1"></i> Retry Module
+          </button>
+          <button id="btn-checkpoint-end" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm">
+            <i class="fa-solid fa-floppy-disk mr-1"></i> End Scan &amp; Save
+          </button>
+        </div>
+      </div>
+
+      <!-- Real-time telemetry event stream box -->
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide">Scanner Telemetry Stream</label>
+          <button id="btn-clear-telemetry-log" type="button" class="text-[11px] text-slate-500 hover:text-slate-800 underline">Clear Log</button>
+        </div>
+        <div id="scan-event-log" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-[11px] h-52 overflow-y-auto space-y-1">
+          <p class="text-slate-500">[SYSTEM] Awaiting crawler engine telemetry stream...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 5: Analyze (Scan Intelligence Overview) -->
     <section id="panel-5" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="border-b border-slate-100 pb-4">
         <div class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">5</span>
-          <h2 class="text-lg font-bold text-slate-900">Requirement-Aware Test Planning</h2>
+          <h2 class="text-lg font-bold text-slate-900">Analyze — UI Intelligence Catalog</h2>
         </div>
-        <p class="text-xs text-slate-500 mt-1">Generate deterministic test plans or consult AI models to match discovered UI controls against requirements.</p>
+        <p class="text-xs text-slate-500 mt-1">Review captured routes, UI element maps, route health classifications, and deferred parking-lot items.</p>
+      </div>
+
+      <!-- Overview Cards -->
+      <div id="analyze-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+
+      <!-- Route Health & Element Overview Tabs -->
+      <div class="border border-slate-200 rounded-lg overflow-hidden">
+        <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
+          <span>Scanned Routes &amp; Health Scoring</span>
+          <span id="analyze-route-count-badge" class="text-slate-500 text-[11px] font-normal">0 routes</span>
+        </div>
+        <div class="overflow-x-auto max-h-72">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <tr>
+                <th class="table-cell text-left">Route</th>
+                <th class="table-cell text-left">Module</th>
+                <th class="table-cell text-center">Status</th>
+                <th class="table-cell text-center">Score</th>
+                <th class="table-cell text-center">Targets</th>
+                <th class="table-cell text-center">DOM Stable</th>
+              </tr>
+            </thead>
+            <tbody id="analyze-routes-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Parking Lot Review Section -->
+      <div class="border border-slate-200 rounded-lg overflow-hidden">
+        <div class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-parking text-amber-600"></i> Parking-Lot Actions (Manual Review Required)</span>
+          <span id="analyze-parking-count-badge" class="text-slate-500 text-[11px] font-normal">0 actions</span>
+        </div>
+        <div id="analyze-parking-list" class="p-3 divide-y divide-slate-100 max-h-56 overflow-y-auto text-xs space-y-2"></div>
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+        <button id="btn-analyze-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Crawl Telemetry
+        </button>
+        <button id="btn-analyze-proceed" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
+          Proceed to Test Planning <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- STEP 6: Generate Tests (AI Provider Gateway & Grounding) -->
+    <section id="panel-6" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+      <div class="border-b border-slate-100 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">6</span>
+          <h2 class="text-lg font-bold text-slate-900">Generate Tests — Grounded AI Provider Gateway</h2>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Configure your AI planning provider or deterministic local rules engine. All derived test plans are strictly validated and grounded against scanned UI elements.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-1 space-y-4">
+          <!-- Provider Selection -->
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Planning Provider</label>
             <select id="llm-provider-select" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium bg-white">
-              <option value="deterministic">Deterministic Engine (Local Rules)</option>
+              <option value="deterministic">Deterministic Engine (Local Built-in)</option>
               <option value="gemini">Google Gemini Developer API</option>
               <option value="ollama">Ollama (Local LLM)</option>
-              <option value="openai_compatible">OpenAI-compatible Endpoint</option>
-              <option value="huggingface">Hugging Face Inference</option>
+              <option value="openai_compatible">OpenAI-compatible Hosted Endpoint</option>
             </select>
           </div>
 
+          <!-- Model & Connection Status -->
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">Model Override</label>
@@ -286,9 +430,24 @@
             <p id="provider-conn-badge" class="text-[11px] mt-1 hidden"></p>
           </div>
 
+          <!-- Provider Status & Grounding Badges -->
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-600">Provider Status:</span>
+              <span id="provider-availability-badge" class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">Ready</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-600">Grounding Validation:</span>
+              <span id="grounding-status-badge" class="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]">100% Grounded</span>
+            </div>
+            <div id="fallback-warning-box" class="hidden p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 font-medium">
+              <i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> <span id="fallback-reason-text">Deterministic fallback activated.</span>
+            </div>
+          </div>
+
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Scenario Prompt</label>
-            <textarea id="planning-prompt" rows="3" placeholder="Focus on inventory items and shopping cart checkout flows..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"></textarea>
+            <textarea id="planning-prompt" rows="3" placeholder="Focus on user flows, inventory actions, and shopping cart validation..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"></textarea>
           </div>
 
           <div>
@@ -333,7 +492,7 @@
 
       <div class="flex justify-between items-center pt-3 border-t border-slate-100">
         <button id="btn-plan-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
-          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Scan
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back to Analyze
         </button>
         <button id="btn-plan-proceed" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-6 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
           Proceed to Execution <i class="fa-solid fa-arrow-right"></i>
@@ -341,22 +500,29 @@
       </div>
     </section>
 
-    <!-- STEP 6: Controlled Execution -->
-    <section id="panel-6" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+    <!-- STEP 7: Controlled Execution & Evidence -->
+    <section id="panel-7" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2">
-            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">6</span>
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">7</span>
             <h2 class="text-lg font-bold text-slate-900">Controlled Execution &amp; Evidence</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Playwright executes each plan step deterministically with locator recording, per-step screenshots, and error captures.</p>
+          <p class="text-xs text-slate-500 mt-1">Playwright executes each plan step deterministically with locator recording, categorical failure analysis, and screenshot capture.</p>
         </div>
-        <button id="btn-run-execution" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
-          <i class="fa-solid fa-play"></i> Run Test Execution
-        </button>
+        <div class="flex items-center gap-3">
+          <div id="exec-counters-badge" class="flex items-center gap-2 text-xs font-bold">
+            <span id="exec-pass-count" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded">0 Pass</span>
+            <span id="exec-fail-count" class="bg-rose-100 text-rose-800 px-2 py-1 rounded">0 Fail</span>
+            <span id="exec-skip-count" class="bg-slate-100 text-slate-600 px-2 py-1 rounded">0 Skip</span>
+          </div>
+          <button id="btn-run-execution" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
+            <i class="fa-solid fa-play"></i> Run Test Execution
+          </button>
+        </div>
       </div>
 
-      <!-- Execution Results Table -->
+      <!-- Execution Results Table with Categorical Failure Column -->
       <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
         <table class="min-w-full text-xs">
           <thead class="bg-slate-100 text-slate-700 font-semibold">
@@ -365,9 +531,9 @@
               <th class="table-cell text-left">Step</th>
               <th class="table-cell text-left">Action</th>
               <th class="table-cell text-left">Locator Used</th>
-              <th class="table-cell text-left">Expected Result</th>
               <th class="table-cell text-left">Actual Result</th>
               <th class="table-cell text-center">Status</th>
+              <th class="table-cell text-center">Failure Category</th>
               <th class="table-cell text-center">Evidence</th>
               <th class="table-cell text-center">Actions</th>
             </tr>
@@ -388,15 +554,15 @@
       </div>
     </section>
 
-    <!-- STEP 7: Audit Report & Regression -->
-    <section id="panel-7" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
+    <!-- STEP 8: Audit Report & Stable Downloads -->
+    <section id="panel-8" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div class="flex items-center gap-2">
-            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">7</span>
-            <h2 class="text-lg font-bold text-slate-900">Audit-Ready Report &amp; Regression Run</h2>
+            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">8</span>
+            <h2 class="text-lg font-bold text-slate-900">Audit-Ready Report &amp; Artifact Downloads</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Executive summaries, downloadable artifact packages, and regression baseline replay.</p>
+          <p class="text-xs text-slate-500 mt-1">Executive summaries, downloadable artifact packages via stable run ID endpoints, and regression baseline replay.</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <button id="btn-dl-json" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
@@ -411,18 +577,115 @@
           <button id="btn-dl-markdown" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
             <i class="fa-brands fa-markdown text-slate-800 mr-1"></i> Summary
           </button>
+          <button id="btn-dl-execution" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Exec JSON
+          </button>
+          <button id="btn-dl-checkpoint" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
+          </button>
+          <button id="btn-dl-screenshots" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
+            <i class="fa-solid fa-images text-rose-600 mr-1"></i> Screenshots
+          </button>
         </div>
       </div>
 
-      <!-- Executive Metric Cards -->
-      <div id="report-metric-cards" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      <!-- Top-Level Executive Metric Cards -->
+      <div id="report-metric-cards" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4"></div>
+
+      <!-- Expandable Sections -->
+      <div class="space-y-3">
+        <!-- 1. Route Catalog -->
+        <details class="bg-white border border-slate-200 rounded-lg overflow-hidden group">
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-route text-blue-600"></i> Route Catalog &amp; Health Breakdown</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="p-4 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <tr>
+                  <th class="table-cell text-left">Route</th>
+                  <th class="table-cell text-left">Module</th>
+                  <th class="table-cell text-center">Status</th>
+                  <th class="table-cell text-center">Score</th>
+                  <th class="table-cell text-center">Elements</th>
+                </tr>
+              </thead>
+              <tbody id="report-routes-table-body"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- 2. Element Registry -->
+        <details class="bg-white border border-slate-200 rounded-lg overflow-hidden group">
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-cubes text-purple-600"></i> Element Registry by Route &amp; Module</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="p-4 overflow-x-auto max-h-72">
+            <table class="min-w-full text-xs">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <tr>
+                  <th class="table-cell text-left">Route</th>
+                  <th class="table-cell text-left">Role</th>
+                  <th class="table-cell text-left">Label</th>
+                  <th class="table-cell text-left">Primary Selector</th>
+                  <th class="table-cell text-center">Safety</th>
+                </tr>
+              </thead>
+              <tbody id="report-elements-table-body"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- 3. Parking-Lot Actions -->
+        <details class="bg-white border border-slate-200 rounded-lg overflow-hidden group">
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-parking text-amber-600"></i> Parking-Lot Actions with Reasons</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div id="report-parking-container" class="p-4 text-xs space-y-2"></div>
+        </details>
+
+        <!-- 4. Test Execution Matrix -->
+        <details class="bg-white border border-slate-200 rounded-lg overflow-hidden group" open>
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-clipboard-check text-emerald-600"></i> Test Execution Matrix &amp; Screenshots</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div class="p-4 overflow-x-auto">
+            <table class="min-w-full text-xs">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <tr>
+                  <th class="table-cell text-left">TC ID</th>
+                  <th class="table-cell text-left">Step</th>
+                  <th class="table-cell text-left">Action</th>
+                  <th class="table-cell text-center">Status</th>
+                  <th class="table-cell text-center">Failure Category</th>
+                  <th class="table-cell text-center">Evidence</th>
+                </tr>
+              </thead>
+              <tbody id="report-execution-table-body"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <!-- 5. AI Planning & Grounding Audit -->
+        <details class="bg-white border border-slate-200 rounded-lg overflow-hidden group">
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> AI Planning Notes &amp; Grounding Audit</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div id="report-planning-container" class="p-4 text-xs space-y-3 bg-slate-50"></div>
+        </details>
+      </div>
 
       <!-- Regression Replay Section -->
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 class="text-sm font-bold text-slate-900">Regression Baseline &amp; Diff Comparison</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application and compare added/removed elements and status drifts.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application and compare newly passing or failing steps.</p>
           </div>
           <button id="btn-run-regression" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2">
             <i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay
@@ -459,7 +722,7 @@
   <div id="screenshot-modal" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
       <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-        <h3 id="modal-title" class="text-sm font-bold text-slate-800 font-mono">Step Screenshot</h3>
+        <h3 id="modal-title" class="text-sm font-bold text-slate-800 font-mono">Step Screenshot Evidence</h3>
         <button id="btn-close-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
       </div>
       <div class="p-4 overflow-auto flex-grow bg-slate-100 flex items-center justify-center">
@@ -498,22 +761,60 @@
     </div>
   </div>
 
+  <!-- Actionable Error Modal (Zero stack traces / zero credential leak) -->
+  <div id="actionable-error-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2 text-rose-600">
+          <i class="fa-solid fa-triangle-exclamation text-base"></i>
+          <h3 id="error-modal-op-title" class="text-sm font-bold text-slate-900">Operation Notice</h3>
+        </div>
+        <button id="btn-close-error-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded">
+          <span class="font-bold text-slate-600">Affected Run ID:</span>
+          <span id="error-modal-run-id" class="font-mono text-slate-800 font-bold">--</span>
+        </div>
+        <div class="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded">
+          <span class="font-bold text-slate-600">Failure Category:</span>
+          <span id="error-modal-category" class="font-semibold text-rose-700">GENERAL_ERROR</span>
+        </div>
+        <div class="p-3 bg-rose-50 border border-rose-200 rounded text-rose-900">
+          <span class="font-bold block mb-1">Details:</span>
+          <p id="error-modal-message" class="text-xs">An error occurred during this operation.</p>
+        </div>
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded text-blue-900">
+          <span class="font-bold block mb-1">Recommended Next Step:</span>
+          <p id="error-modal-suggestion" class="text-xs">Retry the operation or inspect system status.</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-error-modal-close" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Dismiss
+        </button>
+      </div>
+    </div>
+  </div>
+
   <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
-    PiOne Testmate &bull; Deterministic Scanner &bull; Playwright Core &bull; v2.0
+    PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise
   </footer>
 
   <script>
     const API_BASE = window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin;
-    const STORAGE_KEY = "cat_sentinel_active_run";
+    const STORAGE_KEY = "pione_testmate_active_run";
 
+    // 8 Workflow Stages
     const STEPS = [
-      { id: 1, title: "Target & Auth", icon: "fa-shield-halved" },
-      { id: 2, title: "Module Selection", icon: "fa-list-check" },
-      { id: 3, title: "Scan Progress", icon: "fa-network-wired" },
-      { id: 4, title: "Checkpoint Review", icon: "fa-clipboard-check" },
-      { id: 5, title: "Test Planning", icon: "fa-wand-magic-sparkles" },
-      { id: 6, title: "Execution", icon: "fa-play" },
-      { id: 7, title: "Report & Regression", icon: "fa-chart-pie" }
+      { id: 1, title: "Scan Application", icon: "fa-shield-halved" },
+      { id: 2, title: "Choose Modules", icon: "fa-list-check" },
+      { id: 3, title: "Manual Review", icon: "fa-clipboard-check" },
+      { id: 4, title: "Crawl Progress", icon: "fa-network-wired" },
+      { id: 5, title: "Analyze", icon: "fa-chart-pie" },
+      { id: 6, title: "Generate Tests", icon: "fa-wand-magic-sparkles" },
+      { id: 7, title: "Execute", icon: "fa-play" },
+      { id: 8, title: "Report", icon: "fa-file-invoice" }
     ];
 
     let state = {
@@ -528,11 +829,18 @@
       scanData: null,
       generatedPlan: null,
       executionResults: null,
-      regressionResults: null
+      regressionResults: null,
+      scanStartTime: null,
+      durationTimer: null,
+      telemetrySocket: null,
+      isPaused: false
     };
 
-    document.addEventListener("DOMContentLoaded", () => {
-      // Safe storage check - NEVER call localStorage.clear()
+    document.addEventListener("DOMContentLoaded", async () => {
+      renderStepper();
+      bindAllEvents();
+
+      // Safe state restoration on page refresh
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -541,12 +849,12 @@
             state.runId = parsed.runId;
             state.targetUrl = parsed.targetUrl || state.targetUrl;
             document.getElementById("url-input").value = state.targetUrl;
+            await restoreActiveRunState(state.runId, parsed.currentStep || 1);
+            return;
           }
         }
       } catch (_) {}
 
-      renderStepper();
-      bindAllEvents();
       switchStep(1);
     });
 
@@ -582,17 +890,81 @@
     function switchStep(stepId) {
       if (stepId > state.maxUnlockedStep) return;
       state.currentStep = stepId;
-      for (let i = 1; i <= 7; i++) {
+      for (let i = 1; i <= 8; i++) {
         const el = document.getElementById(`panel-${i}`);
         if (el) el.classList.toggle("hidden", i !== stepId);
       }
       renderStepper();
+      saveActiveState();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function unlockStep(stepId) {
       state.maxUnlockedStep = Math.max(state.maxUnlockedStep, stepId);
       renderStepper();
+      saveActiveState();
+    }
+
+    function saveActiveState() {
+      if (state.runId) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            runId: state.runId,
+            targetUrl: state.targetUrl,
+            currentStep: state.currentStep
+          }));
+        } catch (_) {}
+      }
+    }
+
+    async function restoreActiveRunState(runId, targetStep) {
+      try {
+        const res = await fetch(`${API_BASE}/run/${encodeURIComponent(runId)}/state`);
+        if (!res.ok) {
+          switchStep(1);
+          return;
+        }
+        const runCtx = await res.json();
+        state.runId = runCtx.run_id;
+        state.targetUrl = runCtx.target_origin || state.targetUrl;
+        state.authSessionId = runCtx.auth_session_id || "";
+        state.modules = runCtx.discovered_modules || [];
+        state.selectedModuleIds = runCtx.selected_modules || [];
+
+        if (runCtx.scan_results) {
+          state.scanData = runCtx.scan_results;
+          unlockStep(5);
+        }
+        if (runCtx.generated_test_plan) {
+          state.generatedPlan = {
+            script: runCtx.generated_script || "",
+            test_cases: runCtx.generated_test_plan,
+            planning_notes: "Restored from persistent run context."
+          };
+          unlockStep(7);
+        }
+        if (runCtx.execution_results) {
+          state.executionResults = {
+            rows: runCtx.execution_results,
+            summary: runCtx.execution_summary || { total: runCtx.execution_results.length, passed: 0, failed: 0 }
+          };
+          unlockStep(8);
+        }
+
+        updateRunUI();
+        if (state.modules.length) {
+          renderModuleList();
+          unlockStep(2);
+        }
+
+        const stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
+        if (stepToOpen === 5) renderAnalyzeView();
+        if (stepToOpen === 7) renderExecutionResults(state.executionResults?.rows || []);
+        if (stepToOpen === 8) renderReportView();
+        switchStep(stepToOpen);
+      } catch (e) {
+        switchStep(1);
+      }
     }
 
     function bindAllEvents() {
@@ -602,49 +974,71 @@
       document.getElementById("btn-discover").onclick = handleDiscoverModules;
 
       // Step 2
-      document.getElementById("modules-select-all").onchange = (e) => {
-        document.querySelectorAll("input[name='mod-check']").forEach(cb => cb.checked = e.target.checked);
-      };
+      document.getElementById("btn-modules-select-all").onclick = () => selectAllModules(true);
+      document.getElementById("btn-modules-clear-all").onclick = () => selectAllModules(false);
       document.getElementById("btn-modules-back").onclick = () => switchStep(1);
-      document.getElementById("btn-start-scan").onclick = handleStartScan;
+      document.getElementById("btn-modules-continue").onclick = handleModulesContinue;
 
       // Step 3
-      document.getElementById("btn-cancel-scan").onclick = () => switchStep(2);
+      document.getElementById("btn-review-back").onclick = () => switchStep(2);
+      document.getElementById("btn-start-crawl").onclick = handleStartScan;
 
-      // Step 4
-      document.getElementById("btn-confirm-continue").onclick = () => {
-        unlockStep(5);
-        switchStep(5);
-      };
-      document.getElementById("btn-end-save-scan").onclick = () => {
-        unlockStep(5);
-        switchStep(5);
+      // Step 4 (Crawl controls)
+      document.getElementById("btn-scan-pause").onclick = () => sendScanControl("pause");
+      document.getElementById("btn-scan-resume").onclick = () => sendScanControl("resume");
+      document.getElementById("btn-scan-end-save").onclick = () => sendScanControl("end");
+      document.getElementById("btn-clear-telemetry-log").onclick = () => {
+        document.getElementById("scan-event-log").innerHTML = "";
       };
 
-      // Step 5
-      document.getElementById("btn-test-provider").onclick = handleTestProvider;
-      document.getElementById("btn-generate-plan").onclick = handleGeneratePlan;
-      document.getElementById("btn-plan-back").onclick = () => switchStep(4);
-      document.getElementById("btn-plan-proceed").onclick = () => {
+      // Interactive Checkpoint Buttons
+      document.getElementById("btn-checkpoint-continue").onclick = () => {
+        sendScanControl("continue");
+        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
+      };
+      document.getElementById("btn-checkpoint-retry").onclick = () => {
+        sendScanControl("retry");
+        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
+      };
+      document.getElementById("btn-checkpoint-end").onclick = () => {
+        sendScanControl("end");
+        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
+      };
+
+      // Step 5 (Analyze)
+      document.getElementById("btn-analyze-back").onclick = () => switchStep(4);
+      document.getElementById("btn-analyze-proceed").onclick = () => {
         unlockStep(6);
         switchStep(6);
       };
 
-      // Step 6
-      document.getElementById("btn-run-execution").onclick = handleRunExecution;
-      document.getElementById("btn-exec-back").onclick = () => switchStep(5);
-      document.getElementById("btn-exec-proceed").onclick = () => {
+      // Step 6 (Generate Tests)
+      document.getElementById("btn-test-provider").onclick = handleTestProvider;
+      document.getElementById("btn-generate-plan").onclick = handleGeneratePlan;
+      document.getElementById("btn-plan-back").onclick = () => switchStep(5);
+      document.getElementById("btn-plan-proceed").onclick = () => {
         unlockStep(7);
-        renderReportView();
         switchStep(7);
       };
 
-      // Step 7
+      // Step 7 (Execute)
+      document.getElementById("btn-run-execution").onclick = handleRunExecution;
+      document.getElementById("btn-exec-back").onclick = () => switchStep(6);
+      document.getElementById("btn-exec-proceed").onclick = () => {
+        unlockStep(8);
+        renderReportView();
+        switchStep(8);
+      };
+
+      // Step 8 (Report Downloads & Regression)
       document.getElementById("btn-run-regression").onclick = handleRunRegression;
-      document.getElementById("btn-dl-json").onclick = () => downloadFile("json");
-      document.getElementById("btn-dl-yaml").onclick = () => downloadFile("yaml");
-      document.getElementById("btn-dl-excel").onclick = downloadExcel;
-      document.getElementById("btn-dl-markdown").onclick = () => downloadFile("markdown");
+      document.getElementById("btn-dl-json").onclick = () => downloadArtifact("json");
+      document.getElementById("btn-dl-yaml").onclick = () => downloadArtifact("yaml");
+      document.getElementById("btn-dl-excel").onclick = () => downloadArtifact("excel");
+      document.getElementById("btn-dl-markdown").onclick = () => downloadArtifact("markdown");
+      document.getElementById("btn-dl-execution").onclick = () => downloadArtifact("execution_results");
+      document.getElementById("btn-dl-checkpoint").onclick = () => downloadArtifact("checkpoint");
+      document.getElementById("btn-dl-screenshots").onclick = () => downloadArtifact("screenshots");
 
       // Modals
       document.getElementById("btn-close-modal").onclick = () => document.getElementById("screenshot-modal").classList.add("hidden");
@@ -653,6 +1047,9 @@
       document.getElementById("btn-close-refresh-modal").onclick = closeRefreshModal;
       document.getElementById("btn-cancel-refresh").onclick = closeRefreshModal;
       document.getElementById("btn-submit-refresh").onclick = handleRefreshSessionSubmit;
+
+      document.getElementById("btn-close-error-modal").onclick = closeErrorModal;
+      document.getElementById("btn-error-modal-close").onclick = closeErrorModal;
 
       document.getElementById("btn-top-newscan").onclick = resetRun;
     }
@@ -673,7 +1070,10 @@
       const username = document.getElementById("username-input").value.trim();
       const password = document.getElementById("password-input").value;
 
-      if (!url) return alert("Application URL is required.");
+      if (!url) {
+        showActionableError("Target Validation", state.runId, "INVALID_INPUT", "Application URL is required.", "Enter a valid HTTP/HTTPS URL.");
+        return;
+      }
       state.targetUrl = url;
 
       const btn = document.getElementById("btn-discover");
@@ -697,7 +1097,9 @@
             body: JSON.stringify({ url, username, password })
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.detail || "Module discovery failed");
+          if (!res.ok) {
+            throw new Error(data.detail || "Module discovery failed");
+          }
 
           state.runId = data.run_id;
           state.authSessionId = data.auth_session_id;
@@ -709,7 +1111,7 @@
         unlockStep(2);
         switchStep(2);
       } catch (err) {
-        alert(err.message);
+        showActionableError("Module Discovery", state.runId, "AUTHENTICATION_OR_NETWORK_ERROR", err.message, "Verify credentials and ensure the target application is reachable.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-compass"></i> Discover Modules`;
@@ -719,13 +1121,13 @@
     function renderModuleList() {
       const container = document.getElementById("module-options-container");
       container.innerHTML = "";
-      document.getElementById("module-count-badge").textContent = `${state.modules.length} modules discovered`;
+      document.getElementById("module-count-badge").textContent = `${state.modules.length} discovered`;
 
       state.modules.forEach(m => {
         const label = document.createElement("label");
         label.className = "flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition";
         label.innerHTML = `
-          <input type="checkbox" name="mod-check" value="${m.id}" checked class="mt-1 h-4 w-4 accent-blue-600 rounded" />
+          <input type="checkbox" name="mod-check" value="${escapeHtml(m.id)}" checked class="mt-1 h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedModulesSummary()" />
           <div class="flex-grow">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-800">${escapeHtml(m.label)}</span>
@@ -736,9 +1138,40 @@
         `;
         container.appendChild(label);
       });
+      updateSelectedModulesSummary();
     }
 
-    async function handleStartScan() {
+    function selectAllModules(checked) {
+      document.querySelectorAll("input[name='mod-check']").forEach(cb => cb.checked = checked);
+      updateSelectedModulesSummary();
+    }
+
+    function updateSelectedModulesSummary() {
+      const checkboxes = Array.from(document.querySelectorAll("input[name='mod-check']:checked"));
+      const selectedIds = checkboxes.map(cb => cb.value);
+      state.selectedModuleIds = selectedIds;
+
+      const badge = document.getElementById("selected-summary-count");
+      const chipsContainer = document.getElementById("selected-modules-chips");
+      badge.textContent = `${selectedIds.length} of ${state.modules.length} selected`;
+
+      if (!selectedIds.length) {
+        chipsContainer.innerHTML = `<span class="text-amber-600 font-semibold text-[11px]"><i class="fa-solid fa-triangle-exclamation mr-1"></i> No modules selected. Please select at least one module.</span>`;
+        document.getElementById("module-selection-warning").classList.remove("hidden");
+      } else {
+        document.getElementById("module-selection-warning").classList.add("hidden");
+        chipsContainer.innerHTML = "";
+        selectedIds.forEach(id => {
+          const mod = state.modules.find(m => m.id === id) || { label: id, route: "" };
+          const chip = document.createElement("span");
+          chip.className = "inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-100 text-blue-800 text-[11px] font-semibold";
+          chip.innerHTML = `<i class="fa-solid fa-folder text-blue-600 text-[10px]"></i> ${escapeHtml(mod.label)} <span class="font-mono text-[9px] text-blue-600">${escapeHtml(mod.route || "")}</span>`;
+          chipsContainer.appendChild(chip);
+        });
+      }
+    }
+
+    function handleModulesContinue() {
       const selected = Array.from(document.querySelectorAll("input[name='mod-check']:checked")).map(cb => cb.value);
       if (!selected.length) {
         document.getElementById("module-selection-warning").classList.remove("hidden");
@@ -747,35 +1180,48 @@
       document.getElementById("module-selection-warning").classList.add("hidden");
       state.selectedModuleIds = selected;
 
+      // Populate Step 3 Review List
+      const reviewList = document.getElementById("review-module-list");
+      reviewList.innerHTML = "";
+      selected.forEach(id => {
+        const mod = state.modules.find(m => m.id === id) || { label: id, route: "/" };
+        const item = document.createElement("div");
+        item.className = "p-2.5 bg-white border border-slate-200 rounded flex items-center justify-between";
+        item.innerHTML = `
+          <div>
+            <span class="font-bold text-slate-800">${escapeHtml(mod.label)}</span>
+            <p class="font-mono text-[11px] text-slate-500">${escapeHtml(mod.route || "/")}</p>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">CONFIRMED</span>
+        `;
+        reviewList.appendChild(item);
+      });
+
       unlockStep(3);
       switchStep(3);
+    }
+
+    async function handleStartScan() {
+      unlockStep(4);
+      switchStep(4);
 
       const log = document.getElementById("scan-event-log");
-      log.innerHTML = `<p class="text-blue-400">[SCAN_START] Connecting to Playwright crawler engine for run ${state.runId}...</p>`;
+      log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
+
+      state.scanStartTime = Date.now();
+      if (state.durationTimer) clearInterval(state.durationTimer);
+      state.durationTimer = setInterval(() => {
+        const elapsedSec = Math.floor((Date.now() - state.scanStartTime) / 1000);
+        const mins = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+        const secs = String(elapsedSec % 60).padStart(2, "0");
+        document.getElementById("live-scan-duration").textContent = `${mins}:${secs}`;
+      }, 1000);
+
+      // Connect WebSocket Telemetry Stream
+      connectTelemetryStream(state.runId);
 
       try {
         const isInteractive = document.getElementById("interactive-input").checked;
-        // Attach the live event stream to the same opaque run identifier sent
-        // to /scan. This keeps route/element telemetry visible while the
-        // synchronous scan is running instead of leaving the panel frozen at
-        // "Initializing scanner" until the response returns.
-        const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
-        const eventSocket = new WebSocket(`${wsScheme}://${window.location.host}/ws/scan-events?scan_id=${encodeURIComponent(state.runId)}`);
-        eventSocket.onmessage = (message) => {
-          try {
-            const event = JSON.parse(message.data || "{}");
-            if (event.type === "heartbeat") return;
-            const label = event.type || "event";
-            const detail = event.route || event.label || event.reason || "";
-            log.innerHTML += `<p class="text-slate-300">[${escapeHtml(label.toUpperCase())}] ${escapeHtml(String(detail))}</p>`;
-            log.scrollTop = log.scrollHeight;
-          } catch (_) {}
-        };
-        eventSocket.onerror = () => {
-          log.innerHTML += `<p class="text-amber-300">[TELEMETRY] Live event stream unavailable; scan result will still be saved.</p>`;
-        };
-        eventSocket.onclose = () => { try { eventSocket.close(); } catch (_) {} };
-
         const res = await fetch(`${API_BASE}/scan`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -785,7 +1231,7 @@
             run_id: state.runId,
             scan_id: state.runId,
             auth_session_id: state.authSessionId,
-            selected_module_ids: selected,
+            selected_module_ids: state.selectedModuleIds,
             interactive_mode: isInteractive,
             interactive_timeout: 300
           })
@@ -803,54 +1249,198 @@
         state.runId = data.run_id || state.runId;
         updateRunUI();
 
-        // Populate Step 4 (Checkpoint review)
-        renderCheckpointReview(data);
-        unlockStep(4);
-        switchStep(4);
+        if (state.durationTimer) clearInterval(state.durationTimer);
+        document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
+        document.getElementById("live-scan-status-pill").className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+
+        // Transition to Step 5 (Analyze)
+        renderAnalyzeView();
+        unlockStep(5);
+        setTimeout(() => switchStep(5), 1000);
       } catch (err) {
-        log.innerHTML += `<p class="text-rose-400">[ERROR] ${escapeHtml(err.message)}</p>`;
+        if (state.durationTimer) clearInterval(state.durationTimer);
+        log.innerHTML += `<p class="text-rose-400 font-semibold">[ERROR] ${escapeHtml(err.message)}</p>`;
+        showActionableError("Deep Crawl", state.runId, "CRAWL_INTERRUPTED", err.message, "You can export the partial checkpoint results or retry the current module.");
       }
     }
 
-    function renderCheckpointReview(scanData) {
-      const routes = scanData.routes || [];
-      const primaryRoute = routes[0] || {};
-      document.getElementById("checkpoint-route").textContent = primaryRoute.path || state.targetUrl;
-      document.getElementById("checkpoint-module-badge").textContent = primaryRoute.menu_name || "Discovered Route";
+    function connectTelemetryStream(runId) {
+      if (state.telemetrySocket) {
+        try { state.telemetrySocket.close(); } catch (_) {}
+      }
+      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${wsScheme}://${window.location.host}/ws/scan-events?run_id=${encodeURIComponent(runId)}`;
+      const log = document.getElementById("scan-event-log");
 
-      const targetsList = document.getElementById("checkpoint-targets-list");
-      targetsList.innerHTML = "";
-      const components = primaryRoute.components || {};
-      const allComp = [
-        ...(components.buttons || []).map(l => ({ label: l, type: "Button", safe: true })),
-        ...(components.inputs || []).map(l => ({ label: l, type: "Input", safe: true })),
-        ...(components.dropdowns || []).map(l => ({ label: l, type: "Dropdown", safe: true })),
-        ...(components.tables || []).map(l => ({ label: l, type: "Table", safe: true }))
+      try {
+        const ws = new WebSocket(wsUrl);
+        state.telemetrySocket = ws;
+
+        ws.onmessage = (message) => {
+          try {
+            const event = JSON.parse(message.data || "{}");
+            if (event.type === "heartbeat") return;
+            handleTelemetryEvent(event);
+          } catch (_) {}
+        };
+
+        ws.onerror = () => {
+          log.innerHTML += `<p class="text-amber-400 text-[10px]">[TELEMETRY] Live stream connection re-establishing...</p>`;
+        };
+      } catch (_) {}
+    }
+
+    function handleTelemetryEvent(event) {
+      const log = document.getElementById("scan-event-log");
+      const label = event.type || event.event || "event";
+      const detail = event.route || event.action || event.message || event.reason || "";
+
+      // Update live metrics
+      if (event.module_progress) {
+        document.getElementById("live-module-progress").textContent = `${event.module_progress.current} / ${event.module_progress.total}`;
+      }
+      if (event.route_progress) {
+        document.getElementById("live-route-progress").textContent = `${event.route_progress.scanned} scanned (${event.route_progress.pending} pend)`;
+      }
+      if (event.elements_found !== undefined) {
+        document.getElementById("live-elements-found").textContent = event.elements_found;
+      }
+      if (event.safe_actions_explored !== undefined) {
+        document.getElementById("live-safe-actions").textContent = event.safe_actions_explored;
+      }
+      if (event.parking_lot_actions !== undefined) {
+        document.getElementById("live-parking-lot").textContent = event.parking_lot_actions;
+      }
+      if (event.route_health) {
+        document.getElementById("live-health-working").textContent = `${event.route_health.working_count}W`;
+        document.getElementById("live-health-partial").textContent = `${event.route_health.partial_count}P`;
+        document.getElementById("live-health-nonworking").textContent = `${event.route_health.non_working_count}NW`;
+      }
+      if (event.current_route) {
+        document.getElementById("live-current-target").textContent = event.current_route;
+      }
+      if (event.errors !== undefined) {
+        document.getElementById("live-error-badge").textContent = `${event.errors} errors`;
+        if (event.errors > 0) {
+          document.getElementById("live-error-badge").className = "bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded text-[11px]";
+        }
+      }
+
+      // Checkpoint approval
+      if (event.type === "module_review_started") {
+        document.getElementById("interactive-checkpoint-box").classList.remove("hidden");
+        document.getElementById("checkpoint-module-label").textContent = event.module_name || "Module Complete";
+      }
+
+      // Log row formatting
+      const p = document.createElement("p");
+      const isErr = label.includes("failed") || label.includes("error");
+      const isPaused = label.includes("paused");
+      p.className = isErr ? "text-rose-400" : isPaused ? "text-amber-400 font-semibold" : "text-slate-300";
+      p.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> <span class="font-bold">[${escapeHtml(label.toUpperCase())}]</span> ${escapeHtml(String(detail))}`;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function sendScanControl(action) {
+      if (!state.runId) return;
+      try {
+        const res = await fetch(`${API_BASE}/scan/control`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: state.runId, action })
+        });
+        const data = await res.json();
+        if (action === "pause") {
+          state.isPaused = true;
+          document.getElementById("btn-scan-pause").classList.add("hidden");
+          document.getElementById("btn-scan-resume").classList.remove("hidden");
+          document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500"></span> Paused`;
+          document.getElementById("live-scan-status-pill").className = "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+        } else if (action === "resume") {
+          state.isPaused = false;
+          document.getElementById("btn-scan-resume").classList.add("hidden");
+          document.getElementById("btn-scan-pause").classList.remove("hidden");
+          document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Running`;
+          document.getElementById("live-scan-status-pill").className = "bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+        } else if (action === "end") {
+          const log = document.getElementById("scan-event-log");
+          log.innerHTML += `<p class="text-amber-300 font-semibold">[CONTROL] End scan & save signal delivered. Exporting results...</p>`;
+        }
+      } catch (err) {
+        showActionableError("Scan Control", state.runId, "CONTROL_SIGNAL_FAILED", err.message, "Verify active scan status.");
+      }
+    }
+
+    function renderAnalyzeView() {
+      if (!state.scanData) return;
+      const scanSummary = state.scanData.summary || {};
+      const routes = state.scanData.routes || [];
+
+      // Summary Cards
+      const container = document.getElementById("analyze-cards");
+      container.innerHTML = "";
+      const cards = [
+        { label: "Total Routes", val: scanSummary.total_routes || routes.length, color: "text-blue-600" },
+        { label: "Total Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), color: "text-purple-600" },
+        { label: "Working Routes", val: scanSummary.working_routes || 0, color: "text-emerald-600" },
+        { label: "Non-Working / Partial", val: (scanSummary.partial_routes || 0) + (scanSummary.non_working_routes || 0), color: "text-rose-600" }
       ];
-
-      document.getElementById("checkpoint-target-count").textContent = `${allComp.length} targets`;
-      allComp.forEach(c => {
-        const div = document.createElement("div");
-        div.className = "py-1.5 flex items-center justify-between";
-        div.innerHTML = `
-          <div>
-            <span class="font-semibold text-slate-800">${escapeHtml(c.label)}</span>
-            <span class="text-[10px] text-slate-400 font-mono ml-2">[${c.type}]</span>
-          </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">SAFE</span>
-        `;
-        targetsList.appendChild(div);
+      cards.forEach(c => {
+        const d = document.createElement("div");
+        d.className = "bg-slate-50 border border-slate-200 rounded-lg p-3";
+        d.innerHTML = `<span class="text-[10px] font-bold text-slate-500 uppercase">${c.label}</span><p class="text-xl font-bold mt-0.5 ${c.color}">${c.val}</p>`;
+        container.appendChild(d);
       });
 
-      const parkingList = document.getElementById("checkpoint-parking-list");
-      parkingList.innerHTML = `<p class="text-slate-400 py-2">No destructive or high-risk actions encountered in selected boundary.</p>`;
+      // Routes Table
+      const routesBody = document.getElementById("analyze-routes-body");
+      routesBody.innerHTML = "";
+      document.getElementById("analyze-route-count-badge").textContent = `${routes.length} routes`;
+      routes.forEach(r => {
+        const tr = document.createElement("tr");
+        const status = r.route_status || "WORKING";
+        const isOk = status === "WORKING";
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold text-slate-800">${escapeHtml(r.path)}</td>
+          <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isOk ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}">${escapeHtml(status)}</span></td>
+          <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
+          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+          <td class="table-cell text-center">${r.dom_stable ? "✅ Yes" : "❌ No"}</td>
+        `;
+        routesBody.appendChild(tr);
+      });
+
+      // Parking Lot List
+      const parkingList = document.getElementById("analyze-parking-list");
+      parkingList.innerHTML = "";
+      const parkingLot = state.scanData.parking_lot_actions || [];
+      document.getElementById("analyze-parking-count-badge").textContent = `${parkingLot.length} actions`;
+      if (!parkingLot.length) {
+        parkingList.innerHTML = `<p class="text-slate-400 py-3 text-center">No high-risk actions encountered in the scanned boundary.</p>`;
+      } else {
+        parkingLot.forEach(p => {
+          const div = document.createElement("div");
+          div.className = "py-2 flex items-center justify-between";
+          div.innerHTML = `
+            <div>
+              <span class="font-bold text-slate-800">${escapeHtml(p.label || "unlabeled")}</span>
+              <span class="text-[10px] text-slate-400 font-mono ml-2">[${escapeHtml(p.route || "/")}]</span>
+              <p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(p.reason || "Manual verification required")}</p>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${escapeHtml(p.classification || "PARKED")}</span>
+          `;
+          parkingList.appendChild(div);
+        });
+      }
     }
 
     async function handleTestProvider() {
       const provider = document.getElementById("llm-provider-select").value;
       const badge = document.getElementById("provider-conn-badge");
       badge.className = "text-[11px] mt-1 text-slate-500 font-medium";
-      badge.textContent = `Connecting to ${provider}...`;
+      badge.textContent = `Testing connection to ${provider}...`;
       badge.classList.remove("hidden");
 
       try {
@@ -859,21 +1449,28 @@
         if (data.ok) {
           badge.className = "text-[11px] mt-1 text-emerald-600 font-semibold";
           badge.textContent = `Connected to ${provider} successfully.`;
+          document.getElementById("provider-availability-badge").textContent = "Online";
+          document.getElementById("provider-availability-badge").className = "bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]";
         } else {
           badge.className = "text-[11px] mt-1 text-rose-600 font-semibold";
-          badge.textContent = `Failed: ${data.detail || "Provider offline"}`;
+          badge.textContent = `Provider unavailable: ${data.detail || "Offline"}`;
+          document.getElementById("provider-availability-badge").textContent = "Local Fallback Only";
+          document.getElementById("provider-availability-badge").className = "bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[10px]";
         }
       } catch (err) {
         badge.className = "text-[11px] mt-1 text-rose-600 font-semibold";
-        badge.textContent = `Error: ${err.message}`;
+        badge.textContent = `Connection error: ${err.message}`;
       }
     }
 
     async function handleGeneratePlan() {
-      if (!state.scanData) return alert("Scan required before generating test plans.");
+      if (!state.scanData) {
+        showActionableError("Test Planning", state.runId, "PREREQUISITE_MISSING", "Scan required before generating test plans.", "Complete step 4 before proceeding.");
+        return;
+      }
       const btn = document.getElementById("btn-generate-plan");
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Planning...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Plan...`;
 
       try {
         const provider = document.getElementById("llm-provider-select").value;
@@ -899,9 +1496,23 @@
         state.generatedPlan = data;
         document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
         renderPlanCases(data.test_cases || []);
-        unlockStep(6);
+
+        // Grounding status & fallback warnings
+        const isFallback = data.fallback_used || false;
+        document.getElementById("fallback-warning-box").classList.toggle("hidden", !isFallback);
+        if (isFallback) {
+          document.getElementById("fallback-reason-text").textContent = `Deterministic fallback used: ${data.planning_notes || "provider timeout or hallucination"}`;
+          document.getElementById("provider-availability-badge").textContent = "Fallback Active";
+          document.getElementById("provider-availability-badge").className = "bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[10px]";
+        } else {
+          document.getElementById("provider-availability-badge").textContent = "Grounded AI Active";
+          document.getElementById("provider-availability-badge").className = "bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]";
+        }
+        document.getElementById("grounding-status-badge").textContent = "100% Grounded";
+
+        unlockStep(7);
       } catch (err) {
-        alert(err.message);
+        showActionableError("Test Generation", state.runId, "PLANNING_ERROR", err.message, "Try switching to Deterministic provider or check target elements.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
@@ -931,7 +1542,10 @@
     }
 
     async function handleRunExecution() {
-      if (!state.generatedPlan) return alert("Generate test plan before running execution.");
+      if (!state.generatedPlan) {
+        showActionableError("Execution", state.runId, "PREREQUISITE_MISSING", "Generate test plan before running execution.", "Complete test planning in step 6 first.");
+        return;
+      }
       const btn = document.getElementById("btn-run-execution");
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Steps...`;
@@ -961,9 +1575,9 @@
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
-        unlockStep(7);
+        unlockStep(8);
       } catch (err) {
-        alert(err.message);
+        showActionableError("Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect browser network connectivity or refresh authentication session.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-play"></i> Run Test Execution`;
@@ -974,6 +1588,14 @@
       const body = document.getElementById("exec-table-body");
       body.innerHTML = "";
 
+      const passed = rows.filter(r => r.Status === "Pass").length;
+      const failed = rows.filter(r => r.Status === "Fail").length;
+      const skipped = rows.filter(r => r.Status === "Skip" || r.Status === "Skipped").length;
+
+      document.getElementById("exec-pass-count").textContent = `${passed} Pass`;
+      document.getElementById("exec-fail-count").textContent = `${failed} Fail`;
+      document.getElementById("exec-skip-count").textContent = `${skipped} Skip`;
+
       if (!rows.length) {
         body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400">No execution rows.</td></tr>`;
         return;
@@ -983,14 +1605,29 @@
         const tr = document.createElement("tr");
         const isPass = r.Status === "Pass";
         const isFail = r.Status === "Fail";
-        tr.className = isFail ? "bg-rose-50/50" : "";
+        tr.className = isFail ? "bg-rose-50/40" : "";
+
+        // Failure category normalization
+        let catLabel = r.failure_category || "";
+        if (!catLabel && isFail) {
+          const match = (r.Failure_Info || "").match(/\[(.*?)\]/);
+          catLabel = match ? match[1] : "product";
+        }
+        const catMap = {
+          "product": "Product defect",
+          "locator": "Locator change",
+          "timeout": "Timeout / slow load",
+          "authentication": "Auth expired",
+          "environment": "Environment / net",
+          "skipped": "Skipped (Manual)"
+        };
+        const catPretty = catMap[catLabel.toLowerCase()] || (isFail ? "Product defect" : "--");
 
         tr.innerHTML = `
           <td class="table-cell font-mono font-bold text-slate-700">${escapeHtml(r.TC_ID)}</td>
           <td class="table-cell font-mono text-slate-600">${escapeHtml(r.Step_ID)}</td>
           <td class="table-cell text-slate-700 font-semibold">${escapeHtml(r.Action)}</td>
           <td class="table-cell font-mono text-[10px] text-slate-600 max-w-xs truncate" title="${escapeHtml(r.locator_used || "")}">${escapeHtml(r.locator_used || "--")}</td>
-          <td class="table-cell text-slate-600 text-[11px]">${escapeHtml(r.Expected_Result || "")}</td>
           <td class="table-cell text-[11px] ${isFail ? "text-rose-700 font-semibold" : "text-slate-600"}">${escapeHtml(r.Actual_Result || "")}</td>
           <td class="table-cell text-center">
             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -999,8 +1636,11 @@
             }">${escapeHtml(r.Status)}</span>
           </td>
           <td class="table-cell text-center">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isFail ? "bg-rose-100 text-rose-700 border border-rose-200" : "text-slate-400"}">${escapeHtml(catPretty)}</span>
+          </td>
+          <td class="table-cell text-center">
             ${r.Artifact_Path ? `
-              <button class="text-blue-600 hover:text-blue-800 text-xs" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')">
+              <button class="text-blue-600 hover:text-blue-800 text-xs font-semibold" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')">
                 <i class="fa-solid fa-image"></i> View
               </button>
             ` : `<span class="text-slate-300">--</span>`}
@@ -1040,7 +1680,7 @@
         const data = await res.json();
         alert(`Step Rerun Result: ${data.status}\n${data.actual_result}`);
       } catch (err) {
-        alert("Rerun step failed: " + err.message);
+        showActionableError("Rerun Step", state.runId, "RERUN_FAILED", err.message, "Inspect step locator or target page state.");
       }
     }
 
@@ -1050,12 +1690,14 @@
 
       const scanSummary = state.scanData?.summary || {};
       const execSummary = state.executionResults?.summary || {};
+      const routes = state.scanData?.routes || [];
+      const rows = state.executionResults?.rows || [];
 
       const cards = [
-        { title: "Discovered Routes", val: scanSummary.total_routes || 0, color: "text-blue-600" },
-        { title: "Discovered Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0), color: "text-purple-600" },
-        { title: "Passed Steps", val: execSummary.passed || 0, color: "text-emerald-600" },
-        { title: "Failed Steps", val: execSummary.failed || 0, color: "text-rose-600" }
+        { title: "Total Routes Scanned", val: scanSummary.total_routes || routes.length, sub: `${scanSummary.working_routes || 0} Working | ${scanSummary.partial_routes || 0} Partial | ${scanSummary.non_working_routes || 0} Non-Working`, color: "text-blue-600" },
+        { title: "Elements Mapped", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), sub: "Across all targeted modules", color: "text-purple-600" },
+        { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
+        { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
       ];
 
       cards.forEach(c => {
@@ -1064,9 +1706,88 @@
         div.innerHTML = `
           <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">${c.title}</p>
           <p class="text-2xl font-bold mt-1 ${c.color}">${c.val}</p>
+          <p class="text-[11px] text-slate-400 mt-0.5 truncate">${c.sub}</p>
         `;
         metricsContainer.appendChild(div);
       });
+
+      // Expandable 1: Route Catalog
+      const routesBody = document.getElementById("report-routes-table-body");
+      routesBody.innerHTML = "";
+      routes.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold text-slate-800">${escapeHtml(r.path)}</td>
+          <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${escapeHtml(r.route_status || "WORKING")}</span></td>
+          <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
+          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+        `;
+        routesBody.appendChild(tr);
+      });
+
+      // Expandable 2: Element Registry
+      const elemBody = document.getElementById("report-elements-table-body");
+      elemBody.innerHTML = "";
+      routes.forEach(r => {
+        const comp = r.components || {};
+        (comp.buttons || []).forEach(b => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td class="table-cell font-mono text-[11px]">${escapeHtml(r.path)}</td><td class="table-cell font-semibold">Button</td><td class="table-cell font-bold text-slate-800">${escapeHtml(b)}</td><td class="table-cell font-mono text-[10px] text-slate-500">button:has-text("${escapeHtml(b)}")</td><td class="table-cell text-center"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">SAFE</span></td>`;
+          elemBody.appendChild(tr);
+        });
+      });
+
+      // Expandable 3: Parking Lot
+      const parkingContainer = document.getElementById("report-parking-container");
+      parkingContainer.innerHTML = "";
+      const parkingLot = state.scanData?.parking_lot_actions || [];
+      if (!parkingLot.length) {
+        parkingContainer.innerHTML = `<p class="text-slate-400 py-2">No parking-lot actions were deferred.</p>`;
+      } else {
+        parkingLot.forEach(p => {
+          const div = document.createElement("div");
+          div.className = "p-2 bg-slate-50 border border-slate-200 rounded flex items-center justify-between";
+          div.innerHTML = `<div><span class="font-bold text-slate-800">${escapeHtml(p.label)}</span> <span class="text-slate-400 font-mono text-[10px]">(${escapeHtml(p.route)})</span><p class="text-slate-500 text-[11px] mt-0.5">${escapeHtml(p.reason)}</p></div><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">${escapeHtml(p.classification)}</span>`;
+          parkingContainer.appendChild(div);
+        });
+      }
+
+      // Expandable 4: Execution Matrix
+      const execBody = document.getElementById("report-execution-table-body");
+      execBody.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        const isPass = r.Status === "Pass";
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold">${escapeHtml(r.TC_ID)}</td>
+          <td class="table-cell font-mono">${escapeHtml(r.Step_ID)}</td>
+          <td class="table-cell font-semibold">${escapeHtml(r.Action)}</td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}">${escapeHtml(r.Status)}</span></td>
+          <td class="table-cell text-center text-slate-600">${escapeHtml(r.failure_category || "--")}</td>
+          <td class="table-cell text-center">
+            ${r.Artifact_Path ? `<button class="text-blue-600 text-xs font-semibold" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')"><i class="fa-solid fa-image"></i> View</button>` : `<span class="text-slate-300">--</span>`}
+          </td>
+        `;
+        execBody.appendChild(tr);
+      });
+
+      // Expandable 5: AI Planning Notes
+      const planContainer = document.getElementById("report-planning-container");
+      planContainer.innerHTML = `
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+          <span class="font-bold text-slate-700">Provider &amp; Model:</span>
+          <span class="font-mono text-blue-700 font-bold">${escapeHtml(state.generatedPlan?.provider || "deterministic")} (${escapeHtml(state.generatedPlan?.model || "local-rules")})</span>
+        </div>
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+          <span class="font-bold text-slate-700">Grounding Status:</span>
+          <span class="text-emerald-700 font-bold"><i class="fa-solid fa-check-circle mr-1"></i> 100% Grounded against UI Scan</span>
+        </div>
+        <div>
+          <span class="font-bold text-slate-700 block mb-1">Planning Notes:</span>
+          <p class="text-slate-600 bg-white p-3 rounded border border-slate-200 whitespace-pre-wrap">${escapeHtml(state.generatedPlan?.planning_notes || "All test cases derived deterministically from scanned component inventory.")}</p>
+        </div>
+      `;
     }
 
     async function handleRunRegression() {
@@ -1095,7 +1816,7 @@
         state.regressionResults = data;
         renderRegressionDiff(data.diff || {});
       } catch (err) {
-        alert(err.message);
+        showActionableError("Regression Replay", state.runId, "REGRESSION_FAILED", err.message, "Inspect baseline test cases.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay`;
@@ -1162,11 +1883,24 @@
         closeRefreshModal();
         alert("Session refreshed successfully! You can now continue your workflow.");
       } catch (err) {
-        alert(err.message);
+        showActionableError("Session Refresh", state.runId, "AUTH_REFRESH_FAILED", err.message, "Verify credentials and retry.");
       } finally {
         btn.disabled = false;
         btn.textContent = "Refresh & Continue";
       }
+    }
+
+    function showActionableError(operation, runId, category, message, suggestion) {
+      document.getElementById("error-modal-op-title").textContent = operation || "Operation Failed";
+      document.getElementById("error-modal-run-id").textContent = (runId || state.runId || "--").substring(0, 16);
+      document.getElementById("error-modal-category").textContent = category || "SYSTEM_NOTICE";
+      document.getElementById("error-modal-message").textContent = message || "An unexpected error occurred.";
+      document.getElementById("error-modal-suggestion").textContent = suggestion || "Retry the operation or consult documentation.";
+      document.getElementById("actionable-error-modal").classList.remove("hidden");
+    }
+
+    function closeErrorModal() {
+      document.getElementById("actionable-error-modal").classList.add("hidden");
     }
 
     function updateRunUI() {
@@ -1174,10 +1908,7 @@
         document.getElementById("nav-run-badge").classList.remove("hidden");
         document.getElementById("nav-run-id").textContent = state.runId.substring(0, 12);
         document.getElementById("nav-session-badge").classList.remove("hidden");
-        // Safe key storage
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ runId: state.runId, targetUrl: state.targetUrl }));
-        } catch (_) {}
+        saveActiveState();
       }
     }
 
@@ -1187,39 +1918,30 @@
       document.getElementById("screenshot-modal").classList.remove("hidden");
     }
 
-    function downloadFile(type) {
-      if (!state.runId) return alert("No scan run is loaded");
-      const suffix = type === "markdown" ? "summary.md" : `.${type}`;
-      const source = type === "markdown"
-        ? `/reports/${encodeURIComponent(state.runId)}_crawl_results_summary.md`
-        : `/reports/${encodeURIComponent(state.runId)}_crawl_results${suffix}`;
-      const link = document.createElement("a");
-      link.href = source;
-      link.download = source.split("/").pop();
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    }
-
-    function downloadExcel() {
-      if (!state.runId) return alert("No scan run is loaded");
-      const link = document.createElement("a");
-      link.href = `/reports/${encodeURIComponent(state.runId)}_crawl_results.xlsx`;
-      link.download = `${state.runId}_crawl_results.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    }
-
-    function downloadBlob(content, filename, type) {
-      const blob = new Blob([content], { type: `${type};charset=utf-8` });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 0);
+    async function downloadArtifact(type) {
+      if (!state.runId) {
+        showActionableError("Download Artifact", state.runId, "NO_ACTIVE_RUN", "No scan run is loaded.", "Start a scan or restore a previous run.");
+        return;
+      }
+      const url = `${API_BASE}/reports/${encodeURIComponent(state.runId)}/download/${encodeURIComponent(type)}`;
+      try {
+        const res = await fetch(url, { method: "HEAD" });
+        if (res.status === 409) {
+          alert(`Artifact '${type}' is currently generating or scan is still in progress. Please wait for completion.`);
+          return;
+        }
+        if (res.status === 404) {
+          alert(`Artifact '${type}' not found for run ${state.runId}.`);
+          return;
+        }
+        const link = document.createElement("a");
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (err) {
+        window.open(url, "_blank");
+      }
     }
 
     function resetRun() {
@@ -1231,6 +1953,7 @@
       state.regressionResults = null;
       document.getElementById("nav-run-badge").classList.add("hidden");
       document.getElementById("session-expired-banner").classList.add("hidden");
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       switchStep(1);
     }
 

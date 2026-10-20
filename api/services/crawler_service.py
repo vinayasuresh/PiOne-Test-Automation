@@ -36,7 +36,7 @@ from api.services.run_context_service import (
     get_run_context,
     save_run_context,
 )
-from api.services.scan_event_bus import publish
+from api.services.scan_event_bus import publish, register_alias
 from api.utils.response_builder import build_scan_response
 
 
@@ -62,6 +62,9 @@ def run_scan(
     """
     actual_run_id = run_id or scan_id or resume_run_id or generate_run_id()
     configure_run_logger(actual_run_id)
+    register_alias(actual_run_id, scan_id or actual_run_id)
+    if scan_id:
+        register_alias(scan_id, actual_run_id)
 
     logger.info(f"[API] Scan started | run_id={actual_run_id} | url={url}")
     start_time = time.monotonic()
@@ -170,13 +173,15 @@ def run_scan(
             credentials=credentials,
             interactive_mode=interactive_mode,
             interactive_timeout=interactive_timeout,
-            checkpoint_path=REPORT_PATH / f"checkpoint_{resume_run_id or run_id}.json",
+            checkpoint_path=REPORT_PATH / f"checkpoint_{resume_run_id or actual_run_id}.json",
             resume_from_checkpoint=bool(resume_run_id),
+            run_id=actual_run_id,
+            scan_id=scan_id or actual_run_id,
             event_callback=(
                 lambda event_type, data: publish(
-                    scan_id, {"type": event_type, "scan_id": scan_id, **data}
+                    actual_run_id, {"type": event_type, "scan_id": scan_id or actual_run_id, "run_id": actual_run_id, **data}
                 )
-            ) if scan_id else None,
+            ),
         )
         if resume_run_id and not engine.checkpoint_loaded:
             raise ValueError("The requested checkpoint is missing, unreadable, or belongs to another app path")

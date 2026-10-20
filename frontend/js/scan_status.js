@@ -1,48 +1,54 @@
 // frontend/js/scan_status.js
-// UI logic for live scan counts and toast notifications
+// PiOne Testmate UI helpers for live counts, toasts, and scoped telemetry WebSocket
 
 function updateScanCounts(auto, manual, merged) {
-  document.getElementById('count-auto').textContent = auto;
-  document.getElementById('count-manual').textContent = manual;
-  document.getElementById('count-merged').textContent = merged;
+  const autoEl = document.getElementById('count-auto');
+  const manualEl = document.getElementById('count-manual');
+  const mergedEl = document.getElementById('count-merged');
+  if (autoEl) autoEl.textContent = auto;
+  if (manualEl) manualEl.textContent = manual;
+  if (mergedEl) mergedEl.textContent = merged;
 }
 
 function showToast(message, type = 'info') {
   let toast = document.createElement('div');
-  toast.className = `fixed top-6 right-6 z-50 px-5 py-3 rounded-lg shadow-lg text-white font-semibold text-sm bg-${type === 'success' ? 'emerald' : type === 'error' ? 'red' : 'blue'}-600 animate-fadein`;
+  const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
+  toast.className = `fixed top-6 right-6 z-50 px-5 py-3 rounded-lg shadow-lg text-white font-semibold text-sm ${bgClass} transition-all duration-300`;
   toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => { toast.remove(); }, 3500);
 }
 
-// Listen for backend events (pseudo, replace with real event source)
-window.addEventListener('scan:logout-resume', () => {
-  showToast('Logout detected. Scan auto-resumed.', 'info');
-});
+// Scoped WebSocket connection by run_id or scan_id
+function connectScanWebSocket(runId, onEventCallback) {
+  if (!runId) return null;
+  const wsScheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  let ws = new WebSocket(`${wsScheme}//${location.host}/ws/scan-events?run_id=${encodeURIComponent(runId)}`);
 
-window.addEventListener('scan:counts-update', (e) => {
-  const { auto, manual, merged } = e.detail;
-  updateScanCounts(auto, manual, merged);
-});
+  ws.onmessage = function(event) {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'heartbeat') return;
+      if (typeof onEventCallback === 'function') {
+        onEventCallback(msg);
+      }
+      if (msg.type === 'counts-update' && msg.data) {
+        updateScanCounts(msg.data.auto, msg.data.manual, msg.data.merged);
+      }
+      if (msg.type === 'logout-resume') {
+        showToast('Logout detected. Scan auto-resumed.', 'info');
+      }
+    } catch (_) {}
+  };
 
-// Export for use in other scripts
+  ws.onerror = function() {
+    // Reconnect handled smoothly
+  };
+
+  return ws;
+}
+
+// Export globals
 window.updateScanCounts = updateScanCounts;
 window.showToast = showToast;
-
-(function connectScanWebSocket() {
-  let ws = new WebSocket(`ws://${location.host}/ws/scan-events`);
-  ws.onmessage = function(event) {
-    const msg = JSON.parse(event.data);
-    if (msg.type === 'counts-update') {
-      window.updateScanCounts(msg.data.auto, msg.data.manual, msg.data.merged);
-      window.dispatchEvent(new CustomEvent('scan:counts-update', { detail: msg.data }));
-    }
-    if (msg.type === 'logout-resume') {
-      window.showToast('Logout detected. Scan auto-resumed.', 'info');
-      window.dispatchEvent(new Event('scan:logout-resume'));
-    }
-  };
-  ws.onclose = function() {
-    setTimeout(connectScanWebSocket, 2000); // Auto-reconnect
-  };
-})();
+window.connectScanWebSocket = connectScanWebSocket;

@@ -267,11 +267,23 @@ def inject_capture(page: Page, summary: dict[str, Any] | None = None) -> None:
         logger.warning(f"Interactive capture: failed to inject recorder ({exc})")
 
 
-def wait_for_user(page: Page, timeout_seconds: int = 45) -> str:
-    """Return ``continue``, ``retry``, ``end``, or ``timeout`` from the review overlay."""
+def wait_for_user(page: Page, timeout_seconds: int = 45, run_id: str | None = None) -> str:
+    """Return ``continue``, ``retry``, ``end``, or ``timeout`` from the review overlay or API."""
     deadline = time.monotonic() + max(1, timeout_seconds)
     logger.info(f"Interactive capture: waiting up to {timeout_seconds}s for user confirmation")
     while time.monotonic() < deadline:
+        if run_id:
+            try:
+                from api.services.scan_control_service import is_scan_stop_requested, pop_user_decision
+                if is_scan_stop_requested(run_id):
+                    logger.info("Interactive capture: scan stop requested via API control")
+                    return "end"
+                api_choice = pop_user_decision(run_id)
+                if api_choice:
+                    logger.info("Interactive capture: user selected %s via API control", api_choice)
+                    return api_choice
+            except Exception:
+                pass
         try:
             choice = page.evaluate("() => window.__endScan ? 'end' : (window.__retryScan ? 'retry' : (window.__continueScan ? 'continue' : ''))")
         except Exception:

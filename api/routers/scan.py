@@ -7,6 +7,7 @@ import platform
 from pathlib import Path
 from uuid import uuid4
 
+from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from api.models.scan_models import (
@@ -30,6 +31,9 @@ from api.models.scan_models import (
     SessionStatusResponse,
     SystemInfoResponse,
     LLMProviderInfo,
+    ScanControlRequest,
+    ScanControlResponse,
+    ArtifactStatusResponse,
     TestContextResponse,
     TestCase,
     TestStep,
@@ -57,6 +61,13 @@ from api.services.test_execution_service import (
 from api.services.test_input_normalizer import TestInputNormalizer
 from api.services.test_planning_service import build_test_cases
 from automation_framework.utils.logger import logger
+from automation_framework.config.settings import REPORT_PATH
+from api.services.scan_control_service import (
+    pause_scan,
+    resume_scan,
+    stop_scan,
+    set_user_decision,
+)
 
 router = APIRouter()
 
@@ -629,3 +640,179 @@ def _build_llm_prompt(request: GenerateTestRequest, context: dict, user_prompt: 
     ))
 
 # End of router helpers.
+
+
+@router.get("/run/{run_id}/state", summary="Retrieve active run context and workflow state")
+async def get_run_state(run_id: str) -> dict[str, Any]:
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        checkpoint_file = REPORT_PATH / f"checkpoint_{run_id}.json"
+        if checkpoint_file.is_file():
+            try:
+                chk_data = json.loads(checkpoint_file.read_text(encoding="utf-8"))
+                return {
+                    "run_id": run_id,
+                    "target_origin": chk_data.get("namespace", ""),
+                    "status": "partial_scanned",
+                    "checkpoints": [run_id],
+                    "selected_modules": chk_data.get("completed_modules", []),
+                    "scan_results": {
+                        "page_intelligence": chk_data.get("page_intelligence", {}),
+                        "route_validations": chk_data.get("route_validations", {}),
+                        "parking_lot_actions": chk_data.get("parking_lot_actions", []),
+                    },
+                }
+            except Exception:
+                pass
+        raise HTTPException(status_code=404, detail=f"Run context '{run_id}' not found")
+    return run_ctx.model_dump(mode="json")
+
+
+@router.post("/scan/control", response_model=ScanControlResponse, summary="Send live execution control signal to an active scan")
+async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
+    action = request.action.strip().lower()
+    run_id = request.run_id
+    if action == "pause":
+        pause_scan(run_id)
+        msg = f"Pause signal sent to scan run '{run_id}'."
+    elif action == "resume":
+        resume_scan(run_id)
+        msg = f"Resume signal sent to scan run '{run_id}'."
+    elif action in {"continue", "retry"}:
+        set_user_decision(run_id, action)
+        msg = f"Decision '{action}' registered for scan run '{run_id}'."
+    elif action in {"end", "stop"}:
+        set_user_decision(run_id, "end")
+        stop_scan(run_id)
+        msg = f"End-and-save signal sent to scan run '{run_id}'."
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid scan control action: '{request.action}'")
+    return ScanControlResponse(status="success", run_id=run_id, action=action, message=msg)
+
+
+@router.get("/reports/{run_id}/status", response_model=ArtifactStatusResponse, summary="Check status and availability of scan/execution artifacts")
+async def reports_status(run_id: str) -> ArtifactStatusResponse:
+    run_ctx = get_run_context(run_id)
+    base_stem = f"{run_id}_crawl_results"
+
+    json_path = REPORT_PATH / f"{base_stem}.json"
+    yaml_path = REPORT_PATH / f"{base_stem}.yaml"
+    md_path = REPORT_PATH / f"{base_stem}_summary.md"
+    excel_path = REPORT_PATH / f"{base_stem}.xlsx"
+    chk_path = REPORT_PATH / f"checkpoint_{run_id}.json"
+
+    exec_dir = REPORT_PATH / run_id
+    exec_json = (exec_dir / "execution_results.json") if exec_dir.exists() else None
+
+    screenshots = []
+    if exec_dir.exists():
+        screenshots.extend(list(exec_dir.glob("*.png")))
+    screenshots.extend(list(REPORT_PATH.glob(f"*{run_id}*.png")))
+
+    artifacts_ready = {
+        "json": json_path.is_file(),
+        "yaml": yaml_path.is_file(),
+        "markdown": md_path.is_file(),
+        "excel": excel_path.is_file(),
+        "execution_results": bool(exec_json and exec_json.is_file()) or bool(run_ctx and run_ctx.execution_results),
+        "checkpoint": chk_path.is_file(),
+        "screenshots": len(screenshots) > 0,
+    }
+
+    download_urls = {
+        k: f"/reports/{run_id}/download/{k}" for k, v in artifacts_ready.items() if v
+    }
+
+    is_in_progress = bool(run_ctx and run_ctx.status in {"scanning", "running", "waiting_approval", "executing"})
+    status_str = "in_progress" if is_in_progress else ("ready" if any(artifacts_ready.values()) else "not_found")
+
+    return ArtifactStatusResponse(
+        run_id=run_id,
+        status=status_str,
+        artifacts=artifacts_ready,
+        download_urls=download_urls,
+    )
+
+
+@router.get("/reports/{run_id}/download/{artifact_type}", summary="Download specific artifact by stable run ID URL")
+async def download_artifact(run_id: str, artifact_type: str):
+    from fastapi.responses import FileResponse, Response
+    import zipfile
+    import io
+
+    run_ctx = get_run_context(run_id)
+    is_in_progress = bool(run_ctx and run_ctx.status in {"scanning", "running", "waiting_approval", "executing"})
+    base_stem = f"{run_id}_crawl_results"
+
+    media_types = {
+        "json": "application/json",
+        "yaml": "application/x-yaml",
+        "markdown": "text/markdown",
+        "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "execution_results": "application/json",
+        "checkpoint": "application/json",
+        "screenshots": "application/zip",
+    }
+
+    target_file: Path | None = None
+    filename: str = ""
+
+    if artifact_type == "json":
+        target_file = REPORT_PATH / f"{base_stem}.json"
+        filename = f"{base_stem}.json"
+    elif artifact_type == "yaml":
+        target_file = REPORT_PATH / f"{base_stem}.yaml"
+        filename = f"{base_stem}.yaml"
+    elif artifact_type == "markdown":
+        target_file = REPORT_PATH / f"{base_stem}_summary.md"
+        filename = f"{base_stem}_summary.md"
+    elif artifact_type == "excel":
+        target_file = REPORT_PATH / f"{base_stem}.xlsx"
+        filename = f"{base_stem}.xlsx"
+    elif artifact_type == "checkpoint":
+        target_file = REPORT_PATH / f"checkpoint_{run_id}.json"
+        filename = f"checkpoint_{run_id}.json"
+    elif artifact_type == "execution_results":
+        exec_dir = REPORT_PATH / run_id
+        if exec_dir.exists() and (exec_dir / "execution_results.json").is_file():
+            target_file = exec_dir / "execution_results.json"
+            filename = f"{run_id}_execution_results.json"
+        elif run_ctx and run_ctx.execution_results:
+            content = json.dumps({"summary": run_ctx.execution_summary, "rows": run_ctx.execution_results}, indent=2)
+            return Response(content=content, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{run_id}_execution_results.json"'})
+    elif artifact_type == "screenshots":
+        exec_dir = REPORT_PATH / run_id
+        images = []
+        if exec_dir.exists():
+            images.extend(list(exec_dir.glob("*.png")))
+        images.extend(list(REPORT_PATH.glob(f"*{run_id}*.png")))
+        if images:
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for img in images:
+                    zf.write(img, arcname=img.name)
+            buf.seek(0)
+            return Response(
+                content=buf.getvalue(),
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
+            )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported artifact type: '{artifact_type}'")
+
+    if target_file and target_file.is_file():
+        return FileResponse(
+            str(target_file),
+            media_type=media_types.get(artifact_type, "application/octet-stream"),
+            filename=filename or target_file.name,
+        )
+
+    if is_in_progress:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Artifact '{artifact_type}' for run '{run_id}' is generating or scan/execution is still in progress."
+        )
+    raise HTTPException(
+        status_code=404,
+        detail=f"Artifact '{artifact_type}' not found for run '{run_id}'."
+    )

@@ -277,6 +277,7 @@ class GeneratedTestResponse(BaseModel):
 
 
 class TestStep(BaseModel):
+    __test__ = False
     step_id: str
     action: str
     route: str = ""
@@ -287,6 +288,7 @@ class TestStep(BaseModel):
 
 
 class TestCase(BaseModel):
+    __test__ = False
     tc_id: str
     title: str
     module: str
@@ -338,6 +340,7 @@ class ExecutionResultRow(BaseModel):
     Action: str = ""
     Artifact_Path: str = ""
     locator_used: str = ""
+    failure_category: str = ""
     console_errors: list[str] = []
     network_errors: list[str] = []
 
@@ -444,3 +447,22 @@ class SystemInfoResponse(BaseModel):
     browser: str
     python_version: str
     environment: str
+
+
+class ScanControlRequest(BaseModel):
+    run_id: str
+    action: str  # "pause" | "resume" | "continue" | "retry" | "end"
+
+
+class ScanControlResponse(BaseModel):
+    status: str = "success"
+    run_id: str
+    action: str
+    message: str = ""
+
+
+class ArtifactStatusResponse(BaseModel):
+    run_id: str
+    status: str  # "ready" | "in_progress" | "not_found"
+    artifacts: dict[str, bool] = {}
+    download_urls: dict[str, str] = {}

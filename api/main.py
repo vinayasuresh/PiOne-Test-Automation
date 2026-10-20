@@ -28,10 +28,9 @@ _REPORTS_DIR = Path(__file__).resolve().parents[1] / "automation_framework" / "r
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="UI Crawler API",
+    title="PiOne Testmate API",
     description=(
-        "Scans web applications and extracts UI component intelligence "
-        "(buttons, inputs, tables, forms, filters) per route."
+        "PiOne Testmate — Deterministic UI Scanner, Test Intelligence Platform & Grounded Automation Framework."
     ),
     version="2.0.0",
     docs_url="/docs",
@@ -101,4 +100,4 @@ async def _global_exception_handler(request: Request, exc: Exception) -> JSONRes
 
 @app.get("/health", tags=["Health"], summary="Service health check")
 async def health() -> dict:
-    return {"status": "ok", "service": "UI Crawler API", "version": "2.0.0"}
+    return {"status": "ok", "service": "PiOne Testmate API", "version": "2.0.0"}

@@ -323,6 +323,7 @@ def _execute_case(
                 priority="High" if category in {"authentication", "environment"} else "Medium",
                 locator_used=locator_used,
                 artifact_path=str(step_screenshot) if step_screenshot and step_screenshot.exists() else "",
+                failure_category=category,
                 console_errors=step_console,
                 network_errors=step_network,
             ))
@@ -447,9 +448,13 @@ def _row(
     priority: str = "",
     locator_used: str = "",
     artifact_path: str = "",
+    failure_category: str = "",
     console_errors: list[str] | None = None,
     network_errors: list[str] | None = None,
 ) -> ExecutionResultRow:
+    cat = failure_category
+    if not cat and status == "Skip":
+        cat = "skipped"
     return ExecutionResultRow(
         TC_ID=case.tc_id,
         Screen=case.route,
@@ -460,6 +465,7 @@ def _row(
         Actual_Result=actual,
         Status=status,
         Failure_Info=actual if status == "Fail" else "",
+        failure_category=cat,
         Bug_Priority=priority,
         Step_ID=step.step_id,
         Action=step.action,
@@ -517,7 +523,7 @@ def _write_artifacts(
     )
     markdown.write_text(
         "\n".join((
-            "# Test Execution Summary",
+            "# PiOne Testmate - Test Execution Summary",
             "",
             f"- Total steps: {summary.total}",
             f"- Passed: {summary.passed}",

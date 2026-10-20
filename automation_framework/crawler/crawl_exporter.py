@@ -244,7 +244,7 @@ def _export_markdown(
     parking_lot = crawl_results.get("parking_lot_actions", [])
 
     lines = [
-        "# UI Automation Intelligence Platform - Scan Summary",
+        "# PiOne Testmate - Scan Summary",
         "",
         f"**Route Namespace**: `{crawl_results.get('route_namespace', 'N/A')}`  ",
         f"**Total Discovered Routes**: {total_routes}  ",
