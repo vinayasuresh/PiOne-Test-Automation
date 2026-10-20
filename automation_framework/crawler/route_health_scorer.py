@@ -25,6 +25,32 @@ class RouteStatus:
     NON_WORKING_ROUTE = "NON-WORKING"
 
 
+def is_working_route(status: str) -> bool:
+    s = (status or "").upper().strip()
+    return s in {RouteStatus.WORKING, "WORKING_ROUTE"}
+
+
+def is_partial_route(status: str) -> bool:
+    s = (status or "").upper().strip()
+    return s in {RouteStatus.PARTIAL, "PARTIAL_ROUTE"}
+
+
+def is_non_working_route(status: str) -> bool:
+    s = (status or "").upper().strip()
+    return s in {RouteStatus.NON_WORKING, "NON_WORKING", "NON_WORKING_ROUTE"}
+
+
+def normalize_route_status(status: str) -> str:
+    s = (status or "").upper().strip()
+    if s in {RouteStatus.WORKING, "WORKING_ROUTE"}:
+        return RouteStatus.WORKING
+    if s in {RouteStatus.PARTIAL, "PARTIAL_ROUTE"}:
+        return RouteStatus.PARTIAL
+    if s in {RouteStatus.NON_WORKING, "NON_WORKING", "NON_WORKING_ROUTE"}:
+        return RouteStatus.NON_WORKING
+    return RouteStatus.WORKING
+
+
 def compute_normalized_score(
     components: dict[str, int],
     api_present: bool,

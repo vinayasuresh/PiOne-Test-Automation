@@ -790,7 +790,7 @@ def test_complete_flow_scan_to_plan_to_execute(sample_scan_context):
         )
 
     assert summary.total > 0
-    # All executed steps are safe navigate or assert_visible
-    assert all(row.Action in {"navigate", "assert_visible"} for row in rows)
+    # All executed steps are safe actions
+    assert all(row.Action in {"navigate", "assert_visible", "click", "type", "select"} for row in rows)
     # No mutating or destructive action was executed
-    assert not any(row.Action in {"click", "delete", "type", "mutate"} for row in rows)
+    assert not any(row.Action in {"delete", "remove", "logout", "submit", "pay", "reset"} for row in rows)

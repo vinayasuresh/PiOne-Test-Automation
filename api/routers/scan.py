@@ -78,6 +78,7 @@ from automation_framework.config.settings import REPORT_PATH
 from api.services.scan_control_service import (
     pause_scan,
     resume_scan,
+    is_scan_paused,
     stop_scan,
     set_user_decision,
 )
@@ -486,6 +487,14 @@ async def regression_run(request: RegressionRunRequest) -> RegressionRunResponse
         execution_id = run_ctx.artifact_paths["execution_id"]
     if not execution_id and run_ctx and run_ctx.artifact_paths.get("directory"):
         execution_id = Path(run_ctx.artifact_paths["directory"]).name
+    if not execution_id and run_ctx and run_ctx.artifact_paths:
+        for v in run_ctx.artifact_paths.values():
+            for part in Path(str(v)).parts:
+                if part.startswith("execution_"):
+                    execution_id = part
+                    break
+            if execution_id:
+                break
 
     if not execution_id:
         raise HTTPException(status_code=400, detail="execution_id or a valid run_id with execution history is required")
@@ -680,7 +689,9 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
             except Exception:
                 pass
         raise HTTPException(status_code=404, detail=f"Run context '{run_id}' not found")
-    return run_ctx.model_dump(mode="json")
+    data = run_ctx.model_dump(mode="json")
+    data["is_paused"] = is_scan_paused(run_id)
+    return data
 
 
 @router.post("/scan/control", response_model=ScanControlResponse, summary="Send live execution control signal to an active scan")
@@ -805,9 +816,14 @@ async def download_artifact(run_id: str, artifact_type: str):
         if exec_dir.exists() and (exec_dir / "execution_results.json").is_file():
             target_file = exec_dir / "execution_results.json"
             filename = f"{run_id}_execution_results.json"
-        elif run_ctx and run_ctx.execution_results:
+        elif run_ctx and run_ctx.artifact_paths and "json" in run_ctx.artifact_paths:
+            candidate = Path(run_ctx.artifact_paths["json"])
+            if candidate.is_file():
+                target_file = candidate
+                filename = f"{run_id}_execution_results.json"
+        if not target_file and run_ctx and run_ctx.execution_results:
             safe_results = redact_sensitive_data(run_ctx.execution_results)
-            safe_summary = redact_sensitive_data(run_ctx.execution_summary)
+            safe_summary = redact_sensitive_data(run_ctx.execution_summary or {})
             content = json.dumps({"summary": safe_summary, "rows": safe_results}, indent=2)
             return Response(
                 content=content,
@@ -820,33 +836,52 @@ async def download_artifact(run_id: str, artifact_type: str):
         if exec_dir.exists():
             images.extend(list(exec_dir.glob("*.png")))
         images.extend(list(REPORT_PATH.glob(f"{run_id}*.png")))
-        if images:
-            MAX_SCREENSHOT_COUNT = 500
-            MAX_SCREENSHOT_BYTES = 50 * 1024 * 1024
-            selected = images[:MAX_SCREENSHOT_COUNT]
-            total_size = sum(img.stat().st_size for img in selected if img.is_file())
-            if total_size > MAX_SCREENSHOT_BYTES:
-                raise HTTPException(status_code=413, detail="Screenshot package exceeds maximum allowed size (50 MB)")
+        if run_ctx and run_ctx.artifact_paths:
+            for p in run_ctx.artifact_paths.values():
+                try:
+                    pth = Path(p)
+                    if pth.is_dir():
+                        images.extend(list(pth.glob("*.png")))
+                    elif pth.suffix.lower() == ".png" and pth.is_file():
+                        images.append(pth)
+                except Exception:
+                    pass
 
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        MAX_SCREENSHOT_COUNT = 500
+        MAX_SCREENSHOT_BYTES = 50 * 1024 * 1024
+        selected = images[:MAX_SCREENSHOT_COUNT]
+        total_size = sum(img.stat().st_size for img in selected if img.is_file())
+        if total_size > MAX_SCREENSHOT_BYTES:
+            raise HTTPException(status_code=413, detail="Screenshot package exceeds maximum allowed size (50 MB)")
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            if selected:
                 for img in selected:
                     resolved_img = img.resolve()
                     if resolved_img.is_relative_to(REPORT_PATH.resolve()):
                         zf.write(resolved_img, arcname=img.name)
-            buf.seek(0)
-            return Response(
-                content=buf.getvalue(),
-                media_type="application/zip",
-                headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
-            )
+            else:
+                zf.writestr(f"{run_id}_info.txt", f"No failure screenshots generated for run {run_id}.\n")
+        buf.seek(0)
+        return Response(
+            content=buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
+        )
 
     if target_file and target_file.is_file():
         resolved = target_file.resolve()
         base_resolved = REPORT_PATH.resolve()
         if not resolved.is_relative_to(base_resolved):
             raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
-        if not (resolved.name.startswith(run_id) or resolved.name == f"checkpoint_{run_id}.json"):
+        is_owned_artifact = (
+            resolved.name.startswith(run_id)
+            or resolved.name == f"checkpoint_{run_id}.json"
+            or resolved.parent.name == run_id
+            or (run_ctx and str(resolved) in [str(Path(p).resolve()) for p in run_ctx.artifact_paths.values()])
+        )
+        if not is_owned_artifact:
             raise HTTPException(status_code=403, detail=f"Access denied: Artifact does not belong to run '{run_id}'")
 
         return FileResponse(

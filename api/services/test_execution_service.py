@@ -184,6 +184,56 @@ def rerun_step(
 
         if step.action == "assert_visible":
             locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+        elif step.action == "assert_url":
+            expected = step.route or step.target_label
+            if expected and expected.lower() not in (page.url or "").lower():
+                raise AssertionError(f"Expected URL to contain '{expected}', got '{page.url}'")
+            locator_used = f"assert_url: {page.url}"
+        elif step.action in {"assert_cart_count", "assert_count"}:
+            loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+            if hasattr(loc, "is_visible") and not loc.is_visible():
+                raise AssertionError(f"Cart count locator {locator_used} is not visible")
+        elif step.action == "click":
+            loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+            try:
+                loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+            except Exception:
+                pass
+            loc.click(timeout=ELEMENT_TIMEOUT)
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+            except Exception:
+                pass
+        elif step.action == "select":
+            loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+            try:
+                loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+            except Exception:
+                pass
+            val = step.value or "lohi"
+            try:
+                loc.select_option(value=val, timeout=ELEMENT_TIMEOUT)
+            except Exception:
+                try:
+                    loc.select_option(index=1, timeout=ELEMENT_TIMEOUT)
+                except Exception:
+                    pass
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+            except Exception:
+                pass
+        elif step.action == "type":
+            loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+            try:
+                loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+            except Exception:
+                pass
+            val = step.value or "test"
+            loc.fill(val, timeout=ELEMENT_TIMEOUT)
+            try:
+                page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+            except Exception:
+                pass
         elif step.action == "navigate":
             pass
 
@@ -233,6 +283,13 @@ def rerun_step(
                 pass
 
 
+DESTRUCTIVE_KEYWORDS = {
+    "logout", "log out", "signout", "sign out",
+    "delete", "remove", "drop", "purge",
+    "reset", "submit", "pay", "purchase", "destroy"
+}
+
+
 def _execute_case(
     page: Any,
     base_url: str,
@@ -259,6 +316,34 @@ def _execute_case(
                 )
             )
             continue
+
+        # Parent route or state restoration if returning from child view
+        step_route = step.route or case.route
+        if step_route and step.action not in {"navigate", "assert_url"}:
+            expected_path = step_route.split("?")[0]
+            curr_url = getattr(page, "url", "") or ""
+            if expected_path and expected_path not in curr_url:
+                restore_url = urljoin(base_url.rstrip("/") + "/", step_route.lstrip("/"))
+                if is_valid_url(restore_url, base_url):
+                    try:
+                        page.goto(restore_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+                    except Exception:
+                        pass
+
+        # Destructive action safeguard
+        is_destructive = any(
+            re.search(rf"\b{re.escape(w)}\b", (step.target_label or "").lower())
+            for w in DESTRUCTIVE_KEYWORDS
+        ) or getattr(step, "safety_classification", None) in {"destructive", "mutating", "parked"}
+
+        if is_destructive and not allow_mutating_actions:
+            rows.append(_row(
+                case, step, "Skipped",
+                f"Action parked/skipped: Destructive or unapproved action '{step.target_label}' is restricted.",
+                failure_category="parked"
+            ))
+            continue
+
         max_attempts = 1 + MAX_TRANSIENT_RETRIES
         last_exc: Exception | None = None
         completed = False
@@ -273,8 +358,59 @@ def _execute_case(
                     locator_used = f"url: {target_url}"
                 elif step.action == "assert_visible":
                     locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                elif step.action == "assert_url":
+                    expected = step.route or step.target_label
+                    curr_url = getattr(page, "url", "") or ""
+                    if expected and expected.lower() not in curr_url.lower():
+                        raise AssertionError(f"Expected URL to contain '{expected}', got '{curr_url}'")
+                    locator_used = f"assert_url: {curr_url}"
+                elif step.action in {"assert_cart_count", "assert_count"}:
+                    loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                    if hasattr(loc, "is_visible") and not loc.is_visible():
+                        raise AssertionError(f"Cart count locator {locator_used} is not visible")
+                elif step.action == "click":
+                    loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                    try:
+                        loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+                    except Exception:
+                        pass
+                    loc.click(timeout=ELEMENT_TIMEOUT)
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+                    except Exception:
+                        pass
+                elif step.action == "select":
+                    loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                    try:
+                        loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+                    except Exception:
+                        pass
+                    val = getattr(step, "value", None) or "lohi"
+                    try:
+                        loc.select_option(value=val, timeout=ELEMENT_TIMEOUT)
+                    except Exception:
+                        try:
+                            loc.select_option(index=1, timeout=ELEMENT_TIMEOUT)
+                        except Exception:
+                            pass
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+                    except Exception:
+                        pass
+                elif step.action == "type":
+                    loc, locator_used = _find_target_locator(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                    try:
+                        loc.scroll_into_view_if_needed(timeout=ELEMENT_TIMEOUT)
+                    except Exception:
+                        pass
+                    val = getattr(step, "value", None) or "test"
+                    loc.fill(val, timeout=ELEMENT_TIMEOUT)
+                    try:
+                        page.wait_for_load_state("domcontentloaded", timeout=min(5000, ROUTE_LOAD_TIMEOUT))
+                    except Exception:
+                        pass
                 elif not allow_mutating_actions:
-                    rows.append(_row(case, step, "Skipped", "Mutating actions are disabled for controlled execution."))
+                    rows.append(_row(case, step, "Skipped", "Mutating actions are disabled for controlled execution.", failure_category="parked"))
                     completed = True
                     break
                 else:
@@ -393,8 +529,10 @@ def _locator_for(page: Any, selector: dict[str, Any], label: str):
     return page.get_by_text(label, exact=True).first
 
 
-def _wait_for_target(page: Any, selector: dict[str, Any], label: str, timeout: int) -> str:
-    """Wait for the primary locator, then deterministic fallback locators. Returns locator used."""
+def _find_target_locator(page: Any, selector: dict[str, Any] | str, label: str, timeout: int) -> tuple[Any, str]:
+    """Find target using primary locator and fallback strategies, returning (locator, locator_str)."""
+    if isinstance(selector, str):
+        selector = {"strategy": "css", "value": selector}
     primary = selector.get("primary") if isinstance(selector.get("primary"), dict) else selector
     candidates = [primary]
     for value in selector.get("fallback", []) if isinstance(selector, dict) else []:
@@ -414,10 +552,16 @@ def _wait_for_target(page: Any, selector: dict[str, Any], label: str, timeout: i
             loc.wait_for(state="visible", timeout=per_candidate_timeout)
             strategy = candidate.get("strategy", "unknown")
             val = candidate.get("value") or label
-            return f"{strategy}: {val}"
+            return loc, f"{strategy}: {val}"
         except Exception as exc:
             last_error = exc
     raise last_error or ValueError(f"No usable locator available for {label!r}")
+
+
+def _wait_for_target(page: Any, selector: dict[str, Any], label: str, timeout: int) -> str:
+    """Wait for the primary locator, then deterministic fallback locators. Returns locator used."""
+    _, locator_used = _find_target_locator(page, selector, label, timeout)
+    return locator_used
 
 
 def _assert_not_login(page: Any) -> None:

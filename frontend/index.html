@@ -956,8 +956,23 @@
           renderModuleList();
           unlockStep(2);
         }
+        unlockStep(targetStep || 1);
 
-        const stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
+        let stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
+        if (stepToOpen === 4 && runCtx.scan_results) {
+          stepToOpen = 5;
+        }
+        if (stepToOpen === 4) {
+          connectTelemetryStream(state.runId);
+          startDurationTimer();
+          if (runCtx.is_paused) {
+            document.getElementById("btn-scan-pause").classList.add("hidden");
+            document.getElementById("btn-scan-resume").classList.remove("hidden");
+          } else {
+            document.getElementById("btn-scan-resume").classList.add("hidden");
+            document.getElementById("btn-scan-pause").classList.remove("hidden");
+          }
+        }
         if (stepToOpen === 5) renderAnalyzeView();
         if (stepToOpen === 7) renderExecutionResults(state.executionResults?.rows || []);
         if (stepToOpen === 8) renderReportView();
@@ -1127,7 +1142,7 @@
         const label = document.createElement("label");
         label.className = "flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition";
         label.innerHTML = `
-          <input type="checkbox" name="mod-check" value="${escapeHtml(m.id)}" checked class="mt-1 h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedModulesSummary()" />
+          <input type="checkbox" name="mod-check" value="${escapeHtml(m.id)}" checked class="module-checkbox mt-1 h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedModulesSummary()" />
           <div class="flex-grow">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-800">${escapeHtml(m.label)}</span>
@@ -1208,14 +1223,7 @@
       const log = document.getElementById("scan-event-log");
       log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
 
-      state.scanStartTime = Date.now();
-      if (state.durationTimer) clearInterval(state.durationTimer);
-      state.durationTimer = setInterval(() => {
-        const elapsedSec = Math.floor((Date.now() - state.scanStartTime) / 1000);
-        const mins = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
-        const secs = String(elapsedSec % 60).padStart(2, "0");
-        document.getElementById("live-scan-duration").textContent = `${mins}:${secs}`;
-      }, 1000);
+      startDurationTimer();
 
       // Connect WebSocket Telemetry Stream
       connectTelemetryStream(state.runId);
@@ -1332,6 +1340,28 @@
         document.getElementById("checkpoint-module-label").textContent = event.module_name || "Module Complete";
       }
 
+      // Handle scan completion via WebSocket (e.g. after browser refresh)
+      if (event.type === "scan_completed" || event.type === "scan_stopped" || event.type === "scan_budget_exceeded") {
+        if (state.durationTimer) clearInterval(state.durationTimer);
+        const pill = document.getElementById("live-scan-status-pill");
+        if (pill) {
+          pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
+          pill.className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+        }
+        if (state.currentStep === 4 && state.runId) {
+          fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`)
+            .then(r => r.json())
+            .then(runCtx => {
+              if (runCtx && runCtx.scan_results) {
+                state.scanData = runCtx.scan_results;
+                renderAnalyzeView();
+                unlockStep(5);
+                setTimeout(() => switchStep(5), 1000);
+              }
+            }).catch(() => {});
+        }
+      }
+
       // Log row formatting
       const p = document.createElement("p");
       const isErr = label.includes("failed") || label.includes("error");
@@ -1366,10 +1396,63 @@
         } else if (action === "end") {
           const log = document.getElementById("scan-event-log");
           log.innerHTML += `<p class="text-amber-300 font-semibold">[CONTROL] End scan & save signal delivered. Exporting results...</p>`;
+          for (let delay of [500, 1500, 3000, 5000]) {
+            setTimeout(async () => {
+              if (state.currentStep === 4 && state.runId) {
+                try {
+                  const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
+                  if (r.ok) {
+                    const runCtx = await r.json();
+                    if (runCtx && runCtx.scan_results) {
+                      if (state.durationTimer) clearInterval(state.durationTimer);
+                      state.scanData = runCtx.scan_results;
+                      renderAnalyzeView();
+                      unlockStep(5);
+                      switchStep(5);
+                    }
+                  }
+                } catch (_) {}
+              }
+            }, delay);
+          }
         }
       } catch (err) {
         showActionableError("Scan Control", state.runId, "CONTROL_SIGNAL_FAILED", err.message, "Verify active scan status.");
       }
+    }
+
+    function startDurationTimer() {
+      if (!state.scanStartTime) state.scanStartTime = Date.now();
+      if (state.durationTimer) clearInterval(state.durationTimer);
+      state.durationTimer = setInterval(async () => {
+        const elapsedSec = Math.floor((Date.now() - state.scanStartTime) / 1000);
+        const mins = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+        const secs = String(elapsedSec % 60).padStart(2, "0");
+        const durElem = document.getElementById("live-scan-duration");
+        if (durElem) durElem.textContent = `${mins}:${secs}`;
+
+        // Periodically verify if scan finished in backend
+        if (state.currentStep === 4 && state.runId && elapsedSec % 2 === 0) {
+          try {
+            const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
+            if (r.ok) {
+              const runCtx = await r.json();
+              if (runCtx && runCtx.scan_results) {
+                clearInterval(state.durationTimer);
+                state.scanData = runCtx.scan_results;
+                const pill = document.getElementById("live-scan-status-pill");
+                if (pill) {
+                  pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
+                  pill.className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+                }
+                renderAnalyzeView();
+                unlockStep(5);
+                setTimeout(() => switchStep(5), 500);
+              }
+            }
+          } catch (_) {}
+        }
+      }, 1000);
     }
 
     function renderAnalyzeView() {
@@ -1377,14 +1460,18 @@
       const scanSummary = state.scanData.summary || {};
       const routes = state.scanData.routes || [];
 
+      const workingCount = scanSummary.working_routes !== undefined ? scanSummary.working_routes : routes.filter(r => (r.route_status === "WORKING" || r.route_status === "WORKING_ROUTE")).length;
+      const partialCount = scanSummary.partial_routes !== undefined ? scanSummary.partial_routes : routes.filter(r => (r.route_status === "PARTIAL" || r.route_status === "PARTIAL_ROUTE")).length;
+      const nonWorkingCount = scanSummary.non_working_routes !== undefined ? scanSummary.non_working_routes : routes.filter(r => (r.route_status === "NON-WORKING" || r.route_status === "NON_WORKING" || r.route_status === "NON_WORKING_ROUTE")).length;
+
       // Summary Cards
       const container = document.getElementById("analyze-cards");
       container.innerHTML = "";
       const cards = [
         { label: "Total Routes", val: scanSummary.total_routes || routes.length, color: "text-blue-600" },
         { label: "Total Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), color: "text-purple-600" },
-        { label: "Working Routes", val: scanSummary.working_routes || 0, color: "text-emerald-600" },
-        { label: "Non-Working / Partial", val: (scanSummary.partial_routes || 0) + (scanSummary.non_working_routes || 0), color: "text-rose-600" }
+        { label: "Working Routes", val: workingCount, color: "text-emerald-600" },
+        { label: "Non-Working / Partial", val: partialCount + nonWorkingCount, color: "text-rose-600" }
       ];
       cards.forEach(c => {
         const d = document.createElement("div");
@@ -1693,8 +1780,12 @@
       const routes = state.scanData?.routes || [];
       const rows = state.executionResults?.rows || [];
 
+      const workingCount = scanSummary.working_routes !== undefined ? scanSummary.working_routes : routes.filter(r => (r.route_status === "WORKING" || r.route_status === "WORKING_ROUTE")).length;
+      const partialCount = scanSummary.partial_routes !== undefined ? scanSummary.partial_routes : routes.filter(r => (r.route_status === "PARTIAL" || r.route_status === "PARTIAL_ROUTE")).length;
+      const nonWorkingCount = scanSummary.non_working_routes !== undefined ? scanSummary.non_working_routes : routes.filter(r => (r.route_status === "NON-WORKING" || r.route_status === "NON_WORKING" || r.route_status === "NON_WORKING_ROUTE")).length;
+
       const cards = [
-        { title: "Total Routes Scanned", val: scanSummary.total_routes || routes.length, sub: `${scanSummary.working_routes || 0} Working | ${scanSummary.partial_routes || 0} Partial | ${scanSummary.non_working_routes || 0} Non-Working`, color: "text-blue-600" },
+        { title: "Total Routes Scanned", val: scanSummary.total_routes || routes.length, sub: `${workingCount} Working | ${partialCount} Partial | ${nonWorkingCount} Non-Working`, color: "text-blue-600" },
         { title: "Elements Mapped", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), sub: "Across all targeted modules", color: "text-purple-600" },
         { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
         { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
@@ -1716,10 +1807,14 @@
       routesBody.innerHTML = "";
       routes.forEach(r => {
         const tr = document.createElement("tr");
+        const status = r.route_status || "WORKING";
+        const isOk = status === "WORKING" || status === "WORKING_ROUTE";
+        const isPartial = status === "PARTIAL" || status === "PARTIAL_ROUTE";
+        const badgeClass = isOk ? "bg-emerald-100 text-emerald-800" : (isPartial ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800");
         tr.innerHTML = `
           <td class="table-cell font-mono font-bold text-slate-800">${escapeHtml(r.path)}</td>
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
-          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">${escapeHtml(r.route_status || "WORKING")}</span></td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(status)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
           <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
         `;

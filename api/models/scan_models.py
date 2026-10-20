@@ -167,15 +167,25 @@ class RouteResult(BaseModel):
     components: ComponentGroups
     interactions: list[Interaction] = []
     automation_targets: list[dict[str, Any]] = []
-    route_status: str = ""
+    route_status: str = "WORKING"
     route_score: int = 0
+    dom_stable: bool = True
+    page_load_success: bool = True
+    redirected: bool = False
+    api_response_present: bool = False
+    failed_api_responses: int = 0
+    interaction_success_rate: float = 0.0
 
 
 class ScanSummary(BaseModel):
     total_routes:  int
     total_buttons: int
     total_inputs:  int
+    total_dropdowns: int = 0
     total_tables:  int
+    working_routes: int = 0
+    partial_routes: int = 0
+    non_working_routes: int = 0
     scan_duration_seconds: float
 
 
@@ -285,6 +295,9 @@ class TestStep(BaseModel):
     selector: dict[str, Any] = {}
     expected_result: str = ""
     source: str = "scan"
+    value: str = ""
+    element_identity: str = ""
+    safety_classification: str = ""
 
 
 class TestCase(BaseModel):
@@ -343,6 +356,8 @@ class ExecutionResultRow(BaseModel):
     failure_category: str = ""
     console_errors: list[str] = []
     network_errors: list[str] = []
+    element_identity: str = ""
+    safety_classification: str = ""
 
 
 class ExecutionSummary(BaseModel):

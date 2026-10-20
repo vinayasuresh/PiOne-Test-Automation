@@ -48,7 +48,6 @@ async def scan_events(
                 continue
             await websocket.send_json(event)
             if event.get("type") in {"scan_completed", "scan_failed"}:
-                discard_channel(effective_id)
                 return
     except WebSocketDisconnect:
         return

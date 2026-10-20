@@ -211,9 +211,14 @@ class CrawlerEngine:
         # An application with no detectable navigation still has one usable
         # module: its authenticated landing screen. An explicit empty user
         # selection never falls back to this behavior.
-        if selected_module_ids is None and not selected_items:
-            landing = start_url or self.page.url
-            mid = f"route:{self._normalize(landing)}"
+        landing = start_url or self.page.url
+        mid = f"route:{self._normalize(landing)}"
+        is_fallback_module_selected = bool(
+            selected_module_ids and (
+                mid in selected_module_ids or any(str(m).startswith("route:") for m in selected_module_ids)
+            )
+        )
+        if (selected_module_ids is None or is_fallback_module_selected) and not selected_items:
             label = self._landing_label()
             if mid not in self.completed_modules:
                 while True:

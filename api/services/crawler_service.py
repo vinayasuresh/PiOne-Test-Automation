@@ -244,19 +244,7 @@ def run_scan(
                 f"| error={crawl_exc}"
             )
             _safe_export(partial, actual_run_id)
-            try:
-                run_ctx = get_run_context(actual_run_id)
-                if not run_ctx:
-                    run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
-                run_ctx.scan_results = partial
-                run_ctx.status = "partial_scanned"
-                save_run_context(run_ctx)
-            except Exception:
-                pass
-            if scan_id:
-                publish(scan_id, {"type": "scan_failed", "scan_id": scan_id,
-                                  "error": str(crawl_exc), "routes": len(partial.get("page_intelligence", {}))})
-            return build_scan_response(
+            partial_resp = build_scan_response(
                 partial,
                 duration,
                 status="partial_success",
@@ -264,6 +252,19 @@ def run_scan(
                 auth_session_id=auth_session_id,
                 run_id=actual_run_id,
             )
+            try:
+                run_ctx = get_run_context(actual_run_id)
+                if not run_ctx:
+                    run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
+                run_ctx.scan_results = partial_resp.model_dump(mode="json")
+                run_ctx.status = "partial_scanned"
+                save_run_context(run_ctx)
+            except Exception:
+                pass
+            if scan_id:
+                publish(scan_id, {"type": "scan_failed", "scan_id": scan_id,
+                                  "error": str(crawl_exc), "routes": len(partial.get("page_intelligence", {}))})
+            return partial_resp
 
         # ── Done ───────────────────────────────────────────────────────
         duration = time.monotonic() - start_time
@@ -272,13 +273,24 @@ def run_scan(
         logger.info(f"[API] Total routes scanned: {route_count}")
         logger.info(f"[API] Duration: {duration:.2f}s")
 
+        stopped_early = bool(crawl_results.get("scan_stopped_early"))
+        scan_resp = build_scan_response(
+            crawl_results,
+            duration,
+            status="partial_success" if stopped_early else "success",
+            message=("Scan ended by user; exported routes and elements discovered so far."
+                     if stopped_early else None),
+            auth_session_id=auth_session_id,
+            run_id=actual_run_id,
+        )
+
         export_paths = _safe_export(crawl_results, actual_run_id)
         try:
             run_ctx = get_run_context(actual_run_id)
             if not run_ctx:
                 run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
             run_ctx.selected_modules = selected_module_ids or run_ctx.selected_modules
-            run_ctx.scan_results = crawl_results
+            run_ctx.scan_results = scan_resp.model_dump(mode="json")
             run_ctx.route_graph = crawl_results.get("route_graph", {})
             run_ctx.ui_state_graph = crawl_results.get("ui_state_graph", {})
             run_ctx.element_registry = crawl_results.get("element_registry", {})
@@ -293,16 +305,7 @@ def run_scan(
         if scan_id:
             publish(scan_id, {"type": "scan_completed", "scan_id": scan_id,
                               "routes": route_count, "duration_seconds": round(duration, 2)})
-        stopped_early = bool(crawl_results.get("scan_stopped_early"))
-        return build_scan_response(
-            crawl_results,
-            duration,
-            status="partial_success" if stopped_early else "success",
-            message=("Scan ended by user; exported routes and elements discovered so far."
-                     if stopped_early else None),
-            auth_session_id=auth_session_id,
-            run_id=actual_run_id,
-        )
+        return scan_resp
 
     except Exception as exc:
         if scan_id:

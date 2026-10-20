@@ -255,7 +255,26 @@ def validate_plan_grounding(
         if p_lbl:
             parking_labels.add(p_lbl)
 
-    allowed_actions = {"navigate", "assert_visible"}
+    allowed_actions = {
+        "navigate",
+        "assert_visible",
+        "click",
+        "open_menu",
+        "expand",
+        "apply_filter",
+        "change_sorting",
+        "select",
+        "pagination",
+        "search_input",
+        "type",
+        "add_to_cart",
+        "continue_shopping",
+        "open_details",
+        "assert_cart_count",
+        "assert_count",
+        "assert_url",
+        "assert_route",
+    }
 
     for tc_idx, tc in enumerate(cases, start=1):
         if not isinstance(tc, dict):
@@ -312,30 +331,62 @@ def validate_plan_grounding(
             if step_route not in known_routes and step_route.rstrip("/") not in known_routes:
                 return False, "HALLUCINATION", f"Hallucinated route '{step_route}' in step '{step_id}'"
 
-            if action == "assert_visible":
-                target_label = (step.get("target_label") or "").strip()
-                selector = step.get("selector")
+            target_label = (step.get("target_label") or "").strip()
+            lbl_lower = target_label.lower()
+            selector = step.get("selector")
 
-                if not target_label and not selector:
-                    return False, "SCHEMA_ERROR", f"Step '{step_id}' missing target_label and selector"
+            # Check for destructive keywords in any step label
+            if any(re.search(rf"\b{re.escape(w)}\b", lbl_lower) for w in {"delete", "remove", "drop", "purge", "logout", "log out", "signout", "pay", "purchase", "destroy"}):
+                return False, "MUTATING_ACTION_REJECTED", f"Step '{step_id}' targets destructive element '{target_label}'"
 
-                if target_label.lower() in parking_labels:
-                    return False, "MUTATING_ACTION_REJECTED", f"Step '{step_id}' targets parked/destructive element '{target_label}'"
+            if lbl_lower and lbl_lower in parking_labels:
+                return False, "MUTATING_ACTION_REJECTED", f"Step '{step_id}' targets parked/destructive element '{target_label}'"
 
-                sel_value = ""
-                if isinstance(selector, dict):
-                    sel_value = str((selector.get("primary") or {}).get("value") or selector.get("value") or "").strip()
-                elif isinstance(selector, str):
-                    sel_value = selector.strip()
+            sel_value = ""
+            if isinstance(selector, dict):
+                sel_value = str((selector.get("primary") or {}).get("value") or selector.get("value") or "").strip()
+            elif isinstance(selector, str):
+                sel_value = selector.strip()
 
-                if sel_value and sel_value in parking_selectors:
-                    return False, "MUTATING_ACTION_REJECTED", f"Step '{step_id}' selector matches parked/destructive control '{sel_value}'"
+            if sel_value and sel_value in parking_selectors:
+                return False, "MUTATING_ACTION_REJECTED", f"Step '{step_id}' selector matches parked/destructive control '{sel_value}'"
 
-                label_matched = bool(target_label and target_label.lower() in valid_labels_on_route)
-                selector_matched = bool(sel_value and sel_value in valid_selectors_on_route)
+            if action == "click":
+                # Only safe clicks are supported (add to cart, continue shopping, details, menu/tab/accordion, pagination)
+                is_safe_click = any(
+                    k in lbl_lower
+                    for k in (
+                        "add to cart",
+                        "add-to-cart",
+                        "add_to_cart",
+                        "add to basket",
+                        "continue shopping",
+                        "continue-shopping",
+                        "details",
+                        "view",
+                        "menu",
+                        "tab",
+                        "accordion",
+                        "next",
+                        "prev",
+                        "page",
+                        "pagination",
+                    )
+                )
+                if not is_safe_click:
+                    return False, "UNSUPPORTED_ACTION", f"Unsupported action '{action}' on target '{target_label}'. Only safe interaction clicks are permitted."
 
-                if not label_matched and not selector_matched:
-                    return False, "HALLUCINATION", f"Hallucinated selector/label in step '{step_id}': label='{target_label}', selector='{sel_value}' on route '{step_route}'"
+            if action in {"navigate", "assert_url", "assert_route", "assert_cart_count", "assert_count"}:
+                continue
+
+            if not target_label and not selector:
+                return False, "SCHEMA_ERROR", f"Step '{step_id}' missing target_label and selector"
+
+            label_matched = bool(target_label and lbl_lower in valid_labels_on_route)
+            selector_matched = bool(sel_value and sel_value in valid_selectors_on_route)
+
+            if not label_matched and not selector_matched:
+                return False, "HALLUCINATION", f"Hallucinated selector/label in step '{step_id}': label='{target_label}', selector='{sel_value}' on route '{step_route}'"
 
     return True, "", ""
 
@@ -533,25 +584,30 @@ class DeterministicAdapter(BaseLLMAdapter):
                     "step_id": f"TC_{idx:03d}_S01",
                     "action": "navigate",
                     "route": route_path,
+                    "target_label": module,
                     "expected_result": f"{module} loads safely within app boundary",
+                    "safety_classification": "safe_navigation",
                 }
             ]
 
             added_step = 2
             seen_labels = set()
             for target in targets:
-                if added_step > 4:
+                if added_step > 6:
                     break
                 label = str(target.get("label") or target.get("text") or "").strip()
                 if not label or label.casefold() in seen_labels:
                     continue
-                safety = target.get("safety_classification") or ""
-                if safety in {"DESTRUCTIVE", "MUTATING_FORM", "PARKING_LOT"}:
+                safety = (target.get("safety_classification") or "").lower()
+                if safety in {"destructive", "blocked_destructive", "mutating_form", "requires_manual_confirmation"}:
                     continue
-                if label.casefold() in parking_labels:
+                lbl_lower = label.lower()
+                if any(re.search(rf"\b{re.escape(w)}\b", lbl_lower) for w in {"delete", "remove", "drop", "purge", "logout", "log out", "signout", "pay", "purchase", "destroy"}):
+                    continue
+                if lbl_lower in parking_labels:
                     continue
                 sel_val = (target.get("selector") or {}).get("primary", {}).get("value") or (target.get("selector") or {}).get("value")
-                if sel_val and sel_val in parking_selectors:
+                if sel_val and str(sel_val).strip() in parking_selectors:
                     continue
 
                 seen_labels.add(label.casefold())
@@ -562,16 +618,129 @@ class DeterministicAdapter(BaseLLMAdapter):
                         if target.get("type") == "button"
                         else {"strategy": "text", "value": label}
                     )
+                ident = target.get("element_identity") or target.get("id") or ""
 
-                steps.append({
-                    "step_id": f"TC_{idx:03d}_S{added_step:02d}",
-                    "action": "assert_visible",
-                    "route": route_path,
-                    "target_label": label,
-                    "selector": selector,
-                    "expected_result": f"{label} is visible and interactive",
-                })
-                added_step += 1
+                if any(p in lbl_lower for p in {"add to cart", "add-to-cart", "add_to_cart", "add to basket"}):
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "click",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"Add {label} to cart safely.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_action",
+                    })
+                    added_step += 1
+                    if added_step <= 6:
+                        steps.append({
+                            "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                            "action": "assert_cart_count",
+                            "route": route_path,
+                            "target_label": "Shopping cart count",
+                            "selector": {"strategy": "css", "value": ".shopping_cart_badge", "fallback": [".cart_badge", "[data-test='shopping-cart-badge']"]},
+                            "expected_result": "Shopping cart count is updated.",
+                            "element_identity": ident,
+                            "safety_classification": "safe_assertion",
+                        })
+                        added_step += 1
+                elif any(p in lbl_lower for p in {"continue shopping", "continue-shopping"}):
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "click",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"Click {label} to return to inventory.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_navigation",
+                    })
+                    added_step += 1
+                    if added_step <= 6:
+                        steps.append({
+                            "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                            "action": "assert_url",
+                            "route": "/inventory.html",
+                            "target_label": "Inventory",
+                            "expected_result": "Returned to inventory route.",
+                            "element_identity": ident,
+                            "safety_classification": "safe_navigation",
+                        })
+                        added_step += 1
+                elif any(p in lbl_lower for p in {"view details", "details for"}):
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "click",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"Click {label} to view product details.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_navigation",
+                    })
+                    added_step += 1
+                elif any(p in lbl_lower for p in {"sort", "order by"}) or target.get("component_tag") == "select" or target.get("type") == "select":
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "select",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "value": "lohi",
+                        "expected_result": f"Change sorting using {label}.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_sort",
+                    })
+                    added_step += 1
+                elif target.get("category") == "inputs" or any(p in lbl_lower for p in {"search", "find", "filter"}):
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "type",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "value": "test",
+                        "expected_result": f"Enter query into {label}.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_search",
+                    })
+                    added_step += 1
+                elif any(p in lbl_lower for p in {"tab", "accordion", "menu", "overview"}) or target.get("element_role") in {"tab", "switch"}:
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "click",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"Toggle or expand {label}.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_expand",
+                    })
+                    added_step += 1
+                elif target.get("is_pagination") or any(p in lbl_lower for p in {"next", "prev", "page"}):
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "click",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"Navigate using pagination {label}.",
+                        "element_identity": ident,
+                        "safety_classification": "safe_pagination",
+                    })
+                    added_step += 1
+                else:
+                    steps.append({
+                        "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                        "action": "assert_visible",
+                        "route": route_path,
+                        "target_label": label,
+                        "selector": selector,
+                        "expected_result": f"{label} is visible and interactive",
+                        "element_identity": ident,
+                        "safety_classification": safety or "safe_navigation",
+                    })
+                    added_step += 1
 
             refs = [r.get("item_id") for r in requirements if r.get("item_id")][:3]
             cases.append({

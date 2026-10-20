@@ -57,10 +57,9 @@ def check_auth_session_validity(
         if not cookies:
             return False, "Authentication expired: No active session cookies found."
         now = time.time()
-        for c in cookies:
-            expires = c.get("expires", -1)
-            if expires > 0 and expires < now:
-                return False, "Authentication expired. Refresh the session to continue."
+        valid_cookies = [c for c in cookies if c.get("expires", -1) == -1 or c.get("expires", 0) > now]
+        if not valid_cookies:
+            return False, "Authentication expired: All session cookies have expired."
     except Exception as exc:
         return False, f"Invalid storage state file: {exc}"
 

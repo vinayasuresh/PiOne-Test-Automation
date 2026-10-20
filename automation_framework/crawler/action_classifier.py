@@ -27,6 +27,7 @@ class ActionType:
     SAFE_SEARCH = "safe_search"
     SAFE_SORT = "safe_sort"
     SAFE_PAGINATION = "safe_pagination"
+    SAFE_ACTION = "safe_action"
     REQUIRES_MANUAL_CONFIRMATION = "requires_manual_confirmation"
     BLOCKED_DESTRUCTIVE = "blocked_destructive"
     UNKNOWN = "unknown"
@@ -37,6 +38,7 @@ DESTRUCTIVE_WORDS = {
     "delete", "remove", "drop", "purge", "terminate", "destroy", "wipe",
     "deactivate", "disable", "kill", "unlink", "format", "logout", "log out",
     "signout", "sign out", "disconnect", "exit", "pay", "purchase", "buy", "charge",
+    "reset",
 }
 
 # Words that mutate application state or trigger real-world business transactions
@@ -71,7 +73,12 @@ PAGINATION_WORDS = {
 NAVIGATION_WORDS = {
     "view", "details", "back", "home", "navigate", "goto", "go to",
     "inspect", "explore", "profile", "overview", "read", "users",
-    "dashboard", "reports", "settings",
+    "dashboard", "reports", "settings", "continue shopping",
+    "continue-shopping", "back to products", "product details",
+}
+
+SAFE_BUSINESS_WORDS = {
+    "add to cart", "add-to-cart", "add_to_cart", "add to basket", "add to bag",
 }
 
 
@@ -99,6 +106,13 @@ def classify_action(
     # 2. Blocked destructive actions
     if any(re.search(rf"\b{re.escape(word)}\b", label) for word in DESTRUCTIVE_WORDS):
         return ActionType.BLOCKED_DESTRUCTIVE
+
+    # 2b. Safe business actions (e.g. adding item to cart, continuing shopping)
+    if any(phrase in label for phrase in SAFE_BUSINESS_WORDS):
+        return ActionType.SAFE_ACTION
+
+    if any(phrase in label for phrase in {"continue shopping", "continue-shopping", "back to products"}):
+        return ActionType.SAFE_NAVIGATION
 
     # 3. Actions requiring manual user confirmation
     if any(re.search(rf"\b{re.escape(word)}\b", label) for word in CONFIRMATION_WORDS):
@@ -175,7 +189,7 @@ def classify_action(
 
 
 def is_safe_action(action_type: str) -> bool:
-    """True if the action is read-only or safe navigation/expansion."""
+    """True if the action is read-only or safe navigation/expansion/business action."""
     return action_type in {
         ActionType.SAFE_NAVIGATION,
         ActionType.SAFE_EXPAND,
@@ -183,6 +197,7 @@ def is_safe_action(action_type: str) -> bool:
         ActionType.SAFE_SEARCH,
         ActionType.SAFE_SORT,
         ActionType.SAFE_PAGINATION,
+        ActionType.SAFE_ACTION,
     }
 
 
