@@ -1913,12 +1913,24 @@
     }
 
     function viewScreenshot(path) {
-      document.getElementById("modal-title").textContent = path;
-      document.getElementById("modal-img").src = `/reports/${encodeURIComponent(path.split(/[\\\\/]/).pop())}`;
+      if (!path) return;
+      const cleanPath = String(path).replace(/[<>"']/g, "");
+      document.getElementById("modal-title").textContent = cleanPath;
+      const filename = encodeURIComponent(cleanPath.split(/[\\/]/).pop());
+      if (state.runId) {
+        document.getElementById("modal-img").src = `${API_BASE}/reports/${encodeURIComponent(state.runId)}/screenshot/${filename}`;
+      } else {
+        document.getElementById("modal-img").src = "";
+      }
       document.getElementById("screenshot-modal").classList.remove("hidden");
     }
 
     async function downloadArtifact(type) {
+      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "execution_results", "checkpoint", "screenshots"];
+      if (!ALLOWED_TYPES.includes(type)) {
+        showActionableError("Download Artifact", state.runId, "INVALID_ARTIFACT", `Artifact type '${type}' is not permitted.`, "Select a standard artifact type.");
+        return;
+      }
       if (!state.runId) {
         showActionableError("Download Artifact", state.runId, "NO_ACTIVE_RUN", "No scan run is loaded.", "Start a scan or restore a previous run.");
         return;

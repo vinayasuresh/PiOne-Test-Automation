@@ -9,6 +9,7 @@ from automation_framework.engine.ui_intelligence_engine import SCHEMA_VERSION
 from automation_framework.storage.json_storage import save_json
 from automation_framework.storage.yaml_storage import save_yaml
 from automation_framework.utils.logger import logger
+from automation_framework.utils.redactor import redact_sensitive_data
 
 
 def export_crawl_results(
@@ -27,6 +28,9 @@ def export_crawl_results(
     interaction_flow_file = output_path / f"{file_stem}_interaction_flow.yaml"
     excel_file = output_path / f"{file_stem}.xlsx"
     markdown_file = output_path / f"{file_stem}_summary.md"
+
+    # Redact credentials and tokens before exporting any artifacts
+    crawl_results = redact_sensitive_data(crawl_results)
 
     page_intelligence = crawl_results.get("page_intelligence", {})
     routes = [_normalize_route(route_doc) for route_doc in page_intelligence.values()]

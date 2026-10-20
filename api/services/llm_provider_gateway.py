@@ -57,6 +57,9 @@ class ProviderResponseLimitError(ProviderError):
         super().__init__(message, category="RESPONSE_LIMIT_EXCEEDED")
 
 
+ProviderResponseSizeError = ProviderResponseLimitError
+
+
 class ProviderInvalidJsonError(ProviderError):
     def __init__(self, message: str = "Model returned malformed or non-JSON output"):
         super().__init__(message, category="INVALID_JSON")
@@ -75,22 +78,8 @@ def redact_secrets_text(text: str) -> str:
     """Redact tokens, passwords, and API keys from arbitrary text."""
     if not isinstance(text, str):
         return text
-    # Bearer tokens
-    text = re.sub(r"bearer\s+[a-zA-Z0-9_\-\.]{15,}", "Bearer [REDACTED_TOKEN]", text, flags=re.IGNORECASE)
-    # Google AI Studio / Gemini API keys: AIza...
-    text = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_KEY]", text)
-    # OpenAI keys: sk-...
-    text = re.sub(r"sk-[a-zA-Z0-9]{20,}", "[REDACTED_KEY]", text)
-    # GitHub tokens: ghp_...
-    text = re.sub(r"ghp_[a-zA-Z0-9]{20,}", "[REDACTED_TOKEN]", text)
-    # Sensitive URL query parameters or key-value pairs
-    text = re.sub(
-        r"(api[-_]?key|token|auth|password|passwd|secret|key)[=:\s]+[^\s,;&'\"]+",
-        r"\1=[REDACTED]",
-        text,
-        flags=re.IGNORECASE,
-    )
-    return text
+    from automation_framework.utils.redactor import redact_text
+    return redact_text(text)
 
 
 def sanitize_context(context: Any) -> Any:

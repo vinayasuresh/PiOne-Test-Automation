@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from automation_framework.utils.logger import logger
+from automation_framework.utils.redactor import redact_sensitive_data
 
 
 def compute_namespace(base_url: str) -> str:
@@ -99,7 +100,12 @@ class CheckpointStore:
                 "route_graph": data.get("route_graph", {}),
             }
 
-            tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            safe_payload = redact_sensitive_data(payload)
+            tmp_path.write_text(json.dumps(safe_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            try:
+                os.chmod(tmp_path, 0o600)
+            except OSError:
+                pass
             _atomic_replace(tmp_path, self.checkpoint_path)
             logger.info("Scan checkpoint safely written to %s", self.checkpoint_path)
             return True

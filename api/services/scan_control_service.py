@@ -76,6 +76,9 @@ def is_scan_stop_requested(run_id: str) -> bool:
     return ctrl.stop_requested
 
 
+is_scan_stopped = is_scan_stop_requested
+
+
 def set_user_decision(run_id: str, decision: str) -> None:
     ctrl = get_scan_control(run_id)
     ctrl.pending_decision = decision.strip().lower()

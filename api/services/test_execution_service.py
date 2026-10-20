@@ -29,6 +29,7 @@ from automation_framework.config.settings import (
 )
 from automation_framework.crawler.url_filter import is_valid_url
 from automation_framework.utils.browser_manager import start_persistent_browser
+from automation_framework.utils.redactor import redact_sensitive_data
 
 
 MAX_TRANSIENT_RETRIES = 2
@@ -510,15 +511,20 @@ def _write_artifacts(
     json_file = directory / "execution_results.json"
     plan_file = directory / "test_plan.json"
 
-    df = pd.DataFrame(records)
+    safe_records = redact_sensitive_data(records)
+    df = pd.DataFrame(safe_records)
     df.to_excel(excel, index=False, sheet_name="test_execution")
 
+    safe_summary = redact_sensitive_data(summary.model_dump())
+    safe_rows = [redact_sensitive_data(r.model_dump()) for r in rows]
+    safe_cases = [redact_sensitive_data(case.model_dump()) for case in test_cases]
+
     json_file.write_text(
-        json.dumps({"summary": summary.model_dump(), "rows": [r.model_dump() for r in rows]}, indent=2),
+        json.dumps({"summary": safe_summary, "rows": safe_rows}, indent=2),
         encoding="utf-8",
     )
     plan_file.write_text(
-        json.dumps({"test_cases": [case.model_dump() for case in test_cases]}, indent=2),
+        json.dumps({"test_cases": safe_cases}, indent=2),
         encoding="utf-8",
     )
     markdown.write_text(

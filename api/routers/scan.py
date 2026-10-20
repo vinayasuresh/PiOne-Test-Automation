@@ -4,11 +4,24 @@ import asyncio
 import json
 import os
 import platform
+import re
 from pathlib import Path
 from uuid import uuid4
 
 from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from automation_framework.utils.redactor import redact_sensitive_data
+
+_RUN_ID_REGEX = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+ALLOWED_ARTIFACT_TYPES = {
+    "json",
+    "yaml",
+    "markdown",
+    "excel",
+    "execution_results",
+    "checkpoint",
+    "screenshots",
+}
 
 from api.models.scan_models import (
     ErrorResponse,
@@ -644,6 +657,8 @@ def _build_llm_prompt(request: GenerateTestRequest, context: dict, user_prompt: 
 
 @router.get("/run/{run_id}/state", summary="Retrieve active run context and workflow state")
 async def get_run_state(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
     run_ctx = get_run_context(run_id)
     if not run_ctx:
         checkpoint_file = REPORT_PATH / f"checkpoint_{run_id}.json"
@@ -672,6 +687,8 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
 async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
     action = request.action.strip().lower()
     run_id = request.run_id
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
     if action == "pause":
         pause_scan(run_id)
         msg = f"Pause signal sent to scan run '{run_id}'."
@@ -692,6 +709,8 @@ async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
 
 @router.get("/reports/{run_id}/status", response_model=ArtifactStatusResponse, summary="Check status and availability of scan/execution artifacts")
 async def reports_status(run_id: str) -> ArtifactStatusResponse:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
     run_ctx = get_run_context(run_id)
     base_stem = f"{run_id}_crawl_results"
 
@@ -707,7 +726,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
     screenshots = []
     if exec_dir.exists():
         screenshots.extend(list(exec_dir.glob("*.png")))
-    screenshots.extend(list(REPORT_PATH.glob(f"*{run_id}*.png")))
+    screenshots.extend(list(REPORT_PATH.glob(f"{run_id}*.png")))
 
     artifacts_ready = {
         "json": json_path.is_file(),
@@ -739,6 +758,15 @@ async def download_artifact(run_id: str, artifact_type: str):
     from fastapi.responses import FileResponse, Response
     import zipfile
     import io
+
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+
+    if artifact_type not in ALLOWED_ARTIFACT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported artifact type: '{artifact_type}'")
+
+    if "storage_state" in artifact_type.lower() or "auth_sessions" in artifact_type.lower():
+        raise HTTPException(status_code=403, detail="Access denied: Forbidden artifact access")
 
     run_ctx = get_run_context(run_id)
     is_in_progress = bool(run_ctx and run_ctx.status in {"scanning", "running", "waiting_approval", "executing"})
@@ -778,31 +806,51 @@ async def download_artifact(run_id: str, artifact_type: str):
             target_file = exec_dir / "execution_results.json"
             filename = f"{run_id}_execution_results.json"
         elif run_ctx and run_ctx.execution_results:
-            content = json.dumps({"summary": run_ctx.execution_summary, "rows": run_ctx.execution_results}, indent=2)
-            return Response(content=content, media_type="application/json", headers={"Content-Disposition": f'attachment; filename="{run_id}_execution_results.json"'})
+            safe_results = redact_sensitive_data(run_ctx.execution_results)
+            safe_summary = redact_sensitive_data(run_ctx.execution_summary)
+            content = json.dumps({"summary": safe_summary, "rows": safe_results}, indent=2)
+            return Response(
+                content=content,
+                media_type="application/json",
+                headers={"Content-Disposition": f'attachment; filename="{run_id}_execution_results.json"'},
+            )
     elif artifact_type == "screenshots":
         exec_dir = REPORT_PATH / run_id
         images = []
         if exec_dir.exists():
             images.extend(list(exec_dir.glob("*.png")))
-        images.extend(list(REPORT_PATH.glob(f"*{run_id}*.png")))
+        images.extend(list(REPORT_PATH.glob(f"{run_id}*.png")))
         if images:
+            MAX_SCREENSHOT_COUNT = 500
+            MAX_SCREENSHOT_BYTES = 50 * 1024 * 1024
+            selected = images[:MAX_SCREENSHOT_COUNT]
+            total_size = sum(img.stat().st_size for img in selected if img.is_file())
+            if total_size > MAX_SCREENSHOT_BYTES:
+                raise HTTPException(status_code=413, detail="Screenshot package exceeds maximum allowed size (50 MB)")
+
             buf = io.BytesIO()
             with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for img in images:
-                    zf.write(img, arcname=img.name)
+                for img in selected:
+                    resolved_img = img.resolve()
+                    if resolved_img.is_relative_to(REPORT_PATH.resolve()):
+                        zf.write(resolved_img, arcname=img.name)
             buf.seek(0)
             return Response(
                 content=buf.getvalue(),
                 media_type="application/zip",
                 headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
             )
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported artifact type: '{artifact_type}'")
 
     if target_file and target_file.is_file():
+        resolved = target_file.resolve()
+        base_resolved = REPORT_PATH.resolve()
+        if not resolved.is_relative_to(base_resolved):
+            raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
+        if not (resolved.name.startswith(run_id) or resolved.name == f"checkpoint_{run_id}.json"):
+            raise HTTPException(status_code=403, detail=f"Access denied: Artifact does not belong to run '{run_id}'")
+
         return FileResponse(
-            str(target_file),
+            str(resolved),
             media_type=media_types.get(artifact_type, "application/octet-stream"),
             filename=filename or target_file.name,
         )
@@ -816,3 +864,36 @@ async def download_artifact(run_id: str, artifact_type: str):
         status_code=404,
         detail=f"Artifact '{artifact_type}' not found for run '{run_id}'."
     )
+
+
+@router.get("/reports/{run_id}/screenshot/{filename}", summary="Download specific screenshot safely")
+async def download_screenshot(run_id: str, filename: str):
+    from fastapi.responses import FileResponse
+
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+
+    if not filename or not re.fullmatch(r"^[A-Za-z0-9_.-]+\.png$", filename):
+        raise HTTPException(status_code=400, detail="Invalid screenshot filename format")
+
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Path traversal detected")
+
+    exec_dir = REPORT_PATH / run_id
+    cand1 = exec_dir / filename
+    cand2 = REPORT_PATH / filename
+
+    target = cand1 if cand1.is_file() else (cand2 if cand2.is_file() else None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Screenshot not found")
+
+    resolved = target.resolve()
+    base_resolved = REPORT_PATH.resolve()
+    if not resolved.is_relative_to(base_resolved):
+        raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
+
+    if not (resolved.name.startswith(run_id) or (exec_dir.exists() and resolved.is_relative_to(exec_dir.resolve()))):
+        raise HTTPException(status_code=403, detail="Access denied: Screenshot does not belong to this run")
+
+    return FileResponse(str(resolved), media_type="image/png", filename=filename)
+

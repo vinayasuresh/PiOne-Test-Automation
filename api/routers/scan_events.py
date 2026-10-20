@@ -2,6 +2,7 @@
 
 import asyncio
 from queue import Empty
+import re
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -9,6 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from api.services.scan_event_bus import discard_channel, get_channel, get_latest_telemetry
 
 router = APIRouter()
+_ID_REGEX = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 
 
 @router.websocket("/ws/scan-events")
@@ -19,11 +21,11 @@ async def scan_events(
 ) -> None:
     """Stream events from the matching in-process scan worker.
     
-    Accepts either scan_id or run_id query parameters.
+    Accepts either scan_id or run_id query parameters. Enforces strict identifier validation.
     """
-    effective_id = scan_id or run_id
-    if not effective_id:
-        await websocket.close(code=1008)
+    effective_id = (scan_id or run_id or "").strip()
+    if not effective_id or not _ID_REGEX.fullmatch(effective_id) or ".." in effective_id or "/" in effective_id or "\\" in effective_id:
+        await websocket.close(code=1008)  # Policy Violation
         return
 
     await websocket.accept()
