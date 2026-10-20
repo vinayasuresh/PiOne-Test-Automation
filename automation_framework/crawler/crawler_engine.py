@@ -1713,6 +1713,8 @@ class CrawlerEngine:
             self.completed_modules = list(data.get("completed_modules", []))
             self.module_decisions = dict(data.get("module_decisions", {}))
             self._active_module_id = data.get("current_module_id", "")
+            if not self._selected_module_ids and data.get("selected_modules"):
+                self._selected_module_ids = list(data["selected_modules"])
 
             logger.info(f"Resumed scan checkpoint with {len(self.page_intelligence)} routes")
         except Exception:
@@ -1757,10 +1759,34 @@ class CrawlerEngine:
         try:
             session_id = (self.checkpoint_path.stem.removeprefix("checkpoint_")
                           if self.checkpoint_path else "")
+            curr_url = ""
+            scroll_pos = {"x": 0, "y": 0}
+            try:
+                if self.page and not self.page.is_closed():
+                    curr_url = self.page.url
+                    scroll_pos = self.page.evaluate("() => ({ x: window.scrollX || 0, y: window.scrollY || 0 })")
+            except Exception:
+                pass
+
+            from datetime import datetime, timezone
+            now_iso = datetime.now(timezone.utc).isoformat()
+            visited = sorted(self.route_tracker.get_visited_routes())
+            completed_routes = sorted(r for r in visited if r in self.route_validations)
+
             data = {
+                "schema_version": "2.0",
+                "timestamp": now_iso,
                 "session_id": session_id,
+                "run_id": self.run_id or session_id,
+                "base_url": self.base_url,
                 "namespace": self._checkpoint_namespace(),
-                "visited_routes": sorted(self.route_tracker.get_visited_routes()),
+                "allowed_scope": self._checkpoint_namespace(),
+                "auth_status": "authenticated" if (self.credentials or not self._is_login_page()) else "expired",
+                "current_route": curr_url,
+                "scroll_position": scroll_pos,
+                "selected_modules": list(self._selected_module_ids or []),
+                "visited_routes": visited,
+                "completed_routes": completed_routes,
                 "pending_routes": [item["url"] for item in self._discovered_route_queue],
                 "failed_routes": sorted(
                     route for route, item in self.route_validations.items()

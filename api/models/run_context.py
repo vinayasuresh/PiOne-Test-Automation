@@ -25,13 +25,14 @@ class RunContext(BaseModel):
     ui_state_graph: dict[str, Any] = Field(default_factory=dict)
     element_registry: Any = Field(default_factory=list)
     scan_results: Optional[dict[str, Any]] = None
-    generated_test_plan: Optional[list[dict[str, Any]]] = None
+    generated_test_plan: Optional[list[Any]] = None
     generated_script: Optional[str] = None
     execution_results: Optional[list[dict[str, Any]]] = None
     execution_summary: Optional[dict[str, Any]] = None
     checkpoints: list[str] = Field(default_factory=list)
     artifact_paths: dict[str, Any] = Field(default_factory=dict)
     status: str = "initialized"
+    is_archived: bool = False
     error_message: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

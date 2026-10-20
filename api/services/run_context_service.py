@@ -86,6 +86,63 @@ def save_run_context(ctx: RunContext) -> None:
         except Exception as exc:
             logger.warning("Failed saving run context to disk: %s", exc)
 
+    try:
+        from api.db.repository import DBRepository
+        DBRepository.create_or_update_run(
+            run_id=ctx.run_id,
+            base_url=ctx.target_origin,
+            allowed_path_namespace=ctx.allowed_path_namespace,
+            status=ctx.status,
+            auth_status=ctx.auth_status,
+            username=ctx.username,
+            selected_modules=ctx.selected_modules,
+            discovered_modules=ctx.discovered_modules,
+            execution_summary=ctx.execution_summary or {},
+            error_message=ctx.error_message,
+        )
+    except Exception as db_exc:
+        logger.debug("[DB] Secondary run context sync note: %s", db_exc)
+
+
+def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip: int = 0, limit: int = 50) -> list[dict[str, Any]]:
+    """List saved runs from DB repository with fallback to file store."""
+    try:
+        from api.db.repository import DBRepository
+        runs = DBRepository.list_runs(base_url=base_url, is_archived=is_archived, skip=skip, limit=limit)
+        if runs:
+            return runs
+    except Exception as exc:
+        logger.debug("[DB] list_runs fallback: %s", exc)
+
+    results = []
+    for f in sorted(_RUN_CONTEXT_DIR.glob("*.json"), key=os.path.getmtime, reverse=True):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            if is_archived and not data.get("is_archived"):
+                continue
+            if not is_archived and data.get("is_archived"):
+                continue
+            if base_url and base_url.lower() not in (data.get("target_origin") or "").lower():
+                continue
+            results.append({
+                "run_id": data.get("run_id"),
+                "application_url": data.get("target_origin"),
+                "status": data.get("status", "initialized"),
+                "auth_status": data.get("auth_status", "none"),
+                "progress_percentage": 100.0 if data.get("status") in {"completed", "executed"} else 50.0,
+                "selected_modules": data.get("selected_modules", []),
+                "completed_modules": data.get("selected_modules", []) if data.get("status") in {"completed", "executed"} else [],
+                "pending_modules": [] if data.get("status") in {"completed", "executed"} else data.get("selected_modules", []),
+                "route_count": len(data.get("route_graph", {}).get("nodes", [])),
+                "execution_summary": data.get("execution_summary", {}),
+                "is_archived": bool(data.get("is_archived")),
+                "created_at": data.get("created_at"),
+                "updated_at": data.get("updated_at"),
+            })
+        except Exception:
+            pass
+    return results[skip : skip + limit]
+
 
 def get_run_context(run_id: str) -> RunContext | None:
     try:
@@ -124,3 +181,20 @@ def update_run_context(run_id: str, **kwargs: Any) -> RunContext:
             setattr(ctx, k, v)
     save_run_context(ctx)
     return ctx
+
+
+def delete_run_context(run_id: str) -> bool:
+    try:
+        clean_id = validate_run_id_safe(run_id)
+    except ValueError:
+        return False
+    with _LOCK:
+        _CACHE.pop(clean_id, None)
+    file_path = _RUN_CONTEXT_DIR / f"{clean_id}.json"
+    if file_path.is_file():
+        try:
+            file_path.unlink()
+            return True
+        except Exception as exc:
+            logger.warning("Failed deleting run context file %s: %s", file_path, exc)
+    return False

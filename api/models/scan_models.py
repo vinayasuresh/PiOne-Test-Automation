@@ -309,6 +309,14 @@ class TestCase(BaseModel):
     purpose: str = ""
     requirement_references: list[str] = []
     steps: list[TestStep] = []
+    tags: list[str] = []
+    priority: str = "Medium"
+    prerequisites: list[str] = []
+    locators: dict[str, Any] = {}
+    safety_classification: str = "safe_action"
+    latest_result: str = "Untested"
+    last_execution_time: Optional[str] = None
+    baseline_version: str = "1.0"
 
 
 class ExecuteTestRequest(BaseModel):
@@ -481,3 +489,92 @@ class ArtifactStatusResponse(BaseModel):
     status: str  # "ready" | "in_progress" | "not_found"
     artifacts: dict[str, bool] = {}
     download_urls: dict[str, str] = {}
+
+
+class CreateRunRequest(BaseModel):
+    url: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    allowed_scope: str = "/"
+    interactive_mode: bool = False
+    selected_module_ids: list[str] = []
+
+    @field_validator("url")
+    @classmethod
+    def validate_create_run_url(cls, value: str) -> str:
+        return validate_target_url(value)
+
+
+class SaveProgressRequest(BaseModel):
+    run_id: str
+    state: Optional[dict[str, Any]] = None
+
+
+class ResumeRunRequest(BaseModel):
+    run_id: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rescan_modules: list[str] = []
+
+
+class CreateRegressionSuiteRequest(BaseModel):
+    name: str
+    base_url: str
+    environment: str = "production"
+    description: str = ""
+    baseline_run_id: Optional[str] = None
+    test_case_ids: list[str] = []
+    filter_tags: list[str] = []
+    filter_modules: list[str] = []
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_suite_url(cls, value: str) -> str:
+        return validate_target_url(value)
+
+
+class UpdateRegressionSuiteRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    environment: Optional[str] = None
+    case_toggles: dict[str, bool] = {}
+    filter_tags: list[str] = []
+    filter_modules: list[str] = []
+
+
+class ExecuteSelectedRegressionRequest(BaseModel):
+    run_id: str
+    base_url: str
+    suite_id: Optional[str] = None
+    filter_type: str = "all"  # all, modules, routes, tags, failed_only, changed_only, never_executed, review_required
+    selected_test_case_ids: list[str] = []
+    selected_modules: list[str] = []
+    selected_routes: list[str] = []
+    selected_tags: list[str] = []
+    failed_only: bool = False
+    changed_since_baseline_only: bool = False
+    never_executed_only: bool = False
+    manual_review_only: bool = False
+    confirmed: bool = False
+    expected_test_count: Optional[int] = None
+    expected_step_count: Optional[int] = None
+    auth_session_id: Optional[str] = None
+    allow_mutating_actions: bool = False
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_exec_url(cls, value: str) -> str:
+        return validate_target_url(value)
+
+
+class SaveBaselineRequest(BaseModel):
+    run_id: str
+    name: str = "Baseline Plan"
+    version: str = "1.0"
+    confirmed_overwrite: bool = False
+
+
+class CompareBaselineRequest(BaseModel):
+    current_run_id: str
+    baseline_run_id: str
+

@@ -95,7 +95,13 @@ class CheckpointStore:
                 "scan_events": data.get("scan_events", []),
                 "manual_checkpoint_state": data.get("manual_checkpoint_state", {}),
                 "current_module_id": data.get("current_module_id", ""),
+                "current_route": data.get("current_route", ""),
                 "completed_modules": data.get("completed_modules", []),
+                "completed_routes": data.get("completed_routes", []),
+                "selected_modules": data.get("selected_modules", []),
+                "scroll_position": data.get("scroll_position", {}),
+                "schema_version": data.get("schema_version", "2.0"),
+                "state_data": data.get("state_data", {}),
                 "module_decisions": data.get("module_decisions", {}),
                 "route_graph": data.get("route_graph", {}),
             }
@@ -108,6 +114,15 @@ class CheckpointStore:
                 pass
             _atomic_replace(tmp_path, self.checkpoint_path)
             logger.info("Scan checkpoint safely written to %s", self.checkpoint_path)
+
+            try:
+                from api.db.repository import DBRepository
+                run_id = data.get("session_id") or self.checkpoint_path.stem.removeprefix("checkpoint_")
+                if run_id:
+                    DBRepository.save_checkpoint(run_id, payload)
+            except Exception as db_exc:
+                logger.debug("[DB] Checkpoint DB sync note: %s", db_exc)
+
             return True
         except Exception:
             logger.exception("Failed to write scan checkpoint to %s", self.checkpoint_path)
@@ -132,3 +147,21 @@ class CheckpointStore:
         except Exception:
             logger.exception("Failed to load or parse checkpoint from %s", self.checkpoint_path)
             return None
+
+
+def get_checkpoint_path(run_id: str) -> Path:
+    from automation_framework.config.settings import REPORT_PATH
+    return REPORT_PATH / f"checkpoint_{run_id}.json"
+
+
+def save_checkpoint(run_id: str, data: dict[str, Any]) -> bool:
+    store = CheckpointStore(get_checkpoint_path(run_id))
+    payload = dict(data)
+    payload["session_id"] = run_id
+    return store.save(payload)
+
+
+def load_checkpoint(run_id: str, expected_base_url: str | None = None) -> dict[str, Any] | None:
+    store = CheckpointStore(get_checkpoint_path(run_id))
+    return store.load(expected_base_url)
+

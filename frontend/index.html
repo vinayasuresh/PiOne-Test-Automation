@@ -40,6 +40,28 @@
         </div>
 
         <div class="flex items-center gap-2 flex-wrap text-xs">
+          <!-- Primary Views Switcher -->
+          <div class="inline-flex bg-slate-800 p-0.5 rounded-lg border border-slate-700">
+            <button id="btn-nav-workflow" type="button" class="px-3 py-1 rounded-md text-xs font-semibold bg-blue-600 text-white shadow-sm flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-play text-[10px]"></i> Current Run
+            </button>
+            <button id="btn-nav-saved-runs" type="button" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-clock-rotate-left text-[10px]"></i> Saved Runs
+            </button>
+            <button id="btn-nav-suites" type="button" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-layer-group text-[10px]"></i> Regression Suites
+            </button>
+            <button id="btn-nav-artifacts" type="button" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-box-archive text-[10px]"></i> Artifacts
+            </button>
+          </div>
+
+          <!-- Database Connectivity Indicator -->
+          <span id="nav-db-badge" class="bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded text-[11px] flex items-center gap-1.5" title="Database status">
+            <span id="nav-db-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span id="nav-db-text">DB: Checking...</span>
+          </span>
+
           <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded font-mono text-[11px]">
             Run: <span id="nav-run-id" class="text-blue-400 font-bold">--</span>
           </span>
@@ -78,6 +100,7 @@
 
   <main class="max-w-7xl mx-auto px-4 py-6 w-full flex-grow space-y-6">
 
+    <div id="view-workflow" class="space-y-6">
     <!-- STEP 1: Scan Application (Target & Authentication) -->
     <section id="panel-1" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-4">
@@ -246,6 +269,9 @@
           <span id="live-scan-status-pill" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Running
           </span>
+          <button id="btn-scan-save-progress" type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-bookmark mr-1"></i> Save Progress
+          </button>
           <button id="btn-scan-pause" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-slate-300">
             <i class="fa-solid fa-pause mr-1"></i> Pause
           </button>
@@ -255,7 +281,19 @@
           <button id="btn-scan-end-save" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
             <i class="fa-solid fa-floppy-disk mr-1"></i> End Scan &amp; Save
           </button>
+          <button id="btn-scan-discard" type="button" class="bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-rose-300 transition">
+            <i class="fa-solid fa-trash-can mr-1"></i> Discard Run
+          </button>
         </div>
+      </div>
+
+      <!-- Autosave & Checkpoint Status Banner -->
+      <div id="autosave-status-banner" class="flex items-center justify-between text-[11px] bg-slate-50 text-slate-600 px-3.5 py-2 rounded-lg border border-slate-200">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up text-blue-600"></i>
+          <span class="font-semibold text-slate-800">Autosave Active:</span> State and checkpoints persist across routes, modules, and interruptions.
+        </span>
+        <span id="autosave-timestamp" class="text-slate-400 font-mono">Last checkpoint: Just now</span>
       </div>
 
       <!-- Live Metric Cards -->
@@ -517,8 +555,73 @@
             <span id="exec-skip-count" class="bg-slate-100 text-slate-600 px-2 py-1 rounded">0 Skip</span>
           </div>
           <button id="btn-run-execution" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm transition flex items-center gap-2">
-            <i class="fa-solid fa-play"></i> Run Test Execution
+            <i class="fa-solid fa-play"></i> Execute Selected Tests
           </button>
+        </div>
+      </div>
+
+      <!-- Selectable Regression Execution Scope & Filter Bar -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+              <i class="fa-solid fa-filter text-blue-600"></i> Selectable Test Execution Scope
+            </h3>
+            <p class="text-[11px] text-slate-500 mt-0.5">Filter and check specific test cases. Unselected tests are never executed.</p>
+          </div>
+          <!-- Live Count Badge -->
+          <div id="exec-selection-badge" class="font-bold text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-2">
+            <i class="fa-solid fa-list-check"></i> <span id="exec-selection-text">Execute 0 tests / 0 steps?</span>
+          </div>
+        </div>
+
+        <!-- Filter Buttons & Controls -->
+        <div class="flex items-center gap-1.5 flex-wrap text-xs">
+          <span class="text-slate-400 font-semibold text-[11px] mr-1">Filter:</span>
+          <button id="btn-filter-all" type="button" class="exec-filter-btn px-2.5 py-1 rounded bg-blue-600 text-white font-semibold">All</button>
+          <button id="btn-filter-failed" type="button" class="exec-filter-btn px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold">Failed Only</button>
+          <button id="btn-filter-changed" type="button" class="exec-filter-btn px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold">Changed Since Baseline</button>
+          <button id="btn-filter-never" type="button" class="exec-filter-btn px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold">Never Executed</button>
+          <button id="btn-filter-review" type="button" class="exec-filter-btn px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold">Review Required</button>
+
+          <span class="text-slate-300 mx-1">|</span>
+          <select id="select-filter-tag" class="px-2 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700">
+            <option value="">All Tags</option>
+            <option value="smoke">Tag: smoke</option>
+            <option value="regression">Tag: regression</option>
+            <option value="checkout">Tag: checkout</option>
+            <option value="navigation">Tag: navigation</option>
+            <option value="security">Tag: security</option>
+          </select>
+          <select id="select-filter-module" class="px-2 py-1 border border-slate-300 rounded text-xs bg-white text-slate-700">
+            <option value="">All Modules</option>
+          </select>
+
+          <div class="ml-auto flex items-center gap-1">
+            <button id="btn-exec-select-all" type="button" class="text-[11px] px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 font-semibold">Select All</button>
+            <button id="btn-exec-clear-all" type="button" class="text-[11px] px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 font-semibold">Clear All</button>
+          </div>
+        </div>
+
+        <!-- Checkbox Selection Table -->
+        <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-56 bg-white">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th class="table-cell text-center w-10">Run?</th>
+                <th class="table-cell text-left">TC ID</th>
+                <th class="table-cell text-left">Title</th>
+                <th class="table-cell text-left">Module</th>
+                <th class="table-cell text-left">Route</th>
+                <th class="table-cell text-center">Tags</th>
+                <th class="table-cell text-center">Steps</th>
+                <th class="table-cell text-center">Latest Result</th>
+              </tr>
+            </thead>
+            <tbody id="exec-selection-table-body">
+              <tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases to select. Generate tests in Step 6 first.</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -680,16 +783,24 @@
         </details>
       </div>
 
-      <!-- Regression Replay Section -->
+      <!-- Regression Replay & Baseline Section -->
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 class="text-sm font-bold text-slate-900">Regression Baseline &amp; Diff Comparison</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application and compare newly passing or failing steps.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application, save reusable baselines, and compare diffs.</p>
           </div>
-          <button id="btn-run-regression" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-2">
-            <i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay
-          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="btn-open-save-baseline" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-bookmark"></i> Save as Baseline
+            </button>
+            <button id="btn-open-compare-baseline" class="bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-code-compare"></i> Compare Baseline
+            </button>
+            <button id="btn-run-regression" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay
+            </button>
+          </div>
         </div>
 
         <div id="regression-diff-container" class="hidden bg-white border border-slate-200 rounded-lg p-4 space-y-3">
@@ -712,6 +823,143 @@
             </div>
           </div>
           <div id="reg-status-changes" class="text-xs space-y-1"></div>
+        </div>
+      </div>
+    </section>
+    </div> <!-- /view-workflow -->
+
+    <!-- ================================================================= -->
+    <!-- VIEW: Saved Runs & Resumable Sessions -->
+    <!-- ================================================================= -->
+    <section id="view-saved-runs" class="hidden space-y-5">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> Saved Runs &amp; Resumable Sessions
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Review, resume paused scans, open results, execute regression suites, or duplicate previous runs.</p>
+          </div>
+          <button id="btn-refresh-saved-runs" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh
+          </button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="flex items-center gap-3 flex-wrap">
+          <input id="saved-runs-search" type="text" placeholder="Filter by target URL..." class="px-3 py-2 border border-slate-300 rounded-lg text-xs w-64" />
+          <select id="saved-runs-status-filter" class="px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white text-slate-700">
+            <option value="">All Statuses</option>
+            <option value="initialized">Initialized</option>
+            <option value="scanning">Scanning</option>
+            <option value="paused">Paused</option>
+            <option value="waiting_approval">Waiting Approval</option>
+            <option value="completed">Completed</option>
+            <option value="executed">Executed</option>
+            <option value="discarded">Discarded</option>
+          </select>
+          <span id="saved-runs-count-badge" class="text-xs font-semibold text-slate-500">0 runs found</span>
+        </div>
+
+        <!-- Saved Runs Table -->
+        <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
+              <tr>
+                <th class="table-cell text-left">Run ID</th>
+                <th class="table-cell text-left">Application URL</th>
+                <th class="table-cell text-center">Status</th>
+                <th class="table-cell text-center">Progress</th>
+                <th class="table-cell text-center">Modules</th>
+                <th class="table-cell text-center">Routes</th>
+                <th class="table-cell text-center">Last Checkpoint</th>
+                <th class="table-cell text-center">Tests / Exec</th>
+                <th class="table-cell text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="saved-runs-table-body">
+              <tr><td colspan="9" class="table-cell text-center text-slate-400 py-6">Loading saved runs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW: Regression Suites Management -->
+    <!-- ================================================================= -->
+    <section id="view-regression-suites" class="hidden space-y-5">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-blue-600"></i> Regression Suite Management
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Configure named regression test suites with environment targeting, module filters, and tag selection.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-refresh-suites" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button id="btn-create-suite-modal" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-xs shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Create Suite
+            </button>
+          </div>
+        </div>
+
+        <!-- Suites Table -->
+        <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
+              <tr>
+                <th class="table-cell text-left">Suite Name</th>
+                <th class="table-cell text-left">Target App URL</th>
+                <th class="table-cell text-center">Environment</th>
+                <th class="table-cell text-center">Test Cases</th>
+                <th class="table-cell text-center">Filter Tags</th>
+                <th class="table-cell text-center">Baseline Run</th>
+                <th class="table-cell text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="regression-suites-table-body">
+              <tr><td colspan="7" class="table-cell text-center text-slate-400 py-6">Loading regression suites...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- VIEW: Run Artifacts & Baselines -->
+    <!-- ================================================================= -->
+    <section id="view-artifacts" class="hidden space-y-5">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-box-archive text-blue-600"></i> Artifacts &amp; Download Repository
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">Download machine-readable crawl results, audit Excel sheets, execution results, checkpoints, and screenshots.</p>
+          </div>
+          <button id="btn-refresh-artifacts-view" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-arrows-rotate"></i> Refresh
+          </button>
+        </div>
+
+        <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
+              <tr>
+                <th class="table-cell text-left">Run ID</th>
+                <th class="table-cell text-left">Target URL</th>
+                <th class="table-cell text-center">Status</th>
+                <th class="table-cell text-center">Download Formats</th>
+              </tr>
+            </thead>
+            <tbody id="artifacts-table-body">
+              <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Loading artifacts...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -797,6 +1045,195 @@
     </div>
   </div>
 
+  <!-- Create / Edit Regression Suite Modal -->
+  <div id="suite-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-layer-group text-blue-600"></i>
+          <h3 id="suite-modal-title" class="text-sm font-bold text-slate-900">Create Regression Suite</h3>
+        </div>
+        <button id="btn-close-suite-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <div class="space-y-3 overflow-y-auto pr-1 flex-grow text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Suite Name</label>
+          <input id="suite-name-input" type="text" placeholder="e.g. Smoke Sanity Suite" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Target Base URL</label>
+          <input id="suite-url-input" type="url" placeholder="https://app.enterprise.com" class="w-full px-3 py-2 border border-slate-300 rounded text-xs font-mono" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Environment</label>
+            <select id="suite-env-select" class="w-full px-3 py-2 border border-slate-300 rounded text-xs bg-white">
+              <option value="production">Production</option>
+              <option value="staging">Staging</option>
+              <option value="uat">UAT</option>
+              <option value="qa">QA</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Baseline Run (Optional)</label>
+            <select id="suite-baseline-select" class="w-full px-3 py-2 border border-slate-300 rounded text-xs bg-white">
+              <option value="">None</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Description</label>
+          <textarea id="suite-desc-input" rows="2" placeholder="Suite description..." class="w-full px-3 py-2 border border-slate-300 rounded text-xs"></textarea>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Filter Tags</label>
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="flex items-center gap-1.5"><input type="checkbox" value="smoke" class="suite-tag-cb h-3.5 w-3.5 accent-blue-600 rounded" /> smoke</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" value="regression" class="suite-tag-cb h-3.5 w-3.5 accent-blue-600 rounded" checked /> regression</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" value="checkout" class="suite-tag-cb h-3.5 w-3.5 accent-blue-600 rounded" /> checkout</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" value="navigation" class="suite-tag-cb h-3.5 w-3.5 accent-blue-600 rounded" /> navigation</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" value="security" class="suite-tag-cb h-3.5 w-3.5 accent-blue-600 rounded" /> security</label>
+          </div>
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Assigned Test Cases</label>
+          <div id="suite-cases-container" class="border border-slate-200 rounded p-2.5 max-h-40 overflow-y-auto space-y-1.5 bg-slate-50">
+            <p class="text-slate-400 italic text-[11px]">Test cases will appear here based on the selected run.</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+        <button id="btn-cancel-suite" class="text-xs font-semibold px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+        <button id="btn-submit-suite" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Save Suite
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pre-Execution Confirmation Modal -->
+  <div id="exec-confirm-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2 text-slate-900">
+          <i class="fa-solid fa-clipboard-check text-blue-600 text-base"></i>
+          <h3 class="text-sm font-bold">Confirm Test Execution</h3>
+        </div>
+        <button id="btn-close-exec-confirm" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-900 space-y-1.5">
+          <p id="exec-confirm-summary" class="font-semibold">Execute 0 test cases (0 steps)?</p>
+          <p class="text-[11px] text-blue-700">Target: <span id="exec-confirm-target" class="font-mono font-bold">--</span></p>
+        </div>
+        <p class="text-slate-600 text-[11px]">
+          PiOne Testmate will strictly execute only the selected tests. Safe actions (navigation, clicks, reads) are executed; high-risk actions remain parked.
+        </p>
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input id="exec-confirm-checkbox" type="checkbox" class="h-4 w-4 accent-emerald-600 rounded mt-0.5" />
+            <span class="font-bold text-slate-800 text-xs">I explicitly confirm execution of the selected tests</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-cancel-exec-confirm" class="text-xs font-semibold px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+        <button id="btn-submit-exec-confirm" disabled class="bg-emerald-600 opacity-50 cursor-not-allowed hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Confirm &amp; Execute
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Baseline Modal -->
+  <div id="baseline-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-bookmark text-indigo-600"></i>
+          <h3 class="text-sm font-bold text-slate-900">Save Plan as Baseline</h3>
+        </div>
+        <button id="btn-close-baseline-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <p class="text-xs text-slate-500">Save the current scan and approved test cases as a reference baseline for future regression comparison.</p>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Baseline Name</label>
+          <input id="baseline-name-input" type="text" value="Baseline Plan" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+        </div>
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Baseline Version</label>
+          <input id="baseline-version-input" type="text" value="1.0" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+        </div>
+        <div class="p-2.5 bg-amber-50 border border-amber-200 rounded">
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input id="baseline-overwrite-checkbox" type="checkbox" class="h-3.5 w-3.5 accent-amber-600 rounded mt-0.5" />
+            <span class="text-[11px] font-semibold text-amber-900">Confirm replacing/overwriting any existing baseline for this run</span>
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-cancel-baseline" class="text-xs font-semibold px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
+        <button id="btn-submit-baseline" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Save Baseline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare Baseline Modal -->
+  <div id="baseline-compare-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-code-compare text-purple-600"></i>
+          <h3 class="text-sm font-bold text-slate-900">Compare Current Scan Against Baseline</h3>
+        </div>
+        <button id="btn-close-compare-modal" class="text-slate-400 hover:text-slate-700 text-lg">&times;</button>
+      </div>
+      <div class="space-y-3 overflow-y-auto pr-1 flex-grow text-xs">
+        <div class="flex items-center gap-3">
+          <div class="flex-grow">
+            <label class="block font-bold text-slate-700 mb-1">Select Reference Baseline</label>
+            <select id="compare-baseline-select" class="w-full px-3 py-2 border border-slate-300 rounded text-xs bg-white">
+              <option value="">Select a baseline...</option>
+            </select>
+          </div>
+          <button id="btn-run-compare" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm mt-5">
+            Compare
+          </button>
+        </div>
+
+        <div id="compare-diff-results" class="hidden space-y-3 pt-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <div class="p-2 bg-emerald-50 rounded border border-emerald-100">
+              <span class="text-[10px] text-emerald-600 font-bold uppercase">Newly Passing</span>
+              <p id="cmp-newly-passing" class="text-base font-bold text-emerald-700">0</p>
+            </div>
+            <div class="p-2 bg-rose-50 rounded border border-rose-100">
+              <span class="text-[10px] text-rose-600 font-bold uppercase">Newly Failing</span>
+              <p id="cmp-newly-failing" class="text-base font-bold text-rose-700">0</p>
+            </div>
+            <div class="p-2 bg-amber-50 rounded border border-amber-100">
+              <span class="text-[10px] text-amber-600 font-bold uppercase">Removed Routes</span>
+              <p id="cmp-removed-routes" class="text-base font-bold text-amber-700">0</p>
+            </div>
+            <div class="p-2 bg-slate-50 rounded border border-slate-100">
+              <span class="text-[10px] text-slate-600 font-bold uppercase">Unchanged</span>
+              <p id="cmp-unchanged" class="text-base font-bold text-slate-700">0</p>
+            </div>
+          </div>
+          <div id="cmp-details-list" class="space-y-1.5 max-h-48 overflow-y-auto"></div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2 border-t border-slate-100">
+        <button id="btn-done-compare" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
   <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
     PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise
   </footer>
@@ -833,12 +1270,22 @@
       scanStartTime: null,
       durationTimer: null,
       telemetrySocket: null,
-      isPaused: false
+      isPaused: false,
+      activeView: "workflow",
+      selectedExecutionTestIds: [],
+      currentExecutionFilter: "all",
+      currentTagFilter: "",
+      currentModuleFilter: "",
+      allSavedRuns: [],
+      allRegressionSuites: [],
+      editingSuiteId: null
     };
 
     document.addEventListener("DOMContentLoaded", async () => {
       renderStepper();
       bindAllEvents();
+      checkDBStatus();
+      setInterval(checkDBStatus, 30000);
 
       // Safe state restoration on page refresh
       try {
@@ -941,6 +1388,7 @@
             test_cases: runCtx.generated_test_plan,
             planning_notes: "Restored from persistent run context."
           };
+          renderExecutionSelectionTable(runCtx.generated_test_plan);
           unlockStep(7);
         }
         if (runCtx.execution_results) {
@@ -983,6 +1431,27 @@
     }
 
     function bindAllEvents() {
+      // Views Switcher
+      document.getElementById("btn-nav-workflow").onclick = () => switchView("workflow");
+      document.getElementById("btn-nav-saved-runs").onclick = () => switchView("saved-runs");
+      document.getElementById("btn-nav-suites").onclick = () => switchView("suites");
+      document.getElementById("btn-nav-artifacts").onclick = () => switchView("artifacts");
+
+      // Saved Runs View
+      document.getElementById("btn-refresh-saved-runs").onclick = loadSavedRuns;
+      document.getElementById("saved-runs-search").oninput = filterSavedRuns;
+      document.getElementById("saved-runs-status-filter").onchange = filterSavedRuns;
+
+      // Regression Suites View
+      document.getElementById("btn-refresh-suites").onclick = loadRegressionSuites;
+      document.getElementById("btn-create-suite-modal").onclick = () => openCreateSuiteModal();
+      document.getElementById("btn-close-suite-modal").onclick = closeSuiteModal;
+      document.getElementById("btn-cancel-suite").onclick = closeSuiteModal;
+      document.getElementById("btn-submit-suite").onclick = handleSubmitSuite;
+
+      // Artifacts View
+      document.getElementById("btn-refresh-artifacts-view").onclick = loadArtifactsList;
+
       // Step 1
       document.getElementById("btn-mode-live").onclick = () => setMode(true);
       document.getElementById("btn-mode-demo").onclick = () => setMode(false);
@@ -999,9 +1468,11 @@
       document.getElementById("btn-start-crawl").onclick = handleStartScan;
 
       // Step 4 (Crawl controls)
+      document.getElementById("btn-scan-save-progress").onclick = handleSaveProgress;
       document.getElementById("btn-scan-pause").onclick = () => sendScanControl("pause");
       document.getElementById("btn-scan-resume").onclick = () => sendScanControl("resume");
       document.getElementById("btn-scan-end-save").onclick = () => sendScanControl("end");
+      document.getElementById("btn-scan-discard").onclick = handleDiscardRun;
       document.getElementById("btn-clear-telemetry-log").onclick = () => {
         document.getElementById("scan-event-log").innerHTML = "";
       };
@@ -1033,11 +1504,21 @@
       document.getElementById("btn-plan-back").onclick = () => switchStep(5);
       document.getElementById("btn-plan-proceed").onclick = () => {
         unlockStep(7);
+        renderExecutionSelectionTable();
         switchStep(7);
       };
 
-      // Step 7 (Execute)
-      document.getElementById("btn-run-execution").onclick = handleRunExecution;
+      // Step 7 (Execute & Selectable Tests)
+      document.getElementById("btn-filter-all").onclick = () => setExecutionFilter("all");
+      document.getElementById("btn-filter-failed").onclick = () => setExecutionFilter("failed");
+      document.getElementById("btn-filter-changed").onclick = () => setExecutionFilter("changed");
+      document.getElementById("btn-filter-never").onclick = () => setExecutionFilter("never");
+      document.getElementById("btn-filter-review").onclick = () => setExecutionFilter("review");
+      document.getElementById("select-filter-tag").onchange = (e) => { state.currentTagFilter = e.target.value; renderExecutionSelectionTable(); };
+      document.getElementById("select-filter-module").onchange = (e) => { state.currentModuleFilter = e.target.value; renderExecutionSelectionTable(); };
+      document.getElementById("btn-exec-select-all").onclick = () => selectAllExecutionTests(true);
+      document.getElementById("btn-exec-clear-all").onclick = () => selectAllExecutionTests(false);
+      document.getElementById("btn-run-execution").onclick = openExecConfirmModal;
       document.getElementById("btn-exec-back").onclick = () => switchStep(6);
       document.getElementById("btn-exec-proceed").onclick = () => {
         unlockStep(8);
@@ -1045,7 +1526,29 @@
         switchStep(8);
       };
 
-      // Step 8 (Report Downloads & Regression)
+      // Pre-Execution Confirm Modal
+      document.getElementById("btn-close-exec-confirm").onclick = closeExecConfirmModal;
+      document.getElementById("btn-cancel-exec-confirm").onclick = closeExecConfirmModal;
+      document.getElementById("exec-confirm-checkbox").onchange = (e) => {
+        const btn = document.getElementById("btn-submit-exec-confirm");
+        btn.disabled = !e.target.checked;
+        btn.className = e.target.checked ?
+          "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm" :
+          "bg-emerald-600 opacity-50 cursor-not-allowed hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm";
+      };
+      document.getElementById("btn-submit-exec-confirm").onclick = handleConfirmAndExecute;
+
+      // Step 8 (Report Downloads, Baselines & Regression)
+      document.getElementById("btn-open-save-baseline").onclick = openBaselineModal;
+      document.getElementById("btn-close-baseline-modal").onclick = closeBaselineModal;
+      document.getElementById("btn-cancel-baseline").onclick = closeBaselineModal;
+      document.getElementById("btn-submit-baseline").onclick = handleSubmitBaseline;
+
+      document.getElementById("btn-open-compare-baseline").onclick = openCompareBaselineModal;
+      document.getElementById("btn-close-compare-modal").onclick = closeCompareBaselineModal;
+      document.getElementById("btn-done-compare").onclick = closeCompareBaselineModal;
+      document.getElementById("btn-run-compare").onclick = handleRunCompareBaseline;
+
       document.getElementById("btn-run-regression").onclick = handleRunRegression;
       document.getElementById("btn-dl-json").onclick = () => downloadArtifact("json");
       document.getElementById("btn-dl-yaml").onclick = () => downloadArtifact("yaml");
@@ -1626,6 +2129,8 @@
         `;
         body.appendChild(tr);
       });
+
+      renderExecutionSelectionTable(testCases);
     }
 
     async function handleRunExecution() {
@@ -2062,6 +2567,735 @@
       document.getElementById("session-expired-banner").classList.add("hidden");
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       switchStep(1);
+    }
+
+    // =========================================================================
+    // View Switching & DB Connectivity Functions
+    // =========================================================================
+
+    function switchView(viewName) {
+      state.activeView = viewName;
+      const views = ["workflow", "saved-runs", "suites", "artifacts"];
+      views.forEach(v => {
+        const btn = document.getElementById(`btn-nav-${v}`);
+        const sec = v === "workflow" ? document.getElementById("view-workflow") :
+                    v === "saved-runs" ? document.getElementById("view-saved-runs") :
+                    v === "suites" ? document.getElementById("view-regression-suites") :
+                    document.getElementById("view-artifacts");
+        if (btn) {
+          if (v === viewName) {
+            btn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-blue-600 text-white shadow-sm flex items-center gap-1.5 transition";
+          } else {
+            btn.className = "px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition";
+          }
+        }
+        if (sec) {
+          sec.classList.toggle("hidden", v !== viewName);
+        }
+      });
+
+      const stepper = document.getElementById("stepper");
+      if (stepper) {
+        stepper.classList.toggle("hidden", viewName !== "workflow");
+      }
+
+      if (viewName === "saved-runs") loadSavedRuns();
+      if (viewName === "suites") loadRegressionSuites();
+      if (viewName === "artifacts") loadArtifactsList();
+    }
+
+    async function checkDBStatus() {
+      try {
+        const res = await fetch(`${API_BASE}/system/db-status`);
+        if (!res.ok) throw new Error("DB check failed");
+        const data = await res.json();
+        const dot = document.getElementById("nav-db-dot");
+        const txt = document.getElementById("nav-db-text");
+        if (dot && txt) {
+          if (data.status === "connected") {
+            dot.className = "w-1.5 h-1.5 rounded-full bg-emerald-400";
+            txt.textContent = `DB: ${data.engine || "Connected"}`;
+          } else if (data.fallback_active) {
+            dot.className = "w-1.5 h-1.5 rounded-full bg-amber-400";
+            txt.textContent = `DB: ${data.engine || "Fallback"}`;
+          } else {
+            dot.className = "w-1.5 h-1.5 rounded-full bg-rose-400";
+            txt.textContent = "DB: Offline";
+          }
+        }
+      } catch (_) {
+        const dot = document.getElementById("nav-db-dot");
+        const txt = document.getElementById("nav-db-text");
+        if (dot) dot.className = "w-1.5 h-1.5 rounded-full bg-rose-400";
+        if (txt) txt.textContent = "DB: Offline";
+      }
+    }
+
+    async function handleSaveProgress() {
+      if (!state.runId) {
+        alert("No active scan run to save.");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/runs/${encodeURIComponent(state.runId)}/save-progress`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: state.runId })
+        });
+        const data = await res.json();
+        const ts = document.getElementById("autosave-timestamp");
+        if (ts) ts.textContent = `Last checkpoint: ${new Date().toLocaleTimeString()}`;
+        alert(`Progress for run ${state.runId.substring(0, 8)} explicitly saved.`);
+      } catch (err) {
+        showActionableError("Save Progress", state.runId, "SAVE_FAILED", err.message, "Retry save progress.");
+      }
+    }
+
+    async function handleDiscardRun() {
+      if (!state.runId) return;
+      if (!confirm(`Are you sure you want to discard run ${state.runId.substring(0, 8)}? Scanning will stop and the run will be discarded.`)) {
+        return;
+      }
+      try {
+        await fetch(`${API_BASE}/runs/${encodeURIComponent(state.runId)}/discard`, { method: "POST" });
+      } catch (_) {}
+      resetRun();
+    }
+
+    // =========================================================================
+    // Saved Runs Management Functions
+    // =========================================================================
+
+    async function loadSavedRuns() {
+      const body = document.getElementById("saved-runs-table-body");
+      body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading saved runs...</td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/runs`);
+        if (!res.ok) throw new Error("Failed to load runs");
+        const runs = await res.json();
+        state.allSavedRuns = runs || [];
+        filterSavedRuns();
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-rose-500 py-6">Failed to load saved runs: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function filterSavedRuns() {
+      const q = (document.getElementById("saved-runs-search")?.value || "").toLowerCase().trim();
+      const status = document.getElementById("saved-runs-status-filter")?.value || "";
+      let filtered = state.allSavedRuns || [];
+      if (q) {
+        filtered = filtered.filter(r => (r.application_url || "").toLowerCase().includes(q) || (r.run_id || "").toLowerCase().includes(q));
+      }
+      if (status) {
+        filtered = filtered.filter(r => (r.status || "").toLowerCase() === status.toLowerCase());
+      }
+      const badge = document.getElementById("saved-runs-count-badge");
+      if (badge) badge.textContent = `${filtered.length} runs found`;
+      renderSavedRunsTable(filtered);
+    }
+
+    function renderSavedRunsTable(runs) {
+      const body = document.getElementById("saved-runs-table-body");
+      body.innerHTML = "";
+      if (!runs || !runs.length) {
+        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400 py-6">No saved runs found. Start a scan in "Current Run".</td></tr>`;
+        return;
+      }
+
+      runs.forEach(r => {
+        const tr = document.createElement("tr");
+        const isPaused = r.status === "paused";
+        const canResume = isPaused || r.status === "scanning" || r.status === "waiting_approval";
+        const pct = Math.round(r.progress_percentage || 0);
+
+        const statusBadge =
+          r.status === "executed" ? "bg-emerald-100 text-emerald-800" :
+          r.status === "completed" ? "bg-blue-100 text-blue-800" :
+          r.status === "paused" ? "bg-amber-100 text-amber-800" :
+          r.status === "discarded" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-700";
+
+        const execSum = r.execution_summary || {};
+        const execText = execSum.total ? `${execSum.passed || 0}P / ${execSum.failed || 0}F` : "--";
+
+        tr.innerHTML = `
+          <td class="table-cell font-mono font-bold text-blue-700">
+            <span title="${escapeHtml(r.run_id)}">${escapeHtml(r.run_id.substring(0, 10))}...</span>
+          </td>
+          <td class="table-cell font-semibold text-slate-800 max-w-xs truncate" title="${escapeHtml(r.application_url || "")}">
+            ${escapeHtml(r.application_url || "--")}
+          </td>
+          <td class="table-cell text-center">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${statusBadge}">${escapeHtml(r.status || "initialized")}</span>
+          </td>
+          <td class="table-cell text-center">
+            <div class="flex items-center gap-1.5 justify-center">
+              <div class="w-16 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${pct}%"></div>
+              </div>
+              <span class="font-mono text-[10px] text-slate-600">${pct}%</span>
+            </div>
+          </td>
+          <td class="table-cell text-center font-mono">${(r.selected_modules || []).length} mod</td>
+          <td class="table-cell text-center font-mono">${r.route_count || 0} routes</td>
+          <td class="table-cell text-center text-slate-500 font-mono text-[10px]">
+            ${r.updated_at ? new Date(r.updated_at).toLocaleTimeString() : "--"}
+          </td>
+          <td class="table-cell text-center font-mono">${execText}</td>
+          <td class="table-cell text-center">
+            <div class="flex items-center justify-center gap-1 flex-wrap">
+              ${canResume ? `
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-semibold" onclick="handleResumeSavedRun('${escapeHtml(r.run_id)}')">
+                  <i class="fa-solid fa-play mr-0.5"></i> Resume
+                </button>
+              ` : ""}
+              <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded text-[10px] font-semibold" onclick="openSavedRun('${escapeHtml(r.run_id)}', 5)">
+                Open
+              </button>
+              <button class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded text-[10px] font-semibold" onclick="openSavedRun('${escapeHtml(r.run_id)}', 7)">
+                Execute
+              </button>
+              <button class="text-slate-400 hover:text-slate-700 p-1" title="Duplicate" onclick="handleDuplicateRun('${escapeHtml(r.run_id)}')">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+              <button class="text-slate-400 hover:text-amber-600 p-1" title="Archive" onclick="handleArchiveRun('${escapeHtml(r.run_id)}')">
+                <i class="fa-solid fa-box-archive"></i>
+              </button>
+              <button class="text-slate-400 hover:text-rose-600 p-1" title="Delete" onclick="handleDeleteRun('${escapeHtml(r.run_id)}')">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function openSavedRun(runId, step) {
+      switchView("workflow");
+      await restoreActiveRunState(runId, step);
+    }
+
+    async function handleResumeSavedRun(runId) {
+      try {
+        const res = await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}/resume`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ run_id: runId })
+        });
+        const data = await res.json();
+        if (data.status === "auth_required") {
+          state.runId = runId;
+          openRefreshModal();
+          return;
+        }
+        switchView("workflow");
+        await restoreActiveRunState(runId, 4);
+      } catch (err) {
+        showActionableError("Resume Run", runId, "RESUME_FAILED", err.message, "Inspect run state and checkpoint.");
+      }
+    }
+
+    async function handleDuplicateRun(runId) {
+      try {
+        const res = await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}/duplicate`, { method: "POST" });
+        const data = await res.json();
+        alert(`Run duplicated: new run ID ${data.new_run_id?.substring(0, 8)}`);
+        loadSavedRuns();
+      } catch (err) {
+        showActionableError("Duplicate Run", runId, "DUPLICATE_FAILED", err.message, "Retry duplication.");
+      }
+    }
+
+    async function handleArchiveRun(runId) {
+      try {
+        await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}/archive`, { method: "POST" });
+        loadSavedRuns();
+      } catch (err) {
+        showActionableError("Archive Run", runId, "ARCHIVE_FAILED", err.message, "Retry archiving.");
+      }
+    }
+
+    async function handleDeleteRun(runId) {
+      if (!confirm(`Delete run ${runId.substring(0, 8)}? This cannot be undone.`)) return;
+      try {
+        await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+        loadSavedRuns();
+      } catch (err) {
+        showActionableError("Delete Run", runId, "DELETE_FAILED", err.message, "Retry deletion.");
+      }
+    }
+
+    // =========================================================================
+    // Regression Suites Functions
+    // =========================================================================
+
+    async function loadRegressionSuites() {
+      const body = document.getElementById("regression-suites-table-body");
+      body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading suites...</td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/regression/suites`);
+        if (!res.ok) throw new Error("Failed to load suites");
+        const suites = await res.json();
+        state.allRegressionSuites = suites || [];
+        renderRegressionSuitesTable(state.allRegressionSuites);
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-rose-500 py-6">Failed to load suites: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    function renderRegressionSuitesTable(suites) {
+      const body = document.getElementById("regression-suites-table-body");
+      body.innerHTML = "";
+      if (!suites || !suites.length) {
+        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-400 py-6">No regression suites found. Click "Create Suite".</td></tr>`;
+        return;
+      }
+
+      suites.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="table-cell font-bold text-slate-800">
+            ${escapeHtml(s.name)}
+            ${s.description ? `<p class="text-[11px] text-slate-400 font-normal truncate max-w-xs">${escapeHtml(s.description)}</p>` : ""}
+          </td>
+          <td class="table-cell font-mono text-[11px] text-slate-600 max-w-xs truncate">${escapeHtml(s.base_url)}</td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${escapeHtml(s.environment)}</span></td>
+          <td class="table-cell text-center font-mono">${s.enabled_cases || 0} / ${s.total_cases || 0}</td>
+          <td class="table-cell text-center">
+            <div class="flex items-center justify-center gap-1 flex-wrap">
+              ${(s.filter_tags || []).map(t => `<span class="bg-blue-50 text-blue-700 text-[10px] font-semibold px-1.5 py-0.5 rounded">${escapeHtml(t)}</span>`).join("") || "--"}
+            </div>
+          </td>
+          <td class="table-cell text-center font-mono text-[10px] text-slate-500">${s.baseline_run_id ? s.baseline_run_id.substring(0, 8) : "--"}</td>
+          <td class="table-cell text-center">
+            <div class="flex items-center justify-center gap-1">
+              <button class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-semibold" onclick="handleExecuteSuite('${escapeHtml(s.suite_id)}')">
+                Execute
+              </button>
+              <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded text-[10px] font-semibold" onclick="openCreateSuiteModal('${escapeHtml(s.suite_id)}')">
+                Edit
+              </button>
+              <button class="text-slate-400 hover:text-slate-700 p-1" title="Duplicate" onclick="handleDuplicateSuite('${escapeHtml(s.suite_id)}')">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+              <button class="text-slate-400 hover:text-rose-600 p-1" title="Delete" onclick="handleDeleteSuite('${escapeHtml(s.suite_id)}')">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+
+    async function openCreateSuiteModal(suiteId) {
+      state.editingSuiteId = suiteId || null;
+      const title = document.getElementById("suite-modal-title");
+      title.textContent = suiteId ? "Edit Regression Suite" : "Create Regression Suite";
+
+      const baseSel = document.getElementById("suite-baseline-select");
+      baseSel.innerHTML = `<option value="">None</option>`;
+      (state.allSavedRuns || []).forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r.run_id;
+        opt.textContent = `${r.run_id.substring(0, 8)} (${r.application_url})`;
+        baseSel.appendChild(opt);
+      });
+
+      if (suiteId) {
+        try {
+          const res = await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}`);
+          const s = await res.json();
+          document.getElementById("suite-name-input").value = s.name || "";
+          document.getElementById("suite-url-input").value = s.base_url || "";
+          document.getElementById("suite-env-select").value = s.environment || "production";
+          document.getElementById("suite-desc-input").value = s.description || "";
+          baseSel.value = s.baseline_run_id || "";
+        } catch (_) {}
+      } else {
+        document.getElementById("suite-name-input").value = "";
+        document.getElementById("suite-url-input").value = state.targetUrl || "";
+        document.getElementById("suite-desc-input").value = "";
+        baseSel.value = state.runId || "";
+      }
+
+      document.getElementById("suite-modal").classList.remove("hidden");
+    }
+
+    function closeSuiteModal() {
+      document.getElementById("suite-modal").classList.add("hidden");
+    }
+
+    async function handleSubmitSuite() {
+      const name = document.getElementById("suite-name-input").value.trim();
+      const base_url = document.getElementById("suite-url-input").value.trim();
+      const environment = document.getElementById("suite-env-select").value;
+      const description = document.getElementById("suite-desc-input").value.trim();
+      const baseline_run_id = document.getElementById("suite-baseline-select").value || null;
+
+      if (!name || !base_url) {
+        alert("Suite name and target base URL are required.");
+        return;
+      }
+
+      const tags = Array.from(document.querySelectorAll(".suite-tag-cb:checked")).map(cb => cb.value);
+
+      try {
+        if (state.editingSuiteId) {
+          await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(state.editingSuiteId)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, description, environment, filter_tags: tags })
+          });
+        } else {
+          await fetch(`${API_BASE}/regression/suites`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, base_url, environment, description, baseline_run_id, filter_tags: tags })
+          });
+        }
+        closeSuiteModal();
+        loadRegressionSuites();
+      } catch (err) {
+        alert(`Failed to save suite: ${err.message}`);
+      }
+    }
+
+    async function handleExecuteSuite(suiteId) {
+      try {
+        const res = await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}`);
+        const suite = await res.json();
+        state.targetUrl = suite.base_url;
+        state.runId = suite.baseline_run_id || state.runId;
+        switchView("workflow");
+        await restoreActiveRunState(state.runId, 7);
+        openExecConfirmModal();
+      } catch (err) {
+        alert(`Failed to prepare suite execution: ${err.message}`);
+      }
+    }
+
+    async function handleDuplicateSuite(suiteId) {
+      try {
+        await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}/duplicate`, { method: "POST" });
+        loadRegressionSuites();
+      } catch (err) {
+        alert(`Duplicate failed: ${err.message}`);
+      }
+    }
+
+    async function handleDeleteSuite(suiteId) {
+      if (!confirm("Are you sure you want to delete this regression suite?")) return;
+      try {
+        await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}`, { method: "DELETE" });
+        loadRegressionSuites();
+      } catch (err) {
+        alert(`Delete failed: ${err.message}`);
+      }
+    }
+
+    // =========================================================================
+    // Selectable Execution Scope & Confirmation Functions
+    // =========================================================================
+
+    function renderExecutionSelectionTable(customCases) {
+      const cases = customCases || state.generatedPlan?.test_cases || [];
+      const body = document.getElementById("exec-selection-table-body");
+      const moduleSelect = document.getElementById("select-filter-module");
+      if (!body) return;
+      body.innerHTML = "";
+
+      if (!cases.length) {
+        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases generated yet. Click "Generate Test Plan" in Step 6.</td></tr>`;
+        updateSelectedTestsCounter();
+        return;
+      }
+
+      const modules = Array.from(new Set(cases.map(c => c.module || "General")));
+      if (moduleSelect) {
+        moduleSelect.innerHTML = `<option value="">All Modules</option>` + modules.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+        if (state.currentModuleFilter) moduleSelect.value = state.currentModuleFilter;
+      }
+
+      let filtered = cases.filter(c => {
+        if (state.currentModuleFilter && (c.module || "General") !== state.currentModuleFilter) return false;
+        if (state.currentTagFilter && !(c.tags || []).includes(state.currentTagFilter)) return false;
+        if (state.currentExecutionFilter === "failed" && c.latest_result !== "Fail") return false;
+        if (state.currentExecutionFilter === "never" && c.latest_result) return false;
+        if (state.currentExecutionFilter === "review" && c.safety_classification !== "parking_lot") return false;
+        return true;
+      });
+
+      if (!filtered.length) {
+        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases match filter "${escapeHtml(state.currentExecutionFilter)}".</td></tr>`;
+        updateSelectedTestsCounter();
+        return;
+      }
+
+      filtered.forEach(tc => {
+        const tr = document.createElement("tr");
+        const isChecked = state.selectedExecutionTestIds.length === 0 || state.selectedExecutionTestIds.includes(tc.tc_id);
+        const resBadge = tc.latest_result === "Pass" ? "bg-emerald-100 text-emerald-800" :
+                         tc.latest_result === "Fail" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-500";
+        tr.innerHTML = `
+          <td class="table-cell text-center">
+            <input type="checkbox" value="${escapeHtml(tc.tc_id)}" ${isChecked ? "checked" : ""} class="exec-case-cb h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedTestsCounter()" />
+          </td>
+          <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(tc.tc_id)}</td>
+          <td class="table-cell font-semibold text-slate-800">${escapeHtml(tc.title)}</td>
+          <td class="table-cell text-slate-600">${escapeHtml(tc.module || "General")}</td>
+          <td class="table-cell font-mono text-[10px] text-slate-500">${escapeHtml(tc.route || "/")}</td>
+          <td class="table-cell text-center">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${escapeHtml((tc.tags || ["regression"]).join(", "))}</span>
+          </td>
+          <td class="table-cell text-center font-mono">${(tc.steps || []).length}</td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${resBadge}">${escapeHtml(tc.latest_result || "Never")}</span></td>
+        `;
+        body.appendChild(tr);
+      });
+
+      updateSelectedTestsCounter();
+    }
+
+    function setExecutionFilter(type) {
+      state.currentExecutionFilter = type;
+      document.querySelectorAll(".exec-filter-btn").forEach(btn => {
+        btn.className = "exec-filter-btn px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold";
+      });
+      const active = document.getElementById(`btn-filter-${type}`);
+      if (active) active.className = "exec-filter-btn px-2.5 py-1 rounded bg-blue-600 text-white font-semibold";
+      renderExecutionSelectionTable();
+    }
+
+    function selectAllExecutionTests(checked) {
+      document.querySelectorAll(".exec-case-cb").forEach(cb => cb.checked = checked);
+      updateSelectedTestsCounter();
+    }
+
+    function updateSelectedTestsCounter() {
+      const checked = Array.from(document.querySelectorAll(".exec-case-cb:checked")).map(cb => cb.value);
+      state.selectedExecutionTestIds = checked;
+
+      const cases = state.generatedPlan?.test_cases || [];
+      let stepCount = 0;
+      cases.forEach(c => {
+        if (checked.includes(c.tc_id)) {
+          stepCount += (c.steps || []).length;
+        }
+      });
+
+      const badgeText = document.getElementById("exec-selection-text");
+      if (badgeText) {
+        badgeText.textContent = `Execute ${checked.length} tests / ${stepCount} steps?`;
+      }
+    }
+
+    function openExecConfirmModal() {
+      const checked = state.selectedExecutionTestIds;
+      if (!checked || !checked.length) {
+        alert("Please select at least one test case to execute.");
+        return;
+      }
+      const cases = state.generatedPlan?.test_cases || [];
+      let stepCount = 0;
+      cases.forEach(c => {
+        if (checked.includes(c.tc_id)) {
+          stepCount += (c.steps || []).length;
+        }
+      });
+
+      document.getElementById("exec-confirm-summary").textContent = `Execute ${checked.length} test cases (${stepCount} total steps)?`;
+      document.getElementById("exec-confirm-target").textContent = state.targetUrl;
+      document.getElementById("exec-confirm-checkbox").checked = false;
+      const btn = document.getElementById("btn-submit-exec-confirm");
+      btn.disabled = true;
+      btn.className = "bg-emerald-600 opacity-50 cursor-not-allowed hover:bg-emerald-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm";
+      document.getElementById("exec-confirm-modal").classList.remove("hidden");
+    }
+
+    function closeExecConfirmModal() {
+      document.getElementById("exec-confirm-modal").classList.add("hidden");
+    }
+
+    async function handleConfirmAndExecute() {
+      closeExecConfirmModal();
+      const btn = document.getElementById("btn-run-execution");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Selected (${state.selectedExecutionTestIds.length})...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/regression/execute-selected`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            run_id: state.runId,
+            base_url: state.targetUrl,
+            selected_test_case_ids: state.selectedExecutionTestIds,
+            confirmed: true,
+            auth_session_id: state.authSessionId,
+            allow_mutating_actions: false
+          })
+        });
+
+        if (res.status === 401) {
+          triggerSessionExpired();
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Selective execution failed");
+
+        state.executionResults = data;
+        renderExecutionResults(data.rows || []);
+        unlockStep(8);
+      } catch (err) {
+        showActionableError("Selective Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect target connectivity.");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-play"></i> Execute Selected Tests`;
+      }
+    }
+
+    // =========================================================================
+    // Baselines & Artifact Repository Functions
+    // =========================================================================
+
+    function openBaselineModal() {
+      document.getElementById("baseline-name-input").value = "Baseline Plan";
+      document.getElementById("baseline-version-input").value = "1.0";
+      document.getElementById("baseline-overwrite-checkbox").checked = false;
+      document.getElementById("baseline-modal").classList.remove("hidden");
+    }
+
+    function closeBaselineModal() {
+      document.getElementById("baseline-modal").classList.add("hidden");
+    }
+
+    async function handleSubmitBaseline() {
+      const name = document.getElementById("baseline-name-input").value.trim();
+      const version = document.getElementById("baseline-version-input").value.trim();
+      const overwrite = document.getElementById("baseline-overwrite-checkbox").checked;
+
+      try {
+        const res = await fetch(`${API_BASE}/baselines/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            run_id: state.runId,
+            name,
+            version,
+            confirmed_overwrite: overwrite
+          })
+        });
+        const data = await res.json();
+        if (res.status === 409) {
+          alert("A baseline already exists for this run. Check 'Confirm replacing/overwriting' to overwrite.");
+          return;
+        }
+        if (!res.ok) throw new Error(data.detail || "Save baseline failed");
+        alert(`Baseline '${name}' v${version} saved successfully.`);
+        closeBaselineModal();
+      } catch (err) {
+        alert(`Save baseline error: ${err.message}`);
+      }
+    }
+
+    async function openCompareBaselineModal() {
+      const sel = document.getElementById("compare-baseline-select");
+      sel.innerHTML = `<option value="">Loading baselines...</option>`;
+      try {
+        const res = await fetch(`${API_BASE}/baselines`);
+        const baselines = await res.json();
+        sel.innerHTML = `<option value="">Select a baseline...</option>` +
+          (baselines || []).map(b => `<option value="${escapeHtml(b.run_id)}">${escapeHtml(b.name)} (Run: ${b.run_id.substring(0, 8)})</option>`).join("");
+      } catch (_) {
+        sel.innerHTML = `<option value="">None available</option>`;
+      }
+      document.getElementById("compare-diff-results").classList.add("hidden");
+      document.getElementById("baseline-compare-modal").classList.remove("hidden");
+    }
+
+    function closeCompareBaselineModal() {
+      document.getElementById("baseline-compare-modal").classList.add("hidden");
+    }
+
+    async function handleRunCompareBaseline() {
+      const baseRunId = document.getElementById("compare-baseline-select").value;
+      if (!baseRunId) {
+        alert("Please select a reference baseline.");
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/baselines/compare`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_run_id: state.runId,
+            baseline_run_id: baseRunId
+          })
+        });
+        const diff = await res.json();
+        document.getElementById("cmp-newly-passing").textContent = (diff.newly_passing || []).length;
+        document.getElementById("cmp-newly-failing").textContent = (diff.newly_failing || []).length;
+        document.getElementById("cmp-removed-routes").textContent = (diff.removed_routes || []).length;
+        document.getElementById("cmp-unchanged").textContent = diff.unchanged_count || 0;
+
+        const details = document.getElementById("cmp-details-list");
+        details.innerHTML = "";
+        (diff.newly_failing || []).forEach(tc => {
+          details.innerHTML += `<p class="text-rose-600 font-semibold"><i class="fa-solid fa-xmark mr-1"></i> Newly failing test: ${escapeHtml(tc)}</p>`;
+        });
+        (diff.newly_passing || []).forEach(tc => {
+          details.innerHTML += `<p class="text-emerald-600 font-semibold"><i class="fa-solid fa-check mr-1"></i> Newly passing test: ${escapeHtml(tc)}</p>`;
+        });
+        (diff.removed_routes || []).forEach(rt => {
+          details.innerHTML += `<p class="text-amber-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Removed route: ${escapeHtml(rt)}</p>`;
+        });
+        (diff.changed_locators || []).forEach(loc => {
+          details.innerHTML += `<p class="text-slate-600 font-mono text-[11px]"><i class="fa-solid fa-code mr-1"></i> Locator changed for ${escapeHtml(loc.tc_id)}</p>`;
+        });
+
+        document.getElementById("compare-diff-results").classList.remove("hidden");
+      } catch (err) {
+        alert(`Compare failed: ${err.message}`);
+      }
+    }
+
+    async function loadArtifactsList() {
+      const body = document.getElementById("artifacts-table-body");
+      body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading artifacts...</td></tr>`;
+      try {
+        const res = await fetch(`${API_BASE}/runs`);
+        const runs = await res.json();
+        body.innerHTML = "";
+        if (!runs || !runs.length) {
+          body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">No runs available yet.</td></tr>`;
+          return;
+        }
+        runs.forEach(r => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(r.run_id.substring(0, 10))}...</td>
+            <td class="table-cell font-semibold text-slate-800">${escapeHtml(r.application_url || "--")}</td>
+            <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${escapeHtml(r.status || "completed")}</span></td>
+            <td class="table-cell text-center">
+              <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/json" class="bg-white hover:bg-slate-50 border border-slate-300 text-blue-700 px-2 py-1 rounded text-[10px] font-semibold">JSON</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/yaml" class="bg-white hover:bg-slate-50 border border-slate-300 text-purple-700 px-2 py-1 rounded text-[10px] font-semibold">YAML</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/excel" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-semibold">Excel</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/markdown" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 px-2 py-1 rounded text-[10px] font-semibold">MD</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/execution_results" class="bg-white hover:bg-slate-50 border border-slate-300 text-indigo-700 px-2 py-1 rounded text-[10px] font-semibold">Exec</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/checkpoint" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1 rounded text-[10px] font-semibold">Checkpoint</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/screenshots" class="bg-white hover:bg-slate-50 border border-slate-300 text-rose-700 px-2 py-1 rounded text-[10px] font-semibold">Screenshots</a>
+              </div>
+            </td>
+          `;
+          body.appendChild(tr);
+        });
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-rose-500 py-6">Failed to load artifacts: ${escapeHtml(err.message)}</td></tr>`;
+      }
     }
 
     function escapeHtml(str) {

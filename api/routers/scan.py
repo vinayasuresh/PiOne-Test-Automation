@@ -47,10 +47,20 @@ from api.models.scan_models import (
     ScanControlRequest,
     ScanControlResponse,
     ArtifactStatusResponse,
+    CompareBaselineRequest,
+    CreateRegressionSuiteRequest,
+    CreateRunRequest,
+    ExecuteSelectedRegressionRequest,
+    ResumeRunRequest,
+    SaveBaselineRequest,
+    SaveProgressRequest,
+    UpdateRegressionSuiteRequest,
     TestContextResponse,
     TestCase,
     TestStep,
 )
+from api.db.repository import DBRepository
+from api.db.session import check_db_status
 from api.services import crawler_service, mock_service
 from api.services.auth_lifecycle_service import (
     AuthenticationExpiredError,
@@ -60,7 +70,10 @@ from api.services.auth_lifecycle_service import (
 from api.services.llm_provider_gateway import LLMProviderGateway
 from api.services.llm_service import provider_catalog, request_plan, test_provider_connection
 from api.services.run_context_service import (
+    create_run_context,
+    delete_run_context,
     get_run_context,
+    list_saved_runs,
     save_run_context,
 )
 from api.services.scan_event_bus import get_channel, publish
@@ -713,6 +726,18 @@ async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
         set_user_decision(run_id, "end")
         stop_scan(run_id)
         msg = f"End-and-save signal sent to scan run '{run_id}'."
+    elif action == "save":
+        run_ctx = get_run_context(run_id)
+        if run_ctx:
+            save_run_context(run_ctx)
+        msg = f"Save progress signal processed for scan run '{run_id}'."
+    elif action == "discard":
+        stop_scan(run_id)
+        run_ctx = get_run_context(run_id)
+        if run_ctx:
+            run_ctx.status = "discarded"
+            save_run_context(run_ctx)
+        msg = f"Discard signal processed for scan run '{run_id}'."
     else:
         raise HTTPException(status_code=400, detail=f"Invalid scan control action: '{request.action}'")
     return ScanControlResponse(status="success", run_id=run_id, action=action, message=msg)
@@ -931,4 +956,478 @@ async def download_screenshot(run_id: str, filename: str):
         raise HTTPException(status_code=403, detail="Access denied: Screenshot does not belong to this run")
 
     return FileResponse(str(resolved), media_type="image/png", filename=filename)
+
+
+# ===========================================================================
+# Persistence, Resumable Runs, and Regression Suite Management Endpoints
+# ===========================================================================
+
+@router.get("/system/db-status", summary="Check database connectivity and configuration status")
+async def system_db_status() -> dict[str, Any]:
+    return check_db_status()
+
+
+@router.get("/runs", summary="List saved runs with progress and status")
+async def list_runs_endpoint(
+    base_url: str | None = None,
+    status: str | None = None,
+    is_archived: bool = False,
+    skip: int = 0,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    return list_saved_runs(base_url=base_url, is_archived=is_archived, skip=skip, limit=limit)
+
+
+@router.post("/runs", summary="Create a new scan run context")
+async def create_run_endpoint(request: CreateRunRequest) -> dict[str, Any]:
+    run_id = uuid4().hex
+    ctx = create_run_context(
+        target_origin=request.url,
+        allowed_path_namespace=request.allowed_scope or "/",
+        run_id=run_id,
+        username=request.username,
+        url=request.url,
+    )
+    if request.selected_module_ids:
+        ctx.selected_modules = request.selected_module_ids
+        save_run_context(ctx)
+    return {
+        "status": "created",
+        "run_id": ctx.run_id,
+        "base_url": ctx.target_origin,
+        "allowed_scope": ctx.allowed_path_namespace,
+    }
+
+
+@router.get("/runs/{run_id}", summary="Get run details including modules, routes, and checkpoints")
+async def get_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    run_data = DBRepository.get_run(run_id)
+    if run_data:
+        return run_data
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+    return {
+        "run_id": run_ctx.run_id,
+        "application_url": run_ctx.target_origin,
+        "allowed_scope": run_ctx.allowed_path_namespace,
+        "status": run_ctx.status,
+        "auth_status": run_ctx.auth_status,
+        "username": run_ctx.username,
+        "progress_percentage": 100.0 if run_ctx.status in {"completed", "executed"} else 50.0,
+        "selected_modules": run_ctx.selected_modules,
+        "discovered_modules": run_ctx.discovered_modules,
+        "routes": [{"path": n} for n in run_ctx.route_graph.get("nodes", [])],
+        "route_count": len(run_ctx.route_graph.get("nodes", [])),
+        "execution_summary": run_ctx.execution_summary or {},
+        "created_at": run_ctx.created_at,
+        "updated_at": run_ctx.updated_at,
+    }
+
+
+@router.post("/runs/{run_id}/resume", summary="Resume an interrupted or paused scan run")
+async def resume_run_endpoint(run_id: str, request: ResumeRunRequest) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    from automation_framework.storage.checkpoint_store import compute_namespace, load_checkpoint
+    chk = load_checkpoint(run_id)
+    if chk and chk.get("namespace"):
+        expected_ns = compute_namespace(run_ctx.target_origin)
+        if chk["namespace"] != expected_ns:
+            raise HTTPException(
+                status_code=400,
+                detail="Checkpoint namespace mismatch: cannot resume run across differing origins or environments"
+            )
+
+    if run_ctx.auth_session_id:
+        valid = check_auth_session_validity(run_ctx.auth_session_id)
+        if not valid and not (request.username and request.password):
+            return {
+                "status": "auth_required",
+                "run_id": run_id,
+                "message": "Authentication session expired. Explicit credentials or re-login required to resume."
+            }
+
+    resume_scan(run_id)
+    run_ctx.status = "scanning"
+    save_run_context(run_ctx)
+
+    return {
+        "status": "resumed",
+        "run_id": run_id,
+        "current_module": chk.get("current_module_id") if chk else None,
+        "current_route": chk.get("current_route") if chk else None,
+        "completed_routes": chk.get("completed_routes", []) if chk else [],
+        "message": f"Run '{run_id}' resumed successfully."
+    }
+
+
+@router.post("/runs/{run_id}/pause", summary="Pause an active scan run")
+async def pause_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    pause_scan(run_id)
+    run_ctx = get_run_context(run_id)
+    if run_ctx:
+        run_ctx.status = "paused"
+        save_run_context(run_ctx)
+    return {"status": "paused", "run_id": run_id, "message": f"Run '{run_id}' paused."}
+
+
+@router.post("/runs/{run_id}/save-progress", summary="Explicitly save current progress and checkpoint")
+async def save_progress_endpoint(run_id: str, request: SaveProgressRequest) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    from automation_framework.storage.checkpoint_store import save_checkpoint, load_checkpoint
+    curr_state = request.state or load_checkpoint(run_id) or {}
+    curr_state["run_id"] = run_id
+    curr_state["base_url"] = run_ctx.target_origin
+    curr_state["schema_version"] = "2.0"
+    save_checkpoint(run_id, curr_state)
+    save_run_context(run_ctx)
+    return {"status": "saved", "run_id": run_id, "message": f"Progress for run '{run_id}' saved successfully."}
+
+
+@router.post("/runs/{run_id}/end-and-save", summary="End scanning and save current state")
+async def end_and_save_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    set_user_decision(run_id, "end")
+    stop_scan(run_id)
+    run_ctx = get_run_context(run_id)
+    if run_ctx:
+        run_ctx.status = "completed"
+        save_run_context(run_ctx)
+    return {"status": "completed", "run_id": run_id, "message": f"Run '{run_id}' ended and saved."}
+
+
+@router.post("/runs/{run_id}/discard", summary="Discard run and cancel active tasks")
+async def discard_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    stop_scan(run_id)
+    run_ctx = get_run_context(run_id)
+    if run_ctx:
+        run_ctx.status = "discarded"
+        save_run_context(run_ctx)
+    return {"status": "discarded", "run_id": run_id, "message": f"Run '{run_id}' discarded."}
+
+
+@router.post("/runs/{run_id}/duplicate", summary="Duplicate a saved run")
+async def duplicate_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    dup = DBRepository.duplicate_run(run_id)
+    if not dup:
+        run_ctx = get_run_context(run_id)
+        if not run_ctx:
+            raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+        new_id = uuid4().hex
+        new_ctx = create_run_context(
+            target_origin=run_ctx.target_origin,
+            allowed_path_namespace=run_ctx.allowed_path_namespace,
+            run_id=new_id,
+            username=run_ctx.username,
+        )
+        new_ctx.selected_modules = list(run_ctx.selected_modules)
+        new_ctx.discovered_modules = list(run_ctx.discovered_modules)
+        save_run_context(new_ctx)
+        return {"status": "duplicated", "source_run_id": run_id, "new_run_id": new_id}
+    return {"status": "duplicated", "source_run_id": run_id, "new_run_id": dup.get("run_id")}
+
+
+@router.post("/runs/{run_id}/archive", summary="Archive a saved run")
+async def archive_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    DBRepository.archive_run(run_id)
+    run_ctx = get_run_context(run_id)
+    if run_ctx:
+        run_ctx.is_archived = True
+        save_run_context(run_ctx)
+    return {"status": "archived", "run_id": run_id}
+
+
+@router.delete("/runs/{run_id}", summary="Delete a saved run")
+async def delete_run_endpoint(run_id: str) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    DBRepository.delete_run(run_id)
+    delete_run_context(run_id)
+    return {"status": "deleted", "run_id": run_id}
+
+
+# --- Regression Suite Endpoints ---
+
+@router.post("/regression/suites", summary="Create a named regression suite")
+async def create_regression_suite_endpoint(request: CreateRegressionSuiteRequest) -> dict[str, Any]:
+    return DBRepository.create_regression_suite(
+        name=request.name,
+        base_url=request.base_url,
+        environment=request.environment,
+        description=request.description,
+        baseline_run_id=request.baseline_run_id,
+        test_case_ids=request.test_case_ids,
+        filter_tags=request.filter_tags,
+        filter_modules=request.filter_modules,
+    )
+
+
+@router.get("/regression/suites", summary="List all regression suites")
+async def list_regression_suites_endpoint(base_url: str | None = None, is_archived: bool = False) -> list[dict[str, Any]]:
+    return DBRepository.list_regression_suites(base_url=base_url, is_archived=is_archived)
+
+
+@router.get("/regression/suites/{suite_id}", summary="Get regression suite details and test cases")
+async def get_regression_suite_endpoint(suite_id: str) -> dict[str, Any]:
+    suite = DBRepository.get_regression_suite(suite_id)
+    if not suite:
+        raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
+    return suite
+
+
+@router.put("/regression/suites/{suite_id}", summary="Update a regression suite")
+async def update_regression_suite_endpoint(suite_id: str, request: UpdateRegressionSuiteRequest) -> dict[str, Any]:
+    updated = DBRepository.update_regression_suite(
+        suite_id=suite_id,
+        name=request.name,
+        description=request.description,
+        environment=request.environment,
+        case_toggles=request.case_toggles,
+        filter_tags=request.filter_tags,
+        filter_modules=request.filter_modules,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
+    return updated
+
+
+@router.post("/regression/suites/{suite_id}/duplicate", summary="Duplicate a regression suite")
+async def duplicate_regression_suite_endpoint(suite_id: str) -> dict[str, Any]:
+    dup = DBRepository.duplicate_regression_suite(suite_id)
+    if not dup:
+        raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
+    return dup
+
+
+@router.post("/regression/suites/{suite_id}/archive", summary="Archive a regression suite")
+async def archive_regression_suite_endpoint(suite_id: str) -> dict[str, Any]:
+    ok = DBRepository.archive_regression_suite(suite_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
+    return {"status": "archived", "suite_id": suite_id}
+
+
+@router.delete("/regression/suites/{suite_id}", summary="Delete a regression suite")
+async def delete_regression_suite_endpoint(suite_id: str) -> dict[str, Any]:
+    ok = DBRepository.delete_regression_suite(suite_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
+    return {"status": "deleted", "suite_id": suite_id}
+
+
+@router.post("/regression/execute-selected", summary="Execute strictly selected regression test cases with confirmation")
+async def execute_selected_regression(request: ExecuteSelectedRegressionRequest) -> dict[str, Any]:
+    if not request.confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Execution rejected: explicit user confirmation is required (confirmed=true).",
+        )
+
+    run_id = request.run_id
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+
+    run_ctx = get_run_context(run_id)
+
+    candidate_cases: list[TestCase] = []
+    if request.suite_id:
+        suite = DBRepository.get_regression_suite(request.suite_id)
+        if not suite:
+            raise HTTPException(status_code=404, detail=f"Suite '{request.suite_id}' not found")
+        case_ids = [c["id"] for c in suite.get("cases", []) if c.get("is_enabled")]
+        from api.db.models import TestCaseModel
+        from api.db.session import get_db_session
+        with get_db_session() as session:
+            db_cases = session.query(TestCaseModel).filter(TestCaseModel.id.in_(case_ids)).all()
+            for dbc in db_cases:
+                candidate_cases.append(TestCase(
+                    tc_id=dbc.tc_id,
+                    title=dbc.title,
+                    module=dbc.module,
+                    route=dbc.route,
+                    tags=dbc.tags or [],
+                    priority=dbc.priority or "Medium",
+                    prerequisites=dbc.prerequisites or [],
+                    locators=dbc.locators or {},
+                    steps=[TestStep(**st) for st in (dbc.steps or [])],
+                    safety_classification=dbc.safety_classification or "safe_action",
+                    latest_result=dbc.latest_result,
+                ))
+    elif run_ctx and run_ctx.generated_test_plan:
+        candidate_cases = [
+            tc if isinstance(tc, TestCase) else TestCase(**tc)
+            for tc in run_ctx.generated_test_plan
+        ]
+    elif run_ctx and run_ctx.raw_test_plan:
+        candidate_cases = [
+            tc if isinstance(tc, TestCase) else TestCase(**tc)
+            for tc in run_ctx.raw_test_plan
+        ]
+    else:
+        from api.db.models import TestCaseModel
+        from api.db.session import get_db_session
+        with get_db_session() as session:
+            db_cases = session.query(TestCaseModel).filter(TestCaseModel.run_id == run_id).all()
+            for dbc in db_cases:
+                candidate_cases.append(TestCase(
+                    tc_id=dbc.tc_id,
+                    title=dbc.title,
+                    module=dbc.module,
+                    route=dbc.route,
+                    tags=dbc.tags or [],
+                    priority=dbc.priority or "Medium",
+                    prerequisites=dbc.prerequisites or [],
+                    locators=dbc.locators or {},
+                    steps=[TestStep(**st) for st in (dbc.steps or [])],
+                    safety_classification=dbc.safety_classification or "safe_action",
+                    latest_result=dbc.latest_result,
+                ))
+
+    if not candidate_cases:
+        try:
+            candidate_cases = load_saved_test_cases(run_id)
+        except Exception:
+            pass
+
+    if not candidate_cases:
+        raise HTTPException(status_code=404, detail=f"No test cases found for run '{run_id}'. Generate tests first.")
+
+    selected_cases: list[TestCase] = []
+    req_ids = set(request.selected_test_case_ids)
+    req_modules = set(request.selected_modules)
+    req_routes = set(request.selected_routes)
+    req_tags = set(request.selected_tags)
+
+    for tc in candidate_cases:
+        if req_ids and tc.tc_id not in req_ids:
+            continue
+        if req_modules and tc.module not in req_modules:
+            continue
+        if req_routes and tc.route not in req_routes:
+            continue
+        if req_tags and not any(tag in req_tags for tag in (tc.tags or [])):
+            continue
+        if (request.failed_only or request.filter_type == "failed_only") and tc.latest_result != "Fail":
+            continue
+        if (request.never_executed_only or request.filter_type == "never_executed") and tc.latest_result:
+            continue
+        if (request.manual_review_only or request.filter_type == "review_required") and tc.safety_classification != "parking_lot":
+            continue
+
+        selected_cases.append(tc)
+
+    if not selected_cases:
+        raise HTTPException(
+            status_code=400,
+            detail="No test cases match the selection criteria. Zero tests executed.",
+        )
+
+    effective_session_id = request.auth_session_id or (run_ctx.auth_session_id if run_ctx else None)
+
+    try:
+        rows, summary, artifacts = await asyncio.to_thread(
+            execute_test_cases,
+            request.base_url,
+            selected_cases,
+            request.allow_mutating_actions,
+            None,
+            effective_session_id,
+            run_id,
+        )
+    except AuthenticationExpiredError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication expired. Refresh session to continue.",
+        ) from exc
+
+    exec_id = artifacts.get("execution_id", uuid4().hex)
+    try:
+        DBRepository.record_execution(
+            execution_id=exec_id,
+            run_id=run_id,
+            suite_id=request.suite_id,
+            status="completed",
+            rows=[r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows],
+            summary=summary,
+        )
+    except Exception as exc:
+        logger.debug("[DB] record_execution note: %s", exc)
+
+    if run_ctx:
+        run_ctx.execution_results = [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows]
+        run_ctx.status = "executed"
+        save_run_context(run_ctx)
+
+    return {
+        "status": "success",
+        "run_id": run_id,
+        "execution_id": exec_id,
+        "selected_test_count": len(selected_cases),
+        "executed_test_count": len(selected_cases),
+        "total_steps": len(rows),
+        "summary": summary,
+        "rows": rows,
+        "artifacts": artifacts,
+    }
+
+
+# --- Baseline Endpoints ---
+
+@router.post("/baselines/save", summary="Save scan and test plan as reusable baseline")
+async def save_baseline_endpoint(request: SaveBaselineRequest) -> dict[str, Any]:
+    run_id = request.run_id
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+
+    run_ctx = get_run_context(run_id)
+    raw_cases = []
+    if run_ctx and run_ctx.generated_test_plan:
+        raw_cases = [tc.model_dump() if hasattr(tc, "model_dump") else dict(tc) for tc in run_ctx.generated_test_plan]
+
+    try:
+        res = DBRepository.save_baseline(
+            run_id=run_id,
+            name=request.name,
+            version=request.version,
+            overwrite=request.confirmed_overwrite,
+            test_cases=raw_cases,
+        )
+        return {"status": "saved", "baseline": res}
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/baselines", summary="List saved baselines")
+async def list_baselines_endpoint(base_url: str | None = None) -> list[dict[str, Any]]:
+    return DBRepository.list_baselines(base_url=base_url)
+
+
+@router.post("/baselines/compare", summary="Compare current scan/execution against baseline")
+async def compare_baseline_endpoint(request: CompareBaselineRequest) -> dict[str, Any]:
+    return DBRepository.compare_baseline(
+        current_run_id=request.current_run_id,
+        baseline_run_id=request.baseline_run_id,
+    )
+
 
