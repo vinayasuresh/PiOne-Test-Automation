@@ -46,7 +46,7 @@ class InteractionProbeEngine:
         label = element.get("label") or element.get("text") or "unlabeled_control"
 
         if is_parking_lot_action(classification):
-            logger.info("Parking lot diversion [%s]: %s", classification, label)
+            logger.info(f"Parking lot diversion [{classification}]: {label}")
             parking_lot_entry = {
                 "route": current_route,
                 "label": label,

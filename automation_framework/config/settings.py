@@ -40,6 +40,10 @@ VIEWPORT_EXPLORATION_TIMEOUT = 30000
 MAX_SCROLL_CONTAINERS = 8
 MAX_SCROLL_POSITIONS = 12
 MAX_DISCOVERED_ROUTES = 150
+# Hard wall-clock and interaction budgets prevent a broad public application
+# from keeping a user session open indefinitely. Override per deployment.
+GLOBAL_SCAN_TIMEOUT = int(os.getenv("GLOBAL_SCAN_TIMEOUT", "180"))
+MAX_TOTAL_PROBES = int(os.getenv("MAX_TOTAL_PROBES", "500"))
 
 # Deep exploration: click expandable elements (dropdowns, tabs, aria-expanded
 # triggers) to discover hidden navigation. Capped to MAX_DEEP_EXPLORATION_DEPTH

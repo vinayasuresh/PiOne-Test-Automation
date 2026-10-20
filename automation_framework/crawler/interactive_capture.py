@@ -280,7 +280,7 @@ def wait_for_user(page: Page, timeout_seconds: int = 45, run_id: str | None = No
                     return "end"
                 api_choice = pop_user_decision(run_id)
                 if api_choice:
-                    logger.info("Interactive capture: user selected %s via API control", api_choice)
+                    logger.info(f"Interactive capture: user selected {api_choice} via API control")
                     return api_choice
             except Exception:
                 pass

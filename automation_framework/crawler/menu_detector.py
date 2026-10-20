@@ -231,7 +231,7 @@ def detect_menus(page: Page, event_callback: Any = None) -> dict[str, list[dict[
             sidebar.append(entry)
         else:
             top.append(entry)
-    logger.info("Discovered navigation=%d sidebar=%d top=%d overlay=%d", len(sidebar) + len(top), len(sidebar), len(top), len(overlays))
+    logger.info(f"Discovered navigation={len(sidebar) + len(top)} sidebar={len(sidebar)} top={len(top)} overlay={len(overlays)}")
     def build_tree(items: list[dict[str, str | None]]) -> list[dict[str, Any]]:
         roots: list[dict[str, Any]] = []
         stack: dict[int, dict[str, Any]] = {}

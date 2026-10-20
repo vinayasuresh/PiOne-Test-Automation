@@ -44,7 +44,7 @@ def ensure_navigation_expanded(page: Page, timeout: int = 5000) -> bool:
         # Navigation expansion is an enhancement, not an authentication or
         # scan precondition.  A framework-specific toggle must never abort
         # module discovery for an otherwise usable application.
-        logger.info("Sidebar toggle could not be opened: %s", exc)
+        logger.info(f"Sidebar toggle could not be opened: {exc}")
         return False
     if not _wait_for_navigation_items(sidebar, timeout):
         return False

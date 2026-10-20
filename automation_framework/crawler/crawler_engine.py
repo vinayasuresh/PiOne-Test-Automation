@@ -10,6 +10,8 @@ from automation_framework.config.settings import (
     ENABLE_DEEP_EXPLORATION,
     MENU_EXPANSION_TIMEOUT,
     MAX_DISCOVERED_ROUTES,
+    GLOBAL_SCAN_TIMEOUT,
+    MAX_TOTAL_PROBES,
     ROUTE_NAVIGATION_TIMEOUT,
     ROUTE_LOAD_TIMEOUT,
     ROUTE_SCAN_TIMEOUT,
@@ -145,6 +147,8 @@ class CrawlerEngine:
         self._api_responses: list[dict[str, Any]] = []
         self._route_interactions: dict[str, dict[str, int]] = {}
         self._route_deadline = 0.0
+        self._global_deadline = 0.0
+        self._total_probes = 0
         self._deep_exploration_active = False
         self._discovered_route_queue: list[dict[str, str]] = []
         self._queued_routes: set[str] = set()
@@ -193,6 +197,8 @@ class CrawlerEngine:
         prevents an all-menu traversal when a user asked for only one module.
         """
         self._selected_module_ids = selected_module_ids
+        self._global_deadline = time.monotonic() + max(1, GLOBAL_SCAN_TIMEOUT)
+        self._total_probes = 0
         self._ensure_authenticated()
         wait_for_ui_stability(self.page)
 
@@ -200,7 +206,7 @@ class CrawlerEngine:
         self.menu_hierarchy = application_shell.get("global_navigation", {})
         menu_items = self._build_menu_list(application_shell)
         selected_items = self._select_menu_items(menu_items, selected_module_ids)
-        logger.info("Discovered %d modules; %d selected for this run", len(menu_items), len(selected_items))
+        logger.info(f"Discovered {len(menu_items)} modules; {len(selected_items)} selected for this run")
 
         # An application with no detectable navigation still has one usable
         # module: its authenticated landing screen. An explicit empty user
@@ -252,7 +258,7 @@ class CrawlerEngine:
                 decision = self._review_module(menu_item["label"], menu_item.get("url", ""))
                 self.module_decisions[mid] = decision
                 if decision == "retry":
-                    logger.info("User requested retry for module '%s' (%s)", menu_item["label"], mid)
+                    logger.info(f"User requested retry for module '{menu_item['label']}' ({mid})")
                     self._reset_module_state(mid, menu_item)
                     continue
                 if decision not in {"continue", "retry", "end"}:
@@ -330,6 +336,9 @@ class CrawlerEngine:
 
     def _drain_discovered_routes(self) -> None:
         while self._discovered_route_queue and not self.scan_stop_requested:
+            self._check_pause_or_stop()
+            if self.scan_stop_requested:
+                break
             candidate = self._discovered_route_queue.pop(0)
             self._visit_discovered_route(candidate)
 
@@ -405,7 +414,7 @@ class CrawlerEngine:
             wait_for_ui_stability(self.page)
             self._scan_route(self.page.url, candidate["label"], expected_url=url, api_marker=marker)
         except Exception as exc:
-            logger.warning("Discovered route navigation failed: %s (%s)", url, exc)
+            logger.warning(f"Discovered route navigation failed: {url} ({exc})")
             self._emit_event("route_failed", {"route": url, "reason": "discovered_route_navigation_failed"})
 
     def replay_route(
@@ -618,7 +627,10 @@ class CrawlerEngine:
         self._emit_event("route_started", {"route": normalized, "menu_name": menu_name})
         _scan_start = time.monotonic()
         prev_deadline = self._route_deadline
-        self._route_deadline = _scan_start + ROUTE_SCAN_TIMEOUT / 1000
+        route_budget = ROUTE_SCAN_TIMEOUT / 1000
+        if self._global_deadline:
+            route_budget = min(route_budget, max(0.1, self._global_deadline - _scan_start))
+        self._route_deadline = _scan_start + route_budget
         self.page.set_default_timeout(ROUTE_SCAN_TIMEOUT)
         api_marker = len(self._api_responses) if api_marker is None else api_marker
         self._current_console_errors = []
@@ -945,6 +957,10 @@ class CrawlerEngine:
                 continue
             if (self._route_deadline > 0 and time.monotonic() >= self._route_deadline) or self.scan_stop_requested:
                 break
+            if self._global_deadline and time.monotonic() >= self._global_deadline:
+                self.scan_stop_requested = True
+                self._emit_event("scan_budget_exceeded", {"reason": "global_timeout"})
+                break
 
             classification = classify_action(item)
 
@@ -994,6 +1010,11 @@ class CrawlerEngine:
             if probed_count >= max_probes:
                 break
             probed_count += 1
+            self._total_probes += 1
+            if self._total_probes > MAX_TOTAL_PROBES:
+                self.scan_stop_requested = True
+                self._emit_event("scan_budget_exceeded", {"reason": "probe_limit", "limit": MAX_TOTAL_PROBES})
+                break
 
             interaction = self._route_interactions.setdefault(normalized, {"attempted": 0, "succeeded": 0})
             interaction["attempted"] += 1
@@ -1028,20 +1049,20 @@ class CrawlerEngine:
                         parking_lot=self.parking_lot_actions, auto_restore=False,
                     )
                 except (PlaywrightTimeoutError, TimeoutError):
-                    logger.debug("Timeout probing action '%s'; continuing scan queue", item["label"])
+                    logger.debug(f"Timeout probing action '{item['label']}'; continuing scan queue")
                     self._emit_event("action_failed", {"route": normalized, "action": item["label"], "reason": "timeout"})
                     self._restore_parent_state(normalized, scroll_pos)
                     continue
                 except Exception as click_err:
                     reason = "timeout" if "timeout" in str(click_err).lower() else str(click_err)
-                    logger.debug("Error probing action '%s': %s", item["label"], click_err)
+                    logger.debug(f"Error probing action '{item['label']}': {click_err}")
                     self._emit_event("action_failed", {"route": normalized, "action": item["label"], "reason": reason})
                     self._restore_parent_state(normalized, scroll_pos)
                     continue
 
                 # Check for Authentication Expiry
                 if self._is_login_page():
-                    logger.warning("Action '%s' redirected to login page. Attempting session recovery.", item["label"])
+                    logger.warning(f"Action '{item['label']}' redirected to login page. Attempting session recovery.")
                     try:
                         self._ensure_authenticated()
                         self._restore_parent_state(normalized, scroll_pos)
@@ -1054,7 +1075,7 @@ class CrawlerEngine:
                             if self._is_login_page():
                                 raise AuthenticationExpiredError("Still on login page after re-authentication retry.")
                     except Exception as auth_err:
-                        logger.error("Authentication recovery or retry failed for '%s': %s", item["label"], auth_err)
+                        logger.error(f"Authentication recovery or retry failed for '{item['label']}': {auth_err}")
                         self._emit_event("action_failed", {
                             "route": normalized,
                             "action": item["label"],
@@ -1081,7 +1102,7 @@ class CrawlerEngine:
                     or not is_valid_url(after_url, self.base_url)
                 ):
                     if after_url.rstrip("/") != normalized.rstrip("/"):
-                        logger.warning("Action '%s' caused out-of-scope or browser-error navigation: %s", item["label"], after_url)
+                        logger.warning(f"Action '{item['label']}' caused out-of-scope or browser-error navigation: {after_url}")
                         self._emit_event("route_rejected", {
                             "parent_route": normalized,
                             "target_url": after_url,
@@ -1119,7 +1140,7 @@ class CrawlerEngine:
                         )
 
                         if is_duplicate:
-                            logger.info("Duplicate child route skipped: %s -> %s", normalized, child_route)
+                            logger.info(f"Duplicate child route skipped: {normalized} -> {child_route}")
                             self._emit_event("duplicate_route_skipped", {
                                 "parent_route": normalized,
                                 "child_route": child_route,
@@ -1186,7 +1207,7 @@ class CrawlerEngine:
                         pass
 
             except Exception as exc:
-                logger.debug("Failed probing safe action '%s': %s", item.get("label"), exc)
+                logger.debug(f"Failed probing safe action '{item.get('label')}': {exc}")
                 self._restore_parent_state(normalized, scroll_pos)
 
     def _build_telemetry_snapshot(self, event_type: str) -> dict[str, Any]:
@@ -1255,6 +1276,10 @@ class CrawlerEngine:
         }
 
     def _check_pause_or_stop(self) -> None:
+        if self._global_deadline and time.monotonic() >= self._global_deadline:
+            self.scan_stop_requested = True
+            self._emit_event("scan_budget_exceeded", {"reason": "global_timeout"})
+            return
         if not self.run_id:
             return
         try:
@@ -1285,7 +1310,7 @@ class CrawlerEngine:
         try:
             self.event_callback(event_type, merged_data)
         except Exception:
-            logger.debug("Scan event callback failed for %s", event_type)
+            logger.debug(f"Scan event callback failed for {event_type}")
 
     # ------------------------------------------------------------------
     # Page stabilization
@@ -1299,7 +1324,7 @@ class CrawlerEngine:
                 timeout=min(STABILIZATION_TIMEOUT, self._remaining_route_timeout(STABILIZATION_TIMEOUT)),
             )
         except Exception as exc:
-            logger.debug("wait_for_spa_readiness encountered error on %s: %s", route_label, exc)
+            logger.debug(f"wait_for_spa_readiness encountered error on {route_label}: {exc}")
             return {
                 "ready": True,
                 "readiness_timeout_reached": False,
@@ -1329,7 +1354,7 @@ class CrawlerEngine:
                     self._navigate(expected)
                     wait_for_ui_stability(self.page)
             except Exception:
-                logger.warning("Could not restore selected module before review: %s", module_label)
+                logger.warning(f"Could not restore selected module before review: {module_label}")
 
         normalized = self.route_tracker.normalize_url(module_url or self.page.url)
         route_doc = self.page_intelligence.get(normalized)
@@ -1540,7 +1565,7 @@ class CrawlerEngine:
                     pass
             return True
         except Exception as exc:
-            logger.warning("Could not restore parent route '%s': %s", parent_norm, exc)
+            logger.warning(f"Could not restore parent route '{parent_norm}': {exc}")
             try:
                 self.page.goto(parent_norm, wait_until="domcontentloaded", timeout=min(ROUTE_NAVIGATION_TIMEOUT, 6000))
                 self._ensure_authenticated()
@@ -1549,13 +1574,14 @@ class CrawlerEngine:
                     self.page.evaluate("(pos) => window.scrollTo(pos.x || 0, pos.y || 0)", scroll_pos)
                 return True
             except Exception:
-                logger.error("Failed secondary fallback to restore parent route '%s'", parent_norm)
+                logger.error(f"Failed secondary fallback to restore parent route '{parent_norm}'")
                 return False
 
     def _remaining_route_timeout(self, preferred_ms: int = ROUTE_SCAN_TIMEOUT) -> int:
-        if not self._route_deadline:
+        deadlines = [deadline for deadline in (self._route_deadline, self._global_deadline) if deadline]
+        if not deadlines:
             return preferred_ms
-        return max(1, min(preferred_ms, int((self._route_deadline - time.monotonic()) * 1000)))
+        return max(1, min(preferred_ms, int((min(deadlines) - time.monotonic()) * 1000)))
 
     def _record_api_response(self, response: Any) -> None:
         try:
@@ -1683,7 +1709,7 @@ class CrawlerEngine:
             self.module_decisions = dict(data.get("module_decisions", {}))
             self._active_module_id = data.get("current_module_id", "")
 
-            logger.info("Resumed scan checkpoint with %d routes", len(self.page_intelligence))
+            logger.info(f"Resumed scan checkpoint with {len(self.page_intelligence)} routes")
         except Exception:
             logger.exception("Unable to process checkpoint; starting fresh scan")
 
