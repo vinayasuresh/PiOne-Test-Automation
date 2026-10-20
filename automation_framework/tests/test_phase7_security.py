@@ -259,7 +259,8 @@ def test_credential_redaction():
             "cookies": [{"name": "session", "value": "secret_cookie_val"}],
             "client_secret": "cs_live_998877",
         },
-        "log_entry": "User logged in with password=MySecretPass and key=abcdef123456",
+        "log_entry": "User logged in with password=MySecretPass and key=abcdef123456 and cookie=secret_cookie_val",
+        "target": {"tag": "input", "type": "password", "value": "SuperSecretPassword123!"},
     }
 
     redacted = redact_sensitive_data(payload)
@@ -269,9 +270,11 @@ def test_credential_redaction():
     assert redacted["auth_details"]["token"] == "[REDACTED]"
     assert redacted["auth_details"]["cookies"] == "[REDACTED]"
     assert redacted["auth_details"]["client_secret"] == "[REDACTED]"
+    assert redacted["target"]["value"] == "[REDACTED]"
     assert "SuperSecretPassword123!" not in str(redacted)
     assert "secret_cookie_val" not in str(redacted)
     assert "password=[REDACTED]" in redacted["log_entry"]
+    assert "cookie=[REDACTED]" in redacted["log_entry"]
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +286,9 @@ def test_token_redaction():
         ("Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.token123", "Authorization: [REDACTED]"),
         ("Using key sk-abcdef123456789012345678 for completion", "Using key [REDACTED_API_KEY] for completion"),
         ("Gemini key is AIzaSyA1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q", "Gemini key is [REDACTED_API_KEY]"),
+        ("Google key is AIza1234567890123456789012345678901234", "Google key is [REDACTED_API_KEY]"),
         ("https://api.test/v1?token=secret_tok_123&action=scan", "https://api.test/v1?token=[REDACTED]&action=scan"),
+        ("https://api.test/v1?cookie=secret_sess_123&action=scan", "https://api.test/v1?cookie=[REDACTED]&action=scan"),
     ]
 
     for raw, expected_snippet in raw_texts:

@@ -40,13 +40,13 @@ SENSITIVE_KEY_NAMES = {
 _BEARER_PATTERN = re.compile(r"(?i)\bbearer\s+[a-zA-Z0-9_\-\.~+/]+=*", re.IGNORECASE)
 _BASIC_PATTERN = re.compile(r"(?i)\bbasic\s+[a-zA-Z0-9+/=]{10,}", re.IGNORECASE)
 _OPENAI_KEY_PATTERN = re.compile(r"\bsk-[a-zA-Z0-9_\-]{20,}\b")
-_GEMINI_KEY_PATTERN = re.compile(r"\bAIzaSy[a-zA-Z0-9_\-]{33}\b")
+_GEMINI_KEY_PATTERN = re.compile(r"\bAIza[a-zA-Z0-9_\-]{30,45}\b")
 _KEY_VAL_SECRET = re.compile(
-    r"(?i)\b(password|passwd|pwd|token|api_key|apikey|secret|client_secret)\s*[:=]\s*([^\s,;&\"']+)",
+    r"(?i)\b(password|passwd|pwd|token|api_key|apikey|secret|client_secret|cookie|cookies|session|credential)\s*[:=]\s*([^\s,;&\"']+)",
     re.IGNORECASE,
 )
 _URL_SECRET_PARAM = re.compile(
-    r"(?i)([?&](?:password|passwd|pwd|token|api_key|apikey|secret|key)=)[^&\s]+",
+    r"(?i)([?&](?:password|passwd|pwd|token|api_key|apikey|secret|key|cookie|session)=)[^&\s]+",
     re.IGNORECASE,
 )
 _AUTH_HEADER_VALUE = re.compile(
@@ -87,10 +87,13 @@ def redact_sensitive_data(obj: Any) -> Any:
 
     if isinstance(obj, dict):
         cleaned: dict[str, Any] = {}
+        is_password_field = str(obj.get("type", "")).lower() == "password" or str(obj.get("input_type", "")).lower() == "password"
         for k, v in obj.items():
             k_str = str(k).lower().strip()
             # If the key itself indicates sensitive content, redact its value directly
             if any(sens in k_str for sens in SENSITIVE_KEY_NAMES):
+                cleaned[k] = "[REDACTED]"
+            elif is_password_field and k_str in {"value", "default_value", "text", "val"}:
                 cleaned[k] = "[REDACTED]"
             else:
                 cleaned[k] = redact_sensitive_data(v)
