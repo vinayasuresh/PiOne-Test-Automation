@@ -753,7 +753,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
     )
 
 
-@router.get("/reports/{run_id}/download/{artifact_type}", summary="Download specific artifact by stable run ID URL")
+@router.api_route("/reports/{run_id}/download/{artifact_type}", methods=["GET", "HEAD"], summary="Download specific artifact by stable run ID URL")
 async def download_artifact(run_id: str, artifact_type: str):
     from fastapi.responses import FileResponse, Response
     import zipfile
@@ -866,7 +866,7 @@ async def download_artifact(run_id: str, artifact_type: str):
     )
 
 
-@router.get("/reports/{run_id}/screenshot/{filename}", summary="Download specific screenshot safely")
+@router.api_route("/reports/{run_id}/screenshot/{filename}", methods=["GET", "HEAD"], summary="Download specific screenshot safely")
 async def download_screenshot(run_id: str, filename: str):
     from fastapi.responses import FileResponse
 
