@@ -372,21 +372,22 @@ def _safe_export(crawl_results: dict, run_id: str) -> dict[str, str]:
 
 
 def discover_modules(url: str, username: str | None, password: str | None) -> dict:
-    """Log in once and return a passive, current-app-only module catalogue.
+    """Log in once (if credentials provided) and return a passive, current-app-only module catalogue.
 
     The saved Playwright storage state is scoped by an opaque selection-session
     ID. It contains browser auth state only and is not included in artifacts.
     """
-    if not username or not password:
-        raise ValueError("Credentials are required to discover live application modules")
-
     auth_session_id = uuid4().hex
     state_path = _auth_state_path(auth_session_id)
     playwright = browser = context = None
     try:
         playwright, browser, context, page = start_persistent_browser()
         install_document_scope_guard(page, url)
-        login(page, username, password, url)
+        if username and password:
+            login(page, username, password, url)
+        else:
+            page.goto(url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+            wait_for_ui_stability(page)
         try:
             ensure_navigation_expanded(page)
         except Exception:
