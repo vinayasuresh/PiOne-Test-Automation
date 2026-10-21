@@ -18,6 +18,12 @@
     .step-active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
     .step-done { border-color: #10b981; background: #ecfdf5; color: #047857; }
     .step-disabled { border-color: #e2e8f0; background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid #2563eb !important;
+      outline-offset: 2px !important;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
 
@@ -35,7 +41,7 @@
               <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate</h1>
               <span class="bg-blue-500/20 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-500/30">v2.0 Enterprise</span>
             </div>
-            <p class="text-[11px] text-slate-400">Deterministic UI Scanner &amp; Grounded Test Intelligence Platform</p>
+            <p class="text-[11px] text-slate-500">Deterministic UI Scanner &amp; Grounded Test Intelligence Platform</p>
           </div>
         </div>
 
@@ -78,7 +84,7 @@
       </div>
 
       <!-- 8-Step Navigation Stepper -->
-      <div id="stepper" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1.5 pt-1 border-t border-slate-800/80"></div>
+      <div id="stepper" class="flex lg:grid lg:grid-cols-8 gap-1.5 pt-1 border-t border-slate-800/80 overflow-x-auto pb-1 no-scrollbar text-xs" role="navigation" aria-label="Workflow Steps"></div>
     </div>
   </nav>
 
@@ -109,7 +115,7 @@
   </div>
 
   <!-- Global Session Expiry Alert Banner -->
-  <div id="session-expired-banner" class="hidden max-w-7xl mx-auto px-4 mt-4 w-full">
+  <div id="session-expired-banner" class="hidden max-w-7xl mx-auto px-4 mt-4 w-full" role="alert" aria-live="assertive">
     <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="text-amber-600 text-xl"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -292,7 +298,7 @@
           <p class="text-xs text-slate-500 mt-1">Live telemetry stream with sequential module traversal, safe action probing, and real-time controls.</p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <span id="live-scan-status-pill" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+          <span id="live-scan-status-pill" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5" aria-live="polite">
             <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Running
           </span>
           <button id="btn-scan-save-progress" type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition">
@@ -403,7 +409,7 @@
           <label class="block text-xs font-bold text-slate-600 uppercase tracking-wide">Scanner Telemetry Stream</label>
           <button id="btn-clear-telemetry-log" type="button" class="text-[11px] text-slate-500 hover:text-slate-800 underline">Clear Log</button>
         </div>
-        <div id="scan-event-log" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-[11px] h-52 overflow-y-auto space-y-1">
+        <div id="scan-event-log" class="bg-slate-950 text-slate-200 rounded-lg p-4 font-mono text-[11px] h-52 overflow-y-auto space-y-1" aria-live="polite" role="log">
           <p class="text-slate-500">[SYSTEM] Awaiting crawler engine telemetry stream...</p>
         </div>
       </div>
@@ -430,14 +436,14 @@
         </div>
         <div class="overflow-x-auto max-h-72">
           <table class="min-w-full text-xs">
-            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
               <tr>
-                <th class="table-cell text-left">Route</th>
-                <th class="table-cell text-left">Module</th>
-                <th class="table-cell text-center">Status</th>
-                <th class="table-cell text-center">Score</th>
-                <th class="table-cell text-center">Targets</th>
-                <th class="table-cell text-center">DOM Stable</th>
+                <th scope="col" class="table-cell text-left">Route</th>
+                <th scope="col" class="table-cell text-left">Module</th>
+                <th scope="col" class="table-cell text-center">Status</th>
+                <th scope="col" class="table-cell text-center">Score</th>
+                <th scope="col" class="table-cell text-center">Targets</th>
+                <th scope="col" class="table-cell text-center">DOM Stable</th>
               </tr>
             </thead>
             <tbody id="analyze-routes-body"></tbody>
@@ -535,16 +541,16 @@
             </div>
             <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
               <table class="min-w-full text-xs">
-                <thead class="bg-slate-100 text-slate-700">
+                <th scope="col"ead class="bg-slate-100 text-slate-700">
                   <tr>
-                    <th class="table-cell text-left">TC ID</th>
-                    <th class="table-cell text-left">Title</th>
-                    <th class="table-cell text-left">Module</th>
-                    <th class="table-cell text-left">Steps</th>
+                    <th scope="col" class="table-cell text-left">TC ID</th>
+                    <th scope="col" class="table-cell text-left">Title</th>
+                    <th scope="col" class="table-cell text-left">Module</th>
+                    <th scope="col" class="table-cell text-left">Steps</th>
                   </tr>
                 </thead>
                 <tbody id="plan-cases-body">
-                  <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">No test cases generated yet. Click "Generate Test Plan".</td></tr>
+                  <tr><td colspan="4" class="table-cell text-center text-slate-500 py-6">No test cases generated yet. Click "Generate Test Plan".</td></tr>
                 </tbody>
               </table>
             </div>
@@ -599,7 +605,7 @@
             <p class="text-[11px] text-slate-500 mt-0.5">Filter and check specific test cases. Unselected tests are never executed.</p>
           </div>
           <!-- Live Count Badge -->
-          <div id="exec-selection-badge" class="font-bold text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-2">
+          <div id="exec-selection-badge" class="font-bold text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-2" aria-live="polite">
             <i class="fa-solid fa-list-check"></i> <span id="exec-selection-text">Execute 0 tests / 0 steps?</span>
           </div>
         </div>
@@ -635,20 +641,20 @@
         <!-- Checkbox Selection Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-56 bg-white">
           <table class="min-w-full text-xs">
-            <thead class="bg-slate-100 text-slate-700">
+            <th scope="col"ead class="bg-slate-100 text-slate-700">
               <tr>
-                <th class="table-cell text-center w-10">Run?</th>
-                <th class="table-cell text-left">TC ID</th>
-                <th class="table-cell text-left">Title</th>
-                <th class="table-cell text-left">Module</th>
-                <th class="table-cell text-left">Route</th>
-                <th class="table-cell text-center">Tags</th>
-                <th class="table-cell text-center">Steps</th>
-                <th class="table-cell text-center">Latest Result</th>
+                <th scope="col" class="table-cell text-center w-10">Run?</th>
+                <th scope="col" class="table-cell text-left">TC ID</th>
+                <th scope="col" class="table-cell text-left">Title</th>
+                <th scope="col" class="table-cell text-left">Module</th>
+                <th scope="col" class="table-cell text-left">Route</th>
+                <th scope="col" class="table-cell text-center">Tags</th>
+                <th scope="col" class="table-cell text-center">Steps</th>
+                <th scope="col" class="table-cell text-center">Latest Result</th>
               </tr>
             </thead>
             <tbody id="exec-selection-table-body">
-              <tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases to select. Generate tests in Step 6 first.</td></tr>
+              <tr><td colspan="8" class="table-cell text-center text-slate-500 py-4">No test cases to select. Generate tests in Step 6 first.</td></tr>
             </tbody>
           </table>
         </div>
@@ -657,21 +663,21 @@
       <!-- Execution Results Table with Categorical Failure Column -->
       <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
         <table class="min-w-full text-xs">
-          <thead class="bg-slate-100 text-slate-700 font-semibold">
+          <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
             <tr>
-              <th class="table-cell text-left">TC ID</th>
-              <th class="table-cell text-left">Step</th>
-              <th class="table-cell text-left">Action</th>
-              <th class="table-cell text-left">Locator Used</th>
-              <th class="table-cell text-left">Actual Result</th>
-              <th class="table-cell text-center">Status</th>
-              <th class="table-cell text-center">Failure Category</th>
-              <th class="table-cell text-center">Evidence</th>
-              <th class="table-cell text-center">Actions</th>
+              <th scope="col" class="table-cell text-left">TC ID</th>
+              <th scope="col" class="table-cell text-left">Step</th>
+              <th scope="col" class="table-cell text-left">Action</th>
+              <th scope="col" class="table-cell text-left">Locator Used</th>
+              <th scope="col" class="table-cell text-left">Actual Result</th>
+              <th scope="col" class="table-cell text-center">Status</th>
+              <th scope="col" class="table-cell text-center">Failure Category</th>
+              <th scope="col" class="table-cell text-center">Evidence</th>
+              <th scope="col" class="table-cell text-center">Actions</th>
             </tr>
           </thead>
           <tbody id="exec-table-body">
-            <tr><td colspan="9" class="table-cell text-center text-slate-400 py-8">Ready to execute. Click "Run Test Execution" above.</td></tr>
+            <tr><td colspan="9" class="table-cell text-center text-slate-500 py-8">Ready to execute. Click "Run Test Execution" above.</td></tr>
           </tbody>
         </table>
       </div>
@@ -734,13 +740,13 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
-                  <th class="table-cell text-left">Route</th>
-                  <th class="table-cell text-left">Module</th>
-                  <th class="table-cell text-center">Status</th>
-                  <th class="table-cell text-center">Score</th>
-                  <th class="table-cell text-center">Elements</th>
+                  <th scope="col" class="table-cell text-left">Route</th>
+                  <th scope="col" class="table-cell text-left">Module</th>
+                  <th scope="col" class="table-cell text-center">Status</th>
+                  <th scope="col" class="table-cell text-center">Score</th>
+                  <th scope="col" class="table-cell text-center">Elements</th>
                 </tr>
               </thead>
               <tbody id="report-routes-table-body"></tbody>
@@ -756,13 +762,13 @@
           </summary>
           <div class="p-4 overflow-x-auto max-h-72">
             <table class="min-w-full text-xs">
-              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
-                  <th class="table-cell text-left">Route</th>
-                  <th class="table-cell text-left">Role</th>
-                  <th class="table-cell text-left">Label</th>
-                  <th class="table-cell text-left">Primary Selector</th>
-                  <th class="table-cell text-center">Safety</th>
+                  <th scope="col" class="table-cell text-left">Route</th>
+                  <th scope="col" class="table-cell text-left">Role</th>
+                  <th scope="col" class="table-cell text-left">Label</th>
+                  <th scope="col" class="table-cell text-left">Primary Selector</th>
+                  <th scope="col" class="table-cell text-center">Safety</th>
                 </tr>
               </thead>
               <tbody id="report-elements-table-body"></tbody>
@@ -787,14 +793,14 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
-                  <th class="table-cell text-left">TC ID</th>
-                  <th class="table-cell text-left">Step</th>
-                  <th class="table-cell text-left">Action</th>
-                  <th class="table-cell text-center">Status</th>
-                  <th class="table-cell text-center">Failure Category</th>
-                  <th class="table-cell text-center">Evidence</th>
+                  <th scope="col" class="table-cell text-left">TC ID</th>
+                  <th scope="col" class="table-cell text-left">Step</th>
+                  <th scope="col" class="table-cell text-left">Action</th>
+                  <th scope="col" class="table-cell text-center">Status</th>
+                  <th scope="col" class="table-cell text-center">Failure Category</th>
+                  <th scope="col" class="table-cell text-center">Evidence</th>
                 </tr>
               </thead>
               <tbody id="report-execution-table-body"></tbody>
@@ -893,21 +899,21 @@
         <!-- Saved Runs Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <thead class="bg-slate-100 text-slate-700 font-semibold">
+            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
-                <th class="table-cell text-left">Run ID</th>
-                <th class="table-cell text-left">Application URL</th>
-                <th class="table-cell text-center">Status</th>
-                <th class="table-cell text-center">Progress</th>
-                <th class="table-cell text-center">Modules</th>
-                <th class="table-cell text-center">Routes</th>
-                <th class="table-cell text-center">Last Checkpoint</th>
-                <th class="table-cell text-center">Tests / Exec</th>
-                <th class="table-cell text-center">Actions</th>
+                <th scope="col" class="table-cell text-left">Run ID</th>
+                <th scope="col" class="table-cell text-left">Application URL</th>
+                <th scope="col" class="table-cell text-center">Status</th>
+                <th scope="col" class="table-cell text-center">Progress</th>
+                <th scope="col" class="table-cell text-center">Modules</th>
+                <th scope="col" class="table-cell text-center">Routes</th>
+                <th scope="col" class="table-cell text-center">Last Checkpoint</th>
+                <th scope="col" class="table-cell text-center">Tests / Exec</th>
+                <th scope="col" class="table-cell text-center">Actions</th>
               </tr>
             </thead>
             <tbody id="saved-runs-table-body">
-              <tr><td colspan="9" class="table-cell text-center text-slate-400 py-6">Loading saved runs...</td></tr>
+              <tr><td colspan="9" class="table-cell text-center text-slate-500 py-6">Loading saved runs...</td></tr>
             </tbody>
           </table>
         </div>
@@ -942,19 +948,19 @@
         <!-- Suites Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <thead class="bg-slate-100 text-slate-700 font-semibold">
+            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
-                <th class="table-cell text-left">Suite Name</th>
-                <th class="table-cell text-left">Target App URL</th>
-                <th class="table-cell text-center">Environment</th>
-                <th class="table-cell text-center">Test Cases</th>
-                <th class="table-cell text-center">Filter Tags</th>
-                <th class="table-cell text-center">Baseline Run</th>
-                <th class="table-cell text-center">Actions</th>
+                <th scope="col" class="table-cell text-left">Suite Name</th>
+                <th scope="col" class="table-cell text-left">Target App URL</th>
+                <th scope="col" class="table-cell text-center">Environment</th>
+                <th scope="col" class="table-cell text-center">Test Cases</th>
+                <th scope="col" class="table-cell text-center">Filter Tags</th>
+                <th scope="col" class="table-cell text-center">Baseline Run</th>
+                <th scope="col" class="table-cell text-center">Actions</th>
               </tr>
             </thead>
             <tbody id="regression-suites-table-body">
-              <tr><td colspan="7" class="table-cell text-center text-slate-400 py-6">Loading regression suites...</td></tr>
+              <tr><td colspan="7" class="table-cell text-center text-slate-500 py-6">Loading regression suites...</td></tr>
             </tbody>
           </table>
         </div>
@@ -983,16 +989,16 @@
 
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <thead class="bg-slate-100 text-slate-700 font-semibold">
+            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
-                <th class="table-cell text-left">Run ID</th>
-                <th class="table-cell text-left">Target URL</th>
-                <th class="table-cell text-center">Status</th>
-                <th class="table-cell text-center">Download Formats</th>
+                <th scope="col" class="table-cell text-left">Run ID</th>
+                <th scope="col" class="table-cell text-left">Target URL</th>
+                <th scope="col" class="table-cell text-center">Status</th>
+                <th scope="col" class="table-cell text-center">Download Formats</th>
               </tr>
             </thead>
             <tbody id="artifacts-table-body">
-              <tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">Loading artifacts...</td></tr>
+              <tr><td colspan="4" class="table-cell text-center text-slate-500 py-6">Loading artifacts...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1045,7 +1051,7 @@
   </div>
 
   <!-- Actionable Error Modal (Zero stack traces / zero credential leak) -->
-  <div id="actionable-error-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div id="actionable-error-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-live="assertive" aria-labelledby="error-modal-op-title">
     <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div class="flex items-center gap-2 text-rose-600">
@@ -1289,7 +1295,7 @@
     </div>
   </div>
 
-  <footer class="text-center py-4 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+  <footer class="text-center py-4 text-[11px] text-slate-500 border-t border-slate-200 bg-white">
     PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise
   </footer>
 
@@ -1450,8 +1456,8 @@
         const isDone = state.maxUnlockedStep > s.id;
         const isEnabled = s.id <= state.maxUnlockedStep;
 
-        btn.className = `p-2 rounded-lg border text-left text-xs transition flex flex-col justify-between ${
-          isActive ? "step-active border-blue-500 font-bold" :
+        btn.className = `p-2 rounded-lg border text-left text-xs transition flex flex-col justify-between flex-shrink-0 min-w-[125px] lg:min-w-0 ${
+          isActive ? "step-active border-blue-500 font-bold shadow-sm" :
           isDone ? "step-done border-emerald-500 font-semibold" :
           isEnabled ? "bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500" :
           "step-disabled"
@@ -2168,7 +2174,7 @@
       const parkingLot = state.scanData.parking_lot_actions || [];
       document.getElementById("analyze-parking-count-badge").textContent = `${parkingLot.length} actions`;
       if (!parkingLot.length) {
-        parkingList.innerHTML = `<p class="text-slate-400 py-3 text-center">No high-risk actions encountered in the scanned boundary.</p>`;
+        parkingList.innerHTML = `<p class="text-slate-500 py-3 text-center">No high-risk actions encountered in the scanned boundary.</p>`;
       } else {
         parkingLot.forEach(p => {
           const div = document.createElement("div");
@@ -2836,7 +2842,7 @@
 
     async function loadSavedRuns() {
       const body = document.getElementById("saved-runs-table-body");
-      body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading saved runs...</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-500 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading saved runs...</td></tr>`;
       try {
         const res = await fetch(`${API_BASE}/runs`);
         if (!res.ok) throw new Error("Failed to load runs");
@@ -2867,7 +2873,7 @@
       const body = document.getElementById("saved-runs-table-body");
       body.innerHTML = "";
       if (!runs || !runs.length) {
-        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-400 py-6">No saved runs found. Start a scan in "Current Run".</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-500 py-6">No saved runs found. Start a scan in "Current Run".</td></tr>`;
         return;
       }
 
@@ -3001,7 +3007,7 @@
 
     async function loadRegressionSuites() {
       const body = document.getElementById("regression-suites-table-body");
-      body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading suites...</td></tr>`;
+      body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-500 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading suites...</td></tr>`;
       try {
         const res = await fetch(`${API_BASE}/regression/suites`);
         if (!res.ok) throw new Error("Failed to load suites");
@@ -3017,7 +3023,7 @@
       const body = document.getElementById("regression-suites-table-body");
       body.innerHTML = "";
       if (!suites || !suites.length) {
-        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-400 py-6">No regression suites found. Click "Create Suite".</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-500 py-6">No regression suites found. Click "Create Suite".</td></tr>`;
         return;
       }
 
@@ -3026,7 +3032,7 @@
         tr.innerHTML = `
           <td class="table-cell font-bold text-slate-800">
             ${escapeHtml(s.name)}
-            ${s.description ? `<p class="text-[11px] text-slate-400 font-normal truncate max-w-xs">${escapeHtml(s.description)}</p>` : ""}
+            ${s.description ? `<p class="text-[11px] text-slate-500 font-normal truncate max-w-xs">${escapeHtml(s.description)}</p>` : ""}
           </td>
           <td class="table-cell font-mono text-[11px] text-slate-600 max-w-xs truncate">${escapeHtml(s.base_url)}</td>
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${escapeHtml(s.environment)}</span></td>
@@ -3189,7 +3195,7 @@
       body.innerHTML = "";
 
       if (!cases.length) {
-        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases generated yet. Click "Generate Test Plan" in Step 6.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-500 py-4">No test cases generated yet. Click "Generate Test Plan" in Step 6.</td></tr>`;
         updateSelectedTestsCounter();
         return;
       }
@@ -3210,7 +3216,7 @@
       });
 
       if (!filtered.length) {
-        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-400 py-4">No test cases match filter "${escapeHtml(state.currentExecutionFilter)}".</td></tr>`;
+        body.innerHTML = `<tr><td colspan="8" class="table-cell text-center text-slate-500 py-4">No test cases match filter "${escapeHtml(state.currentExecutionFilter)}".</td></tr>`;
         updateSelectedTestsCounter();
         return;
       }
@@ -3222,7 +3228,7 @@
                          tc.latest_result === "Fail" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-500";
         tr.innerHTML = `
           <td class="table-cell text-center">
-            <input type="checkbox" value="${escapeHtml(tc.tc_id)}" ${isChecked ? "checked" : ""} class="exec-case-cb h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedTestsCounter()" />
+            <label class="inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="exec-cb-${escapeHtml(tc.tc_id)}" value="${escapeHtml(tc.tc_id)}" ${isChecked ? "checked" : ""} class="exec-case-cb h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedTestsCounter()" aria-label="Select test case ${escapeHtml(tc.tc_id)}" /><span class="sr-only">Select test case ${escapeHtml(tc.tc_id)}</span></label>
           </td>
           <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(tc.tc_id)}</td>
           <td class="table-cell font-semibold text-slate-800">${escapeHtml(tc.title)}</td>
@@ -3446,13 +3452,13 @@
 
     async function loadArtifactsList() {
       const body = document.getElementById("artifacts-table-body");
-      body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading artifacts...</td></tr>`;
+      body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-500 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading artifacts...</td></tr>`;
       try {
         const res = await fetch(`${API_BASE}/artifacts`);
         const runs = await res.json();
         body.innerHTML = "";
         if (!runs || !runs.length) {
-          body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6">No runs available yet.</td></tr>`;
+          body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-500 py-6">No runs available yet.</td></tr>`;
           return;
         }
         runs.forEach(r => {
@@ -3525,6 +3531,52 @@
       closeDangerConfirm();
       await action();
     }
+
+function closeScreenshotModal() {
+      const modal = document.getElementById("screenshot-modal");
+      if (modal) modal.classList.add("hidden");
+    }
+
+    // Modal Escape Key & Focus Trapping Accessibility
+    window.addEventListener("keydown", (e) => {
+      const modalSpecs = [
+        { id: "danger-confirm-modal", close: closeDangerConfirm },
+        { id: "exec-confirm-modal", close: closeExecConfirmModal },
+        { id: "actionable-error-modal", close: closeErrorModal },
+        { id: "screenshot-modal", close: closeScreenshotModal },
+        { id: "refresh-session-modal", close: closeRefreshModal },
+        { id: "baseline-compare-modal", close: closeCompareBaselineModal },
+        { id: "baseline-modal", close: closeBaselineModal },
+        { id: "suite-modal", close: closeSuiteModal }
+      ];
+
+      const activeModalSpec = modalSpecs.find(m => {
+        const el = document.getElementById(m.id);
+        return el && !el.classList.contains("hidden");
+      });
+
+      if (!activeModalSpec) return;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        activeModalSpec.close();
+      } else if (e.key === "Tab") {
+        const modalEl = document.getElementById(activeModalSpec.id);
+        if (!modalEl) return;
+        const focusable = modalEl.querySelectorAll('button:not([disabled]):not(.hidden), [href]:not(.hidden), input:not([disabled]):not(.hidden), select:not([disabled]):not(.hidden), textarea:not([disabled]):not(.hidden), [tabindex]:not([tabindex="-1"]):not(.hidden)');
+        if (focusable.length > 0) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    });
 
     function escapeHtml(str) {
       return String(str || "").replace(/[&<>"']/g, c => ({
