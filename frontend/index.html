@@ -1125,6 +1125,12 @@
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-error-modal-refresh" class="hidden bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          <i class="fa-solid fa-key mr-1"></i> Refresh Session
+        </button>
+        <button id="btn-error-modal-newscan" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
+          <i class="fa-solid fa-rotate-left mr-1"></i> Start New Scan
+        </button>
         <button id="btn-error-modal-close" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm">
           Dismiss
         </button>
@@ -1823,6 +1829,15 @@
 
       document.getElementById("btn-close-error-modal").onclick = closeErrorModal;
       document.getElementById("btn-error-modal-close").onclick = closeErrorModal;
+      document.getElementById("btn-error-modal-refresh").onclick = () => {
+        closeErrorModal();
+        openRefreshModal();
+      };
+      document.getElementById("btn-error-modal-newscan").onclick = () => {
+        closeErrorModal();
+        resetRun();
+        document.getElementById("url-input")?.focus();
+      };
 
       document.getElementById("btn-close-danger-confirm").onclick = closeDangerConfirm;
       document.getElementById("btn-cancel-danger-confirm").onclick = closeDangerConfirm;
@@ -2882,6 +2897,11 @@
       document.getElementById("error-modal-category").textContent = displayCategory;
       document.getElementById("error-modal-message").textContent = displayMessage;
       document.getElementById("error-modal-suggestion").textContent = displaySuggestion;
+      const refreshButton = document.getElementById("btn-error-modal-refresh");
+      const newScanButton = document.getElementById("btn-error-modal-newscan");
+      const isAuthFailure = displayCategory === "AUTHENTICATION_EXPIRED";
+      refreshButton.classList.toggle("hidden", !isAuthFailure || !state.runId);
+      newScanButton.classList.toggle("hidden", !isAuthFailure || Boolean(state.runId));
       document.getElementById("actionable-error-modal").classList.remove("hidden");
     }
 
