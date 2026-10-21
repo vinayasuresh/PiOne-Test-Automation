@@ -26,6 +26,8 @@ The platform:
 8. **Protects session lifecycle**: Detects session expiry before execution and offers an **in-place session refresh** (`/session/refresh`) without losing scan results or run IDs.
 9. **Executes controlled tests**: Executes safe visual and functional assertions, recording the exact locator used and capturing per-step screenshots.
 10. **Tracks regression diffs**: Replays tests and calculates status changes, newly passing, and newly failing tests.
+11. **Persists run history**: Stores runs, checkpoints, routes, elements, test plans, regression suites, executions, artifacts, and audit metadata in SQLite or PostgreSQL.
+12. **Supports controlled cleanup**: Provides explicit Delete All controls for regression suites and generated artifacts while preserving the database and authentication state.
 
 > **Guiding Principle**: *Deterministic scanner first, AI-assisted test intelligence second.*  
 > Playwright owns browser discovery and execution. AI models analyze saved evidence to generate test plans, but never drive the browser or bypass safety controls.
@@ -84,15 +86,27 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 - Captures console errors and network failures per step.
 - Supports individual step rerun (`POST /rerun-step`) for fast troubleshooting.
 
-### 7-Step Enterprise UI (`frontend/index.html`)
-- Professional 7-step enterprise workspace:
-  - **Step 1**: Target URL & Credentials
+### Persistence, Saved Runs & Regression Suites (`api/db/`)
+- `api/db/models.py` defines persistence tables for runs, modules, routes, elements, checkpoints, test plans, regression suites, executions, artifacts, and audit events.
+- `api/db/session.py` selects PostgreSQL when `DATABASE_URL` is configured and otherwise uses SQLite at `automation_framework/reports/pione_testmate.db`.
+- `api/db/repository.py` centralizes database transactions, retries, run recovery, suite management, and artifact metadata.
+- The dashboard exposes Saved Runs, Regression Suites, and Artifacts views.
+- Explicit Delete All controls remove regression suites or generated artifacts after confirmation.
+
+### 8-Step Enterprise UI (`frontend/index.html`)
+- Professional 8-step enterprise workspace:
+  - **Step 1**: Target URL & Credentials / Scan Application
   - **Step 2**: Authenticated Module Selection
-  - **Step 3**: Deep Scan Progress & Live Telemetry
-  - **Step 4**: Scanned UI Map & 10-Sheet Excel Download
-  - **Step 5**: Requirement-Aware Test Generation (Neutral LLM Gateway)
-  - **Step 6**: Controlled Execution & Per-Step Screenshot Evidence
-  - **Step 7**: Regression Replay & Status Diff View
+  - **Step 3**: Manual Review Checkpoint
+  - **Step 4**: Deep Crawl Progress & Live Telemetry
+  - **Step 5**: Scanned UI Map & Route Analysis
+  - **Step 6**: Requirement-Aware Test Generation (Neutral LLM Gateway)
+  - **Step 7**: Controlled Execution & Per-Step Screenshot Evidence
+  - **Step 8**: Audit Report, Downloads & Regression Replay
+- Top-level workspace views include Current Run, Saved Runs, Regression Suites, and Artifacts.
+- Saved runs can be resumed, duplicated, archived, or discarded.
+- Regression suites support named baselines, filters, selection, duplication, execution, and bulk deletion.
+- The Artifacts view lists only runs that still have downloadable generated files.
 - Real-time Session Expiry Warning Banner with quick-action modal to re-authenticate without restarting.
 - Zero destructive browser actions (`localStorage.clear()` removed).
 
@@ -107,8 +121,8 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 | **Schema Version** | `2.1.0` |
 | **Python Compatibility** | Python 3.11+ |
 | **Browser Engine** | Playwright Chromium |
-| **Test Suite Status** | 57 automated tests passing (100% pass rate in ~5 mins) |
-| **Live SauceDemo Proof** | All 10 end-to-end steps verified against live SauceDemo |
+| **Verification** | Run the complete unit, integration, and Playwright suite locally; browser tests require normal local socket permissions. |
+| **Live Proof** | SauceDemo, DemoQA, and The Internet are supported test targets; each run is isolated by `run_id`. |
 
 ---
 
@@ -175,9 +189,14 @@ Follow the interactive prompts to enter the target URL, supply credentials, and 
 
 ### Method 3: Running the Automated Test Suite
 
-Run all 57 unit, integration, and Playwright end-to-end tests:
+Run the complete unit, integration, and Playwright end-to-end suite:
 ```bash
 python -m pytest automation_framework/tests -v
+```
+
+For a fast non-browser verification:
+```bash
+python -m pytest automation_framework/tests -q --ignore=automation_framework/tests/test_crawler_e2e.py
 ```
 
 ### Method 4: Running the Live SauceDemo End-to-End Proof
@@ -195,6 +214,35 @@ python .system_generated/scratch/live_saucedemo_proof.py
 ```
 
 ---
+
+## Database Configuration
+
+Local development uses SQLite automatically when no `DATABASE_URL` is present:
+
+```text
+automation_framework/reports/pione_testmate.db
+```
+
+To use PostgreSQL, configure `.env` and restart the API:
+
+```env
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/pione_testmate
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+DATABASE_SSL_MODE=prefer
+```
+
+The dashboard database indicator and `GET /system/db-status` show the active engine and connection state. PostgreSQL is optional for a single-user local run and becomes useful for shared history, concurrent users, scheduled regression, and audit retention.
+
+## Cleanup Controls
+
+The dashboard provides explicit destructive actions with confirmation dialogs:
+
+- `DELETE /regression/suites` removes all regression suite records.
+- `DELETE /artifacts` removes generated report files and artifact metadata while preserving the database file, saved run records, authentication state, and run-context storage.
+- `GET /artifacts` returns only runs that still have downloadable artifact files.
+
+Cleanup does not delete saved runs automatically. This preserves checkpoints and run history for recovery; delete or archive runs separately when that is intended.
 
 ## 6. Repository Architecture
 
@@ -249,7 +297,7 @@ python .system_generated/scratch/live_saucedemo_proof.py
 │   │   └── run_contexts/               # Durable RunContext JSON files
 │   ├── storage/
 │   │   └── checkpoint_store.py         # Windows NTFS-safe atomic store
-│   └── tests/                          # 57 Automated Tests
+│   └── tests/                          # Unit, integration, and Playwright tests
 │       ├── fixtures/
 │       │   └── test_spa_server.py      # Embedded in-memory test SPA server
 │       ├── test_action_classifier.py
@@ -261,7 +309,7 @@ python .system_generated/scratch/live_saucedemo_proof.py
 │       ├── test_test_planning_service.py
 │       └── test_ui_state_and_module_selection.py
 ├── frontend/                           # Integrated Web Dashboard
-│   └── index.html                      # 7-step enterprise workspace
+│   └── index.html                      # 8-step enterprise workspace
 ├── main.py                             # Interactive CLI entrypoint
 ├── pytest.ini                          # Pytest configuration
 └── requirements.txt                    # Python dependencies
