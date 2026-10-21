@@ -555,3 +555,19 @@ def test_auth_state_template_clean_no_credentials():
     assert content.get("cookies") == []
     assert content.get("origins") == []
 
+
+
+def test_scan_request_accepts_empty_auth_session_id():
+    """Public unauthenticated scans send empty auth_session_id, which must validate cleanly."""
+    from api.models.scan_models import ScanRequest, ExecuteTestRequest, ScanResponse
+    req = ScanRequest(url="https://the-internet.herokuapp.com", auth_session_id="", scan_id="run-xyz")
+    assert req.auth_session_id is None
+
+    exec_req = ExecuteTestRequest(
+        base_url="https://the-internet.herokuapp.com",
+        scan=ScanResponse.model_construct(url="https://the-internet.herokuapp.com", routes=[]),
+        script="# test",
+        auth_session_id="",
+        test_ids=["TC_1"]
+    )
+    assert exec_req.auth_session_id is None

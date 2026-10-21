@@ -2228,7 +2228,7 @@
             mock: !state.isLive,
             run_id: state.runId,
             scan_id: state.runId,
-            auth_session_id: state.authSessionId,
+            auth_session_id: state.authSessionId || null,
             selected_module_ids: state.selectedModuleIds,
             interactive_mode: isInteractive,
             interactive_timeout: 300

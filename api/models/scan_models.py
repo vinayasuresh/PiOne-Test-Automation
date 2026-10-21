@@ -48,8 +48,10 @@ class ScanRequest(BaseModel):
         if value is None:
             return None
         value = value.strip()
+        if not value:
+            return None
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
-            raise ValueError("scan_id may contain only letters, numbers, '_' and '-' (max 80)")
+            raise ValueError("ID may contain only letters, numbers, '_' and '-' (max 80)")
         return value
 
     @field_validator("selected_module_ids")
@@ -342,6 +344,8 @@ class ExecuteTestRequest(BaseModel):
         if value is None:
             return None
         value = value.strip()
+        if not value:
+            return None
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
             raise ValueError("auth_session_id contains invalid characters")
         return value
