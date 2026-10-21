@@ -149,6 +149,15 @@
         </div>
       </div>
 
+      <!-- Mode explanation banner -->
+      <div id="mode-explanation-banner" class="flex items-start gap-3 p-3.5 rounded-lg text-xs bg-blue-50/70 border border-blue-200 text-blue-900">
+        <i id="mode-explanation-icon" class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>
+        <div>
+          <span id="mode-explanation-title" class="font-bold">Live Target Scan Active:</span>
+          <span id="mode-explanation-text" class="text-slate-600 ml-1">PiOne Testmate will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.</span>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
@@ -157,15 +166,29 @@
           <p class="text-[11px] text-slate-500 mt-1">SSRF protection enforced: private IPv4, loopback, AWS/cloud metadata, and localhost rejected in production.</p>
         </div>
 
-        <div id="creds-block" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="username-input">Username</label>
-            <input id="username-input" type="text" value="standard_user" placeholder="standard_user" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+        <div id="creds-block" class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Authentication Credentials (Optional)</span>
+            <button id="btn-clear-creds" type="button" class="text-[11px] font-semibold text-slate-500 hover:text-rose-600 transition flex items-center gap-1">
+              <i class="fa-solid fa-eraser"></i> Clear Credentials
+            </button>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="password-input">Password</label>
-            <input id="password-input" type="password" value="secret_sauce" placeholder="••••••••" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="username-input">Username</label>
+              <input id="username-input" type="text" value="standard_user" placeholder="standard_user" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="password-input">Password</label>
+              <div class="relative">
+                <input id="password-input" type="password" value="secret_sauce" placeholder="••••••••" class="w-full px-3.5 py-2.5 pr-10 border border-slate-300 rounded-lg text-sm" />
+                <button id="btn-toggle-password" type="button" aria-label="Toggle password visibility" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 px-1.5 py-1">
+                  <i id="password-toggle-icon" class="fa-regular fa-eye"></i>
+                </button>
+              </div>
+            </div>
           </div>
+          <p class="text-[11px] text-slate-500">Credentials are never stored in localStorage, URLs, or exported checkpoints. Stored only in ephemeral session memory.</p>
         </div>
 
         <div id="interactive-check-wrap" class="flex items-center gap-3 bg-blue-50/60 border border-blue-200 rounded-lg p-3">
@@ -1624,6 +1647,29 @@
       document.getElementById("btn-mode-live").onclick = () => setMode(true);
       document.getElementById("btn-mode-demo").onclick = () => setMode(false);
       document.getElementById("btn-discover").onclick = handleDiscoverModules;
+      const btnTogglePwd = document.getElementById("btn-toggle-password");
+      if (btnTogglePwd) {
+        btnTogglePwd.onclick = () => {
+          const pwd = document.getElementById("password-input");
+          const icon = document.getElementById("password-toggle-icon");
+          if (!pwd) return;
+          const isPassword = pwd.type === "password";
+          pwd.type = isPassword ? "text" : "password";
+          if (icon) {
+            icon.className = isPassword ? "fa-regular fa-eye-slash" : "fa-regular fa-eye";
+          }
+        };
+      }
+      const btnClearCreds = document.getElementById("btn-clear-creds");
+      if (btnClearCreds) {
+        btnClearCreds.onclick = () => {
+          const uInput = document.getElementById("username-input");
+          const pInput = document.getElementById("password-input");
+          if (uInput) uInput.value = "";
+          if (pInput) pInput.value = "";
+          showToast("Credentials cleared from form", "info");
+        };
+      }
 
       // Step 2
       document.getElementById("btn-modules-select-all").onclick = () => selectAllModules(true);
@@ -1778,13 +1824,35 @@
 
     function setMode(isLive) {
       state.isLive = isLive;
-      document.getElementById("btn-mode-live").className = isLive ?
-        "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm" :
-        "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
-      document.getElementById("btn-mode-demo").className = !isLive ?
-        "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-700 shadow-sm" :
-        "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
-      document.getElementById("creds-block").classList.toggle("hidden", !isLive);
+      const btnLive = document.getElementById("btn-mode-live");
+      const btnDemo = document.getElementById("btn-mode-demo");
+      const credsBlock = document.getElementById("creds-block");
+      const banner = document.getElementById("mode-explanation-banner");
+      const bannerIcon = document.getElementById("mode-explanation-icon");
+      const bannerTitle = document.getElementById("mode-explanation-title");
+      const bannerText = document.getElementById("mode-explanation-text");
+
+      if (isLive) {
+        btnLive.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm";
+        btnDemo.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
+        if (credsBlock) credsBlock.classList.remove("hidden");
+        if (banner) {
+          banner.className = "flex items-start gap-3 p-3.5 rounded-lg text-xs bg-blue-50/70 border border-blue-200 text-blue-900";
+          bannerIcon.className = "fa-solid fa-circle-info text-blue-600 mt-0.5";
+          bannerTitle.textContent = "Live Target Scan Active:";
+          bannerText.textContent = "PiOne Testmate will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.";
+        }
+      } else {
+        btnLive.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
+        btnDemo.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-700 shadow-sm";
+        if (credsBlock) credsBlock.classList.add("hidden");
+        if (banner) {
+          banner.className = "flex items-start gap-3 p-3.5 rounded-lg text-xs bg-emerald-50/70 border border-emerald-200 text-emerald-900";
+          bannerIcon.className = "fa-solid fa-flask text-emerald-600 mt-0.5";
+          bannerTitle.textContent = "Mock Demo Mode Active:";
+          bannerText.textContent = "Completely offline and deterministic simulation. No real network or browser sessions are initiated. Ideal for testing workflows, UX exploration, and training.";
+        }
+      }
     }
 
     async function handleDiscoverModules() {
