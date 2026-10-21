@@ -1683,6 +1683,21 @@
         const el = document.getElementById(`panel-${i}`);
         if (el) el.classList.toggle("hidden", i !== stepId);
       }
+      if (stepId === 5) {
+        if (!state.scanData && state.runId) {
+          fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`)
+            .then(r => r.json())
+            .then(runCtx => {
+              if (runCtx && runCtx.scan_results) {
+                state.scanData = runCtx.scan_results;
+                renderAnalyzeView();
+              }
+            })
+            .catch(() => {});
+        } else {
+          renderAnalyzeView();
+        }
+      }
       renderStepper();
       saveActiveState();
       window.scrollTo({ top: 0, behavior: "smooth" });
