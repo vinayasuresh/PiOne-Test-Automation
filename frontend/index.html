@@ -1347,8 +1347,10 @@
     </div>
   </div>
 
-  <footer class="text-center py-4 text-[11px] text-slate-500 border-t border-slate-200 bg-white">
-    PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise
+  <footer class="text-center py-4 text-[11px] text-slate-500 border-t border-slate-200 bg-white flex items-center justify-center gap-2">
+    <span>PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise</span>
+    <span class="text-slate-300">|</span>
+    <span id="app-build-id" class="font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">build: loading...</span>
   </footer>
 
   <script>
@@ -1478,7 +1480,22 @@
       }
     }
 
+    async function fetchBuildInfo() {
+      try {
+        const res = await fetch(`${API_BASE}/health`);
+        if (res.ok) {
+          const data = await res.json();
+          const el = document.getElementById("app-build-id");
+          if (el && data.build_id) {
+            el.textContent = `build: ${data.build_id}`;
+            el.title = `Process Start: ${data.process_start || "unknown"} | Service: ${data.service || "PiOne Testmate"}`;
+          }
+        }
+      } catch (_) {}
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
+      fetchBuildInfo();
       renderStepper();
       bindAllEvents();
       checkDBStatus();
@@ -1887,7 +1904,7 @@
       const password = document.getElementById("password-input").value;
 
       if (!url) {
-        showActionableError("Target Validation", state.runId, "INVALID_INPUT", "Application URL is required.", "Enter a valid HTTP/HTTPS URL.");
+        showActionableError("Target Validation", state.runId, "VALIDATION_ERROR", "Application URL is required.", "Enter a valid HTTP/HTTPS URL.");
         return;
       }
       state.targetUrl = url;
@@ -1907,14 +1924,41 @@
           state.runId = "mock_" + Date.now();
           state.authSessionId = "mock_auth_" + Date.now();
         } else {
-          const res = await fetch(`${API_BASE}/discover-modules`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url, username, password })
-          });
-          const data = await res.json();
+          let res;
+          try {
+            res = await fetch(`${API_BASE}/discover-modules`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url, username, password })
+            });
+          } catch (netErr) {
+            showActionableError("Module Discovery", null, "BACKEND_UNAVAILABLE", "Cannot connect to backend server at " + API_BASE, "Verify the Python FastAPI / Uvicorn server is running on port 8000.");
+            return;
+          }
+
+          const data = await res.json().catch(() => ({}));
           if (!res.ok) {
-            throw new Error(formatApiError(data, "Module discovery failed"));
+            let cat = "DISCOVERY_UNAVAILABLE";
+            if (res.status === 401) cat = "AUTHENTICATION_EXPIRED";
+            else if (res.status === 422) cat = "LOGIN_FAILED";
+            else if (res.status === 400) cat = "VALIDATION_ERROR";
+            else if (res.status === 502) cat = "DISCOVERY_UNAVAILABLE";
+
+            if (data.detail && typeof data.detail === "object" && data.detail.category) {
+              cat = data.detail.category;
+            } else if (data.category) {
+              cat = data.category;
+            }
+
+            const msg = (data.detail && typeof data.detail === "object" ? data.detail.message : (data.detail || data.message || "Module discovery failed"));
+            let suggestion = "Verify target URL and connectivity.";
+            if (cat === "LOGIN_FAILED") suggestion = "Verify your username and password, then try again.";
+            else if (cat === "AUTHENTICATION_EXPIRED") suggestion = "Session expired. Click 'Start New Scan' to re-authenticate.";
+            else if (cat === "DISCOVERY_UNAVAILABLE") suggestion = "Verify the URL and ensure the target application is reachable.";
+            else if (cat === "VALIDATION_ERROR") suggestion = "Check the input parameters and provide a valid URL.";
+
+            showActionableError("Module Discovery", null, cat, msg, suggestion);
+            return;
           }
 
           state.runId = data.run_id;
@@ -1922,12 +1966,21 @@
           state.modules = data.modules || [];
         }
 
+        const authInd = document.getElementById("auth-status-indicator");
+        if (authInd) {
+          if (state.authSessionId) {
+            authInd.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-emerald-500"></i> Authenticated (${escapeHtml(username || "session")})`;
+          } else {
+            authInd.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-blue-500"></i> Public target (no auth required)`;
+          }
+        }
+
         updateRunUI();
         renderModuleList();
         unlockStep(2);
         switchStep(2);
       } catch (err) {
-        showActionableError("Module Discovery", state.runId, "AUTHENTICATION_OR_NETWORK_ERROR", err.message, "Verify credentials and ensure the target application is reachable.");
+        showActionableError("Module Discovery", null, "DISCOVERY_UNAVAILABLE", err.message || "Failed to discover modules", "Verify the application is reachable and retry.");
       } finally {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-compass"></i> Discover Modules`;
@@ -2868,40 +2921,60 @@
         .replace(/File ".*?", line \d+, in .*/g, "")
         .trim();
 
-      // Contextual remediation mapping
-      const combined = (displayMessage + " " + displayCategory).toLowerCase();
-      if (combined.includes("401") || combined.includes("auth") || combined.includes("session expired")) {
-        displayCategory = "AUTHENTICATION_EXPIRED";
-        displayMessage = "Your authentication session has expired or the session cookies are no longer valid.";
-        displaySuggestion = "Refresh credentials in Step 1 or click 'Refresh Session' to renew without restarting.";
-      } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable")) {
-        displayCategory = "BACKEND_UNAVAILABLE";
-        displayMessage = "Cannot connect to the PiOne Testmate backend service at localhost:8000.";
-        displaySuggestion = "Verify the Python FastAPI / Uvicorn server is running and accessible.";
-      } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
-        displayCategory = "ARTIFACT_UNAVAILABLE";
-        displayMessage = "The requested artifact or report has not been generated yet or is still processing.";
-        displaySuggestion = "Wait for scan and execution to finish, or run the test execution step.";
-      } else if (combined.includes("invalid run state") || combined.includes("no active scan")) {
-        displayCategory = "INVALID_RUN_STATE";
-        displayMessage = "The current run is missing required state or has not finished prerequisite steps.";
-        displaySuggestion = "Restore the run from a checkpoint in Saved Runs or begin a new scan.";
-      } else if (combined.includes("fallback") || combined.includes("provider error") || combined.includes("timeout") || combined.includes("quota")) {
-        displayCategory = "PROVIDER_FALLBACK";
-        displayMessage = "The configured AI model provider was unavailable or exceeded timeout.";
-        displaySuggestion = "Deterministic planning was automatically used to safely generate grounded test cases.";
+      const knownCategories = new Set([
+        "AUTHENTICATION_EXPIRED",
+        "LOGIN_FAILED",
+        "DISCOVERY_UNAVAILABLE",
+        "VALIDATION_ERROR",
+        "BACKEND_UNAVAILABLE",
+        "ARTIFACT_UNAVAILABLE",
+        "INVALID_RUN_STATE",
+        "PROVIDER_FALLBACK"
+      ]);
+
+      if (!knownCategories.has(displayCategory)) {
+        const combined = (displayMessage + " " + displayCategory).toLowerCase();
+        if (combined.includes("401") || combined.includes("auth expired") || combined.includes("session expired")) {
+          displayCategory = "AUTHENTICATION_EXPIRED";
+          displayMessage = displayMessage || "Your authentication session has expired or the session cookies are no longer valid.";
+          displaySuggestion = displaySuggestion || "Click 'Refresh Session' to renew without restarting.";
+        } else if (combined.includes("422") || combined.includes("login fail") || combined.includes("credentials")) {
+          displayCategory = "LOGIN_FAILED";
+          displaySuggestion = displaySuggestion || "Verify username and password and try again.";
+        } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable")) {
+          displayCategory = "BACKEND_UNAVAILABLE";
+          displayMessage = "Cannot connect to the PiOne Testmate backend service at localhost:8000.";
+          displaySuggestion = "Verify the Python FastAPI / Uvicorn server is running and accessible.";
+        } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
+          displayCategory = "ARTIFACT_UNAVAILABLE";
+          displayMessage = "The requested artifact or report has not been generated yet or is still processing.";
+          displaySuggestion = "Wait for scan and execution to finish, or run the test execution step.";
+        } else if (combined.includes("invalid run state") || combined.includes("no active scan")) {
+          displayCategory = "INVALID_RUN_STATE";
+          displayMessage = "The current run is missing required state or has not finished prerequisite steps.";
+          displaySuggestion = "Restore the run from a checkpoint in Saved Runs or begin a new scan.";
+        } else if (combined.includes("fallback") || combined.includes("provider error") || combined.includes("timeout") || combined.includes("quota")) {
+          displayCategory = "PROVIDER_FALLBACK";
+          displayMessage = "The configured AI model provider was unavailable or exceeded timeout.";
+          displaySuggestion = "Deterministic planning was automatically used to safely generate grounded test cases.";
+        }
       }
 
+      const activeRunId = runId || state.runId || null;
       document.getElementById("error-modal-op-title").textContent = operation || "Operation Notice";
-      document.getElementById("error-modal-run-id").textContent = (runId || state.runId || "--").substring(0, 16);
+      document.getElementById("error-modal-run-id").textContent = activeRunId ? activeRunId.substring(0, 16) : "--";
       document.getElementById("error-modal-category").textContent = displayCategory;
       document.getElementById("error-modal-message").textContent = displayMessage;
       document.getElementById("error-modal-suggestion").textContent = displaySuggestion;
+
       const refreshButton = document.getElementById("btn-error-modal-refresh");
       const newScanButton = document.getElementById("btn-error-modal-newscan");
-      const isAuthFailure = displayCategory === "AUTHENTICATION_EXPIRED";
-      refreshButton.classList.toggle("hidden", !isAuthFailure || !state.runId);
-      newScanButton.classList.toggle("hidden", !isAuthFailure || Boolean(state.runId));
+
+      const isAuthExpired = displayCategory === "AUTHENTICATION_EXPIRED";
+      const canRefresh = isAuthExpired && Boolean(activeRunId);
+
+      refreshButton.classList.toggle("hidden", !canRefresh);
+      newScanButton.classList.toggle("hidden", canRefresh);
       document.getElementById("actionable-error-modal").classList.remove("hidden");
     }
 
@@ -2977,23 +3050,41 @@
     function resetRun() {
       state.currentStep = 1;
       state.maxUnlockedStep = 1;
-      const urlInput = document.getElementById("url-input");
-      if (urlInput) urlInput.value = "https://www.saucedemo.com";
-      state.targetUrl = "https://www.saucedemo.com";
+      state.runId = null;
+      state.authSessionId = null;
+      state.modules = [];
+      state.selectedModuleIds = [];
       state.scanData = null;
       state.generatedPlan = null;
       state.executionResults = null;
       state.regressionResults = null;
-      state.runId = null;
       state.currentModuleName = "";
       state.currentRoute = "";
       state.scanStatus = "IDLE";
       state.scanProgressPct = 0;
+
       document.getElementById("nav-run-badge").classList.add("hidden");
+      document.getElementById("nav-session-badge").classList.add("hidden");
       document.getElementById("session-expired-banner").classList.add("hidden");
+      document.getElementById("btn-top-refresh-session").classList.add("hidden");
+
+      const authInd = document.getElementById("auth-status-indicator");
+      if (authInd) {
+        authInd.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-slate-400"></i> Not authenticated yet`;
+      }
+
+      const modContainer = document.getElementById("module-options-container");
+      if (modContainer) modContainer.innerHTML = "";
+      const revContainer = document.getElementById("review-module-list");
+      if (revContainer) revContainer.innerHTML = "";
+      const chipsContainer = document.getElementById("selected-modules-chips");
+      if (chipsContainer) chipsContainer.innerHTML = "";
+
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       updateActiveRunBar();
+      renderStepper();
       switchStep(1);
+      document.getElementById("url-input")?.focus();
     }
 
     // =========================================================================

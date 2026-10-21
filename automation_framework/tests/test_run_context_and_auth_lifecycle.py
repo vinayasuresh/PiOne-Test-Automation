@@ -347,3 +347,211 @@ def test_10_sheet_excel_export():
         ]
         for expected in expected_sheets:
             assert expected in sheet_names, f"Expected sheet '{expected}' not found in Excel workbook. Sheets: {sheet_names}"
+
+
+# ---------------------------------------------------------------------------
+# 5. Deterministic Authentication & Discovery Verification
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_discover_modules_authenticated_success():
+    """Verify POST /discover-modules returns 200, run_id, auth_session_id, correlation_id."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+
+    mock_result = {
+        "run_id": "run_auth_123",
+        "auth_session_id": "auth_sess_123",
+        "modules": [
+            {
+                "id": "mod_inv",
+                "label": "Inventory",
+                "route": "/inventory.html",
+                "source": "menu",
+                "hierarchy_level": 0,
+                "parent_module": None,
+                "confidence": 1.0,
+            }
+        ],
+    }
+
+    with patch("api.services.crawler_service.discover_modules", return_value=mock_result):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/discover-modules",
+                json={"url": "https://www.saucedemo.com", "username": "standard_user", "password": "secret_sauce"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["run_id"] == "run_auth_123"
+            assert data["auth_session_id"] == "auth_sess_123"
+            assert len(data["modules"]) == 1
+            assert resp.headers.get("X-Correlation-ID")
+            assert data.get("correlation_id") == resp.headers["X-Correlation-ID"]
+
+
+@pytest.mark.asyncio
+async def test_discover_modules_invalid_credentials_returns_422_login_failed():
+    """Verify invalid credentials return HTTP 422 with category LOGIN_FAILED."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+    from automation_framework.crawler.auth_exceptions import LoginFailedError
+
+    with patch("api.services.crawler_service.discover_modules", side_effect=LoginFailedError("Invalid credentials or login rejected")):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/discover-modules",
+                json={"url": "https://www.saucedemo.com", "username": "bad_user", "password": "wrong_password"},
+            )
+            assert resp.status_code == 422
+            data = resp.json()
+            assert data["detail"]["category"] == "LOGIN_FAILED"
+            assert "Invalid credentials" in data["detail"]["message"]
+            assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_discover_modules_public_no_auth_success():
+    """Verify public no-auth target returns 200 with empty auth_session_id."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+
+    mock_result = {
+        "run_id": "run_public_456",
+        "auth_session_id": "",
+        "modules": [
+            {
+                "id": "mod_ab",
+                "label": "A/B Testing",
+                "route": "/abtest",
+                "source": "link",
+                "hierarchy_level": 0,
+                "parent_module": None,
+                "confidence": 1.0,
+            }
+        ],
+    }
+
+    with patch("api.services.crawler_service.discover_modules", return_value=mock_result):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/discover-modules",
+                json={"url": "https://the-internet.herokuapp.com"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["run_id"] == "run_public_456"
+            assert data["auth_session_id"] == ""
+            assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_discover_modules_session_expired_returns_401():
+    """Verify expired session returns HTTP 401 with category AUTHENTICATION_EXPIRED."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+    from automation_framework.crawler.auth_exceptions import AuthenticationExpiredError
+
+    with patch("api.services.crawler_service.discover_modules", side_effect=AuthenticationExpiredError("Authentication expired")):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/discover-modules",
+                json={"url": "https://www.saucedemo.com", "username": "standard_user", "password": "secret_sauce"},
+            )
+            assert resp.status_code == 401
+            data = resp.json()
+            assert data["detail"]["category"] == "AUTHENTICATION_EXPIRED"
+            assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_discover_modules_navigation_failure_returns_502_discovery_unavailable():
+    """Verify unreachable target returns HTTP 502 with category DISCOVERY_UNAVAILABLE."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+    from automation_framework.crawler.auth_exceptions import DiscoveryUnavailableError
+
+    with patch("api.services.crawler_service.discover_modules", side_effect=DiscoveryUnavailableError("Target navigation failed: net::ERR_NAME_NOT_RESOLVED")):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/discover-modules",
+                json={"url": "https://the-internet.herokuapp.com"},
+            )
+            assert resp.status_code == 502
+            data = resp.json()
+            assert data["detail"]["category"] == "DISCOVERY_UNAVAILABLE"
+            assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_session_refresh_missing_run_id_returns_400():
+    """Verify session refresh rejects requests without run_id."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post(
+            "/session/refresh",
+            json={"run_id": "", "url": "https://www.saucedemo.com", "username": "standard_user", "password": "secret_sauce"},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert data["detail"]["category"] == "VALIDATION_ERROR"
+        assert "run_id is required" in data["detail"]["message"]
+        assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_session_refresh_success_preserves_run_id():
+    """Verify session refresh preserves run_id and returns new auth_session_id."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+
+    mock_refresh = {
+        "run_id": "run_preserve_999",
+        "auth_session_id": "refreshed_auth_777",
+        "state_path": "/path/to/state.json",
+    }
+
+    with patch("api.routers.scan.refresh_auth_session", return_value=mock_refresh):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/session/refresh",
+                json={"run_id": "run_preserve_999", "url": "https://www.saucedemo.com", "username": "standard_user", "password": "secret_sauce"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["run_id"] == "run_preserve_999"
+            assert data["auth_session_id"] == "refreshed_auth_777"
+            assert resp.headers.get("X-Correlation-ID")
+
+
+@pytest.mark.asyncio
+async def test_health_and_version_diagnostics():
+    """Verify /health and /version provide build_id and process_start."""
+    from httpx import ASGITransport, AsyncClient
+    from api.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        for endpoint in ["/health", "/version"]:
+            resp = await client.get(endpoint)
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "ok"
+            assert "build_id" in data
+            assert data["build_id"]  # Non-empty
+            assert "process_start" in data
+            assert data["version"] == "2.0.0"
+
+
+def test_auth_state_template_clean_no_credentials():
+    """Verify auth_state.json contains only empty cookies and origins template."""
+    from automation_framework.config.settings import STORAGE_STATE_PATH
+    import json
+
+    assert STORAGE_STATE_PATH.exists()
+    content = json.loads(STORAGE_STATE_PATH.read_text(encoding="utf-8"))
+    assert content.get("cookies") == []
+    assert content.get("origins") == []
+

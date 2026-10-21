@@ -26,7 +26,6 @@ from automation_framework.config.settings import (
     ELEMENT_TIMEOUT,
     REPORT_PATH,
     ROUTE_LOAD_TIMEOUT,
-    STORAGE_STATE_PATH,
 )
 from automation_framework.crawler.url_filter import is_valid_url
 from automation_framework.utils.browser_manager import start_persistent_browser
@@ -98,7 +97,7 @@ def execute_test_cases(
             )
         resolved_state = auth_session_path(auth_session_id)
     else:
-        resolved_state = Path(storage_state_path) if storage_state_path else STORAGE_STATE_PATH
+        resolved_state = Path(storage_state_path) if storage_state_path else None
 
     execution_id = f"execution_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     artifact_dir = REPORT_PATH / execution_id
@@ -202,7 +201,7 @@ def rerun_step(
             )
         resolved_state = auth_session_path(auth_session_id)
     else:
-        resolved_state = STORAGE_STATE_PATH
+        resolved_state = None
 
     artifact_dir = REPORT_PATH / (run_id or "reruns")
     artifact_dir.mkdir(parents=True, exist_ok=True)

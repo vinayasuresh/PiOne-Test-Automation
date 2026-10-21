@@ -15,7 +15,12 @@ from pathlib import Path
 import time
 from uuid import uuid4
 
-from automation_framework.config.settings import REPORT_PATH, ROUTE_LOAD_TIMEOUT, STORAGE_STATE_PATH
+from automation_framework.config.settings import REPORT_PATH, ROUTE_LOAD_TIMEOUT
+from automation_framework.crawler.auth_exceptions import (
+    AuthenticationExpiredError,
+    DiscoveryUnavailableError,
+    LoginFailedError,
+)
 from automation_framework.crawler.crawl_exporter import export_crawl_results
 from automation_framework.crawler.crawler_engine import CrawlerEngine
 from automation_framework.crawler.login_handler import login
@@ -25,10 +30,10 @@ from automation_framework.crawler.url_filter import install_document_scope_guard
 from automation_framework.utils.browser_manager import save_storage_state, start_persistent_browser
 from automation_framework.utils.logger import configure_run_logger, logger
 from automation_framework.utils.metadata_collector import generate_run_id
+from playwright.sync_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
 from api.models.scan_models import ScanResponse
 from api.services.auth_lifecycle_service import (
-    AuthenticationExpiredError,
     check_auth_session_validity,
 )
 from api.services.run_context_service import (
@@ -86,9 +91,9 @@ def run_scan(
 
     try:
         # ── Boot browser ────────────────────────────────────────────────
-        state_path = _auth_state_path(auth_session_id) if auth_session_id else STORAGE_STATE_PATH
+        state_path = _auth_state_path(auth_session_id) if auth_session_id else None
         if auth_session_id:
-            if not state_path.exists():
+            if not state_path or not state_path.exists():
                 raise AuthenticationExpiredError("The module-selection session has expired. Sign in and discover modules again.")
             valid, reason = check_auth_session_validity(url, auth_session_id, actual_run_id)
             if not valid:
@@ -148,10 +153,11 @@ def run_scan(
         if username and password:
             logger.info(f"[API] Logging in | user={username}")
             login(page, username, password, url)
-            try:
-                save_storage_state(context, STORAGE_STATE_PATH)
-            except Exception:
-                pass
+            if state_path:
+                try:
+                    save_storage_state(context, state_path)
+                except Exception:
+                    pass
             logger.info("[API] Login successful")
         else:
             logger.info(f"[API] No credentials provided — navigating to {target_nav_url}")
@@ -334,7 +340,7 @@ def run_scan(
         raise
 
     finally:
-        if context:
+        if context and state_path:
             try:
                 save_storage_state(context, state_path)
             except Exception:
@@ -407,12 +413,22 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
     state_path = _auth_state_path(auth_session_id) if auth_session_id else None
     playwright = browser = context = None
     try:
-        playwright, browser, context, page = start_persistent_browser()
+        try:
+            playwright, browser, context, page = start_persistent_browser()
+        except (PlaywrightError, PlaywrightTimeoutError, Exception) as init_err:
+            raise DiscoveryUnavailableError(f"Browser failed to initialize: {init_err}") from init_err
+
         install_document_scope_guard(page, url)
         if username and password:
             login(page, username, password, url)
         else:
-            page.goto(url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+            except (PlaywrightError, PlaywrightTimeoutError) as nav_err:
+                raise DiscoveryUnavailableError(f"Target navigation failed: {nav_err}") from nav_err
+            curr = (page.url or "").lower().strip()
+            if curr.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+                raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
             wait_for_ui_stability(page)
         try:
             ensure_navigation_expanded(page)

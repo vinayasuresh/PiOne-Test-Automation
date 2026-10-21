@@ -20,6 +20,7 @@ import time
 from typing import Any
 
 from playwright.sync_api import (
+    Error as PlaywrightError,
     Frame,
     Locator,
     Page,
@@ -27,6 +28,10 @@ from playwright.sync_api import (
 )
 
 from automation_framework.config.settings import LOGIN_TIMEOUT, ROUTE_LOAD_TIMEOUT, SCREENSHOT_PATH
+from automation_framework.crawler.auth_exceptions import (
+    DiscoveryUnavailableError,
+    LoginFailedError,
+)
 from automation_framework.utils.logger import logger
 
 
@@ -117,12 +122,20 @@ SSO_KEYWORDS: tuple[str, ...] = (
 def login(page: Page, username: str, password: str, base_url: str) -> None:
     """Perform a deterministic email/username + password login.
 
-    Raises RuntimeError on any failure. Captures a diagnostic snapshot and
+    Raises LoginFailedError if credentials fail, or DiscoveryUnavailableError
+    if navigation/target is unreachable. Captures a diagnostic snapshot and
     screenshot to screenshots/login_failure.png before raising.
     """
     try:
         logger.info(f"[login] Navigating to {base_url}")
-        page.goto(base_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+        try:
+            page.goto(base_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+        except (PlaywrightError, PlaywrightTimeoutError) as nav_err:
+            raise DiscoveryUnavailableError(f"Target navigation failed: {nav_err}") from nav_err
+
+        current_init = (page.url or "").lower().strip()
+        if current_init.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+            raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
 
         context, username_field, username_selector, password_field, password_selector = (
             _wait_for_login_form(page)
@@ -136,21 +149,30 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
         logger.info(f"[login] Submit button selector: {submit_selector}")
 
         logger.info("[login] Filling credentials")
-        username_field.fill(username, timeout=LOGIN_TIMEOUT)
-        password_field.fill(password, timeout=LOGIN_TIMEOUT)
-        page.wait_for_timeout(500)
+        try:
+            username_field.fill(username, timeout=LOGIN_TIMEOUT)
+            password_field.fill(password, timeout=LOGIN_TIMEOUT)
+            page.wait_for_timeout(500)
+        except (PlaywrightError, PlaywrightTimeoutError) as fill_err:
+            raise LoginFailedError(f"Unable to fill login credentials: {fill_err}") from fill_err
 
         logger.info("[login] Submitting form")
-        if submit_button is None:
-            password_field.press("Enter", timeout=LOGIN_TIMEOUT)
-        else:
-            submit_button.click(timeout=LOGIN_TIMEOUT)
+        try:
+            if submit_button is None:
+                password_field.press("Enter", timeout=LOGIN_TIMEOUT)
+            else:
+                submit_button.click(timeout=LOGIN_TIMEOUT)
+        except (PlaywrightError, PlaywrightTimeoutError) as submit_err:
+            raise LoginFailedError(f"Unable to submit login form: {submit_err}") from submit_err
 
         _wait_for_login_completion(page)
         _validate_login_success(page)
 
         logger.info(f"[login] Login successful — current URL: {page.url}")
 
+    except (DiscoveryUnavailableError, LoginFailedError):
+        _screenshot_failure(page)
+        raise
     except Exception as exc:
         diagnostics = _capture_login_diagnostics(page)
         _screenshot_failure(page)
@@ -162,9 +184,10 @@ def login(page: Page, username: str, password: str, base_url: str) -> None:
             len(diagnostics.get("detected_inputs", [])),
             len(diagnostics.get("detected_buttons", [])),
         )
-        if isinstance(exc, RuntimeError):
-            raise
-        raise RuntimeError(f"Login failed: {exc}") from exc
+        curr = (page.url or "").lower().strip()
+        if curr.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+            raise DiscoveryUnavailableError(f"Target navigation error: {exc}") from exc
+        raise LoginFailedError(f"Login failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -221,8 +244,11 @@ def _wait_for_login_form(
             pass
 
     if not has_any_input:
-        raise RuntimeError("no input fields found on the login page")
-    raise RuntimeError("password field never appeared on the login page")
+        current_u = (page.url or "").lower().strip()
+        if current_u.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+            raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
+        raise DiscoveryUnavailableError("no input fields found on the login page")
+    raise DiscoveryUnavailableError("password field never appeared on the login page")
 
 
 # ---------------------------------------------------------------------------
@@ -406,9 +432,9 @@ def _validate_login_success(page: Page) -> None:
     # establishing an authenticated application session. Treat it as a hard
     # failure instead of allowing discovery to scan chrome-error:// routes.
     if current.startswith(("chrome-error:", "chrome-error://", "about:blank", "data:", "file:", "javascript:")):
-        raise RuntimeError(f"login navigation failed (browser error page: {page.url})")
+        raise DiscoveryUnavailableError(f"login navigation failed (browser error page: {page.url})")
     if not current.startswith(("http://", "https://")):
-        raise RuntimeError(f"login navigation produced an invalid URL scheme: {page.url}")
+        raise DiscoveryUnavailableError(f"login navigation produced an invalid URL scheme: {page.url}")
 
     # Check if remaining on a login page path
     login_patterns = ("/auth/login", "/signin", "/sign-in", "/authenticate")
@@ -432,7 +458,7 @@ def _validate_login_success(page: Page) -> None:
         pass
 
     if is_login_path or has_visible_password:
-        raise RuntimeError(f"still on login page after submit (url={page.url})")
+        raise LoginFailedError(f"Invalid credentials or login rejected; still on login page (url={page.url})")
 
 
 def _capture_login_diagnostics(page: Page) -> dict[str, Any]:

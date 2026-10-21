@@ -11,6 +11,12 @@ from uuid import uuid4
 
 from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
+from automation_framework.crawler.auth_exceptions import (
+    AuthenticationExpiredError,
+    DiscoveryUnavailableError,
+    LoginFailedError,
+)
 from automation_framework.utils.redactor import redact_sensitive_data
 
 _RUN_ID_REGEX = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
@@ -64,7 +70,6 @@ from api.db.repository import DBRepository
 from api.db.session import check_db_status
 from api.services import crawler_service, mock_service
 from api.services.auth_lifecycle_service import (
-    AuthenticationExpiredError,
     check_auth_session_validity,
     refresh_auth_session,
 )
@@ -108,8 +113,9 @@ router = APIRouter()
     response_model=ModuleDiscoveryResponse,
     summary="Authenticate and list modules before scanning",
 )
-async def discover_modules(request: ModuleDiscoveryRequest) -> ModuleDiscoveryResponse:
+async def discover_modules(request: ModuleDiscoveryRequest) -> Any:
     """Return the live application's current menu modules without crawling them."""
+    correlation_id = str(uuid4())
     try:
         result = await asyncio.to_thread(
             crawler_service.discover_modules, request.url, request.username, request.password,
@@ -118,25 +124,88 @@ async def discover_modules(request: ModuleDiscoveryRequest) -> ModuleDiscoveryRe
             "Choose one or more modules to scan. Only those modules and their "
             "safe in-module navigation will be explored."
         )
-        return ModuleDiscoveryResponse(**result, message=message)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        resp = ModuleDiscoveryResponse(**result, message=message, correlation_id=correlation_id)
+        return JSONResponse(
+            status_code=200,
+            content=resp.model_dump(mode="json"),
+            headers={"X-Correlation-ID": correlation_id},
+        )
     except AuthenticationExpiredError as exc:
-        # Discovery can fail after an existing login/session has expired.
-        # Return an explicit auth response so the UI can offer renewal rather
-        # than misclassifying the failure as an opaque server error.
-        raise HTTPException(
+        return JSONResponse(
             status_code=401,
-            detail="Authentication expired. Refresh the session or start a new scan.",
-        ) from exc
+            content={
+                "detail": {
+                    "category": "AUTHENTICATION_EXPIRED",
+                    "message": "Authentication expired. Refresh the session or start a new scan.",
+                    "correlation_id": correlation_id,
+                },
+                "category": "AUTHENTICATION_EXPIRED",
+                "message": "Authentication expired. Refresh the session or start a new scan.",
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    except LoginFailedError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "category": "LOGIN_FAILED",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "LOGIN_FAILED",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    except DiscoveryUnavailableError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "detail": {
+                    "category": "DISCOVERY_UNAVAILABLE",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "DISCOVERY_UNAVAILABLE",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "category": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "VALIDATION_ERROR",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
     except Exception as exc:
         logger.exception("[API] Module discovery failed")
-        raise HTTPException(
+        return JSONResponse(
             status_code=502,
-            detail="Module discovery could not complete. Retry the scan or start a new scan.",
-        ) from exc
+            content={
+                "detail": {
+                    "category": "DISCOVERY_UNAVAILABLE",
+                    "message": f"Module discovery could not complete: {exc}",
+                    "correlation_id": correlation_id,
+                },
+                "category": "DISCOVERY_UNAVAILABLE",
+                "message": f"Module discovery could not complete: {exc}",
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
 
 
 @router.post(
@@ -144,7 +213,38 @@ async def discover_modules(request: ModuleDiscoveryRequest) -> ModuleDiscoveryRe
     response_model=RefreshSessionResponse,
     summary="Refresh an expired authentication session in-place",
 )
-async def refresh_session(request: RefreshSessionRequest) -> RefreshSessionResponse:
+async def refresh_session(request: RefreshSessionRequest) -> Any:
+    correlation_id = str(uuid4())
+    if not request.run_id or not request.run_id.strip():
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "category": "VALIDATION_ERROR",
+                    "message": "run_id is required to refresh an existing session.",
+                    "correlation_id": correlation_id,
+                },
+                "category": "VALIDATION_ERROR",
+                "message": "run_id is required to refresh an existing session.",
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    if not request.username or not request.password:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "category": "VALIDATION_ERROR",
+                    "message": "Username and password are required to refresh the session.",
+                    "correlation_id": correlation_id,
+                },
+                "category": "VALIDATION_ERROR",
+                "message": "Username and password are required to refresh the session.",
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
     try:
         result = await asyncio.to_thread(
             refresh_auth_session,
@@ -154,18 +254,78 @@ async def refresh_session(request: RefreshSessionRequest) -> RefreshSessionRespo
             auth_session_id=None,
             run_id=request.run_id,
         )
-        return RefreshSessionResponse(
+        resp = RefreshSessionResponse(
             status="success",
             run_id=result["run_id"],
             auth_session_id=result["auth_session_id"],
             message="Session refreshed successfully. You can continue scanning or execution.",
         )
+        return JSONResponse(
+            status_code=200,
+            content=resp.model_dump(mode="json"),
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    except LoginFailedError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": {
+                    "category": "LOGIN_FAILED",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "LOGIN_FAILED",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
+    except DiscoveryUnavailableError as exc:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "detail": {
+                    "category": "DISCOVERY_UNAVAILABLE",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "DISCOVERY_UNAVAILABLE",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=422, detail=f"Authentication failed: {exc}") from exc
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": {
+                    "category": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "correlation_id": correlation_id,
+                },
+                "category": "VALIDATION_ERROR",
+                "message": str(exc),
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to refresh session: {exc}") from exc
+        logger.exception("[API] Session refresh failed")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": {
+                    "category": "SERVER_ERROR",
+                    "message": f"Failed to refresh session: {exc}",
+                    "correlation_id": correlation_id,
+                },
+                "category": "SERVER_ERROR",
+                "message": f"Failed to refresh session: {exc}",
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
 
 
 @router.get(

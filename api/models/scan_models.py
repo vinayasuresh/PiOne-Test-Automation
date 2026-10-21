@@ -98,6 +98,7 @@ class ModuleDiscoveryResponse(BaseModel):
     auth_session_id: str
     modules: list[ModuleOption]
     message: Optional[str] = None
+    correlation_id: Optional[str] = None
 
 
 class RouteReplayRequest(BaseModel):

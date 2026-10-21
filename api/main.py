@@ -11,7 +11,10 @@ Interactive API docs:
 """
 
 from pathlib import Path
+import datetime
+import json
 import os
+import subprocess
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,10 +22,52 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routers import scan, scan_events
+from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
 
 _FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
 _REPORTS_DIR = Path(__file__).resolve().parents[1] / "automation_framework" / "reports"
+
+PROCESS_START_TIMESTAMP = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _get_build_id() -> str:
+    try:
+        res = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            cwd=str(Path(__file__).resolve().parent),
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return "dev-local"
+
+
+BUILD_IDENTIFIER = _get_build_id()
+
+
+def _verify_and_clean_storage_template() -> None:
+    template = {"cookies": [], "origins": []}
+    try:
+        if not STORAGE_STATE_PATH.exists():
+            STORAGE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            STORAGE_STATE_PATH.write_text(json.dumps(template), encoding="utf-8")
+        else:
+            try:
+                data = json.loads(STORAGE_STATE_PATH.read_text(encoding="utf-8"))
+                if data.get("cookies") or data.get("origins"):
+                    STORAGE_STATE_PATH.write_text(json.dumps(template), encoding="utf-8")
+            except Exception:
+                STORAGE_STATE_PATH.write_text(json.dumps(template), encoding="utf-8")
+    except Exception:
+        pass
+
+
+_verify_and_clean_storage_template()
 
 # ---------------------------------------------------------------------------
 # App
@@ -142,10 +187,28 @@ async def _global_exception_handler(request: Request, exc: Exception) -> JSONRes
 
 
 # ---------------------------------------------------------------------------
-# Health check
+# Health & version check
 # ---------------------------------------------------------------------------
 
 
 @app.get("/health", tags=["Health"], summary="Service health check")
 async def health() -> dict:
-    return {"status": "ok", "service": "PiOne Testmate API", "version": "2.0.0"}
+    return {
+        "status": "ok",
+        "service": "PiOne Testmate API",
+        "application": "PiOne Testmate",
+        "version": "2.0.0",
+        "build_id": BUILD_IDENTIFIER,
+        "process_start": PROCESS_START_TIMESTAMP,
+    }
+
+
+@app.get("/version", tags=["Health"], summary="Service build and version details")
+async def version() -> dict:
+    return {
+        "status": "ok",
+        "application": "PiOne Testmate",
+        "version": "2.0.0",
+        "build_id": BUILD_IDENTIFIER,
+        "process_start": PROCESS_START_TIMESTAMP,
+    }
