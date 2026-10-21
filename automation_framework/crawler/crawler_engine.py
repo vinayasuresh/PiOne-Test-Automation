@@ -990,6 +990,37 @@ class CrawlerEngine:
                     self._emit_event("parking_lot_action_added", entry)
                 continue
 
+            # Out-of-scope link guard: reject external domains or non-navigational links
+            target_link = (
+                item.get("routerlink")
+                or item.get("data-route")
+                or item.get("data-href")
+                or item.get("href")
+                or ""
+            ).strip()
+            if target_link:
+                if target_link.lower().startswith(("mailto:", "tel:")):
+                    self._emit_event("route_rejected", {
+                        "parent_route": normalized,
+                        "target_url": target_link,
+                        "action": item.get("label", ""),
+                        "reason": "outside_app_scope_or_browser_error",
+                    })
+                    continue
+                if not target_link.lower().startswith(("javascript:", "#")):
+                    norm_target = self._normalize(target_link)
+                    if (
+                        norm_target.lower().startswith(("chrome-error:", "chrome-error://", "about:blank", "data:"))
+                        or not is_valid_url(norm_target, self.base_url)
+                    ):
+                        self._emit_event("route_rejected", {
+                            "parent_route": normalized,
+                            "target_url": norm_target,
+                            "action": item.get("label", ""),
+                            "reason": "outside_app_scope_or_browser_error",
+                        })
+                        continue
+
             # Safe action: check duplicate action and element identities
             action_identity = f"{normalized}|{item.get('role', '')}|{item.get('label', '')}|{item.get('href', '')}|{item.get('index', 0)}"
             if action_identity in self._probed_action_identities:
@@ -1191,7 +1222,7 @@ class CrawlerEngine:
                             feature_name=f"{menu_name} > {item['label']}",
                             menu_name=menu_name,
                             global_seen=self._global_seen,
-                            deadline=self._route_deadline,
+                            deadline=self._route_deadline if self._route_deadline > 0 else (time.monotonic() + 10.0),
                         )
                         active_mid = self._active_module_id or f"route:{normalized}"
                         for target in extra.get("automation_targets", []):

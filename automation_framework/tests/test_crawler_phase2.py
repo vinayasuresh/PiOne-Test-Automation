@@ -258,7 +258,12 @@ def test_authentication_expiry_triggers_one_reauthentication_attempt(page: Page,
         "visible": True,
     }
 
-    with patch.object(engine, "_is_login_page", side_effect=[True, False]):
+    calls = [True, False]
+
+    def mock_is_login():
+        return calls.pop(0) if calls else False
+
+    with patch.object(engine, "_is_login_page", side_effect=mock_is_login):
         with patch.object(engine.probe_engine, "probe_action", return_value={"success": True, "url_changed": False, "dom_delta": 0}):
             engine._probe_candidate_actions(spa_server, "Home", {"automation_targets": []})
 

@@ -457,7 +457,7 @@ def build_ui_intelligence(
     category_counts: dict[str, int] = {}
 
     for category in CATEGORY_ORDER:
-        if deadline is not None and time.monotonic() >= deadline:
+        if deadline is not None and deadline > 0 and time.monotonic() >= deadline:
             logger.warning("Route scan deadline reached while extracting %s", category)
             break
         rule = CATEGORY_RULES[category]
@@ -477,7 +477,7 @@ def build_ui_intelligence(
         kept = 0
 
         for data in elements_data:
-            if deadline is not None and time.monotonic() >= deadline:
+            if deadline is not None and deadline > 0 and time.monotonic() >= deadline:
                 break
             if not _is_meaningful_from_data(data, category, base_url=effective_base_url):
                 continue
@@ -507,7 +507,7 @@ def build_ui_intelligence(
             if target["type"] == "dropdown" and _probe_dropdown_behavior(
                 page, target,
                 timeout_ms=(min(1000, max(1, int((deadline - time.monotonic()) * 1000)))
-                            if deadline is not None else 1000),
+                            if (deadline is not None and deadline > 0) else 1000),
             ):
                 target["opens_listbox"] = True
                 target["is_dynamic"] = True
@@ -718,7 +718,7 @@ def extract_fallback_body_elements(
     seen: set[str] = set()
 
     for item in raw_items:
-        if deadline is not None and time.monotonic() >= deadline:
+        if deadline is not None and deadline > 0 and time.monotonic() >= deadline:
             break
         if not item.get("isVisible") or item.get("disabled"):
             continue
