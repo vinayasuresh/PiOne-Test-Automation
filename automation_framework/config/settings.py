@@ -7,7 +7,11 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILE = PROJECT_ROOT / ".env"
 
-load_dotenv(ENV_FILE)
+def load_environment(env_file: Path | None = None, override: bool = False) -> None:
+    load_dotenv(env_file or ENV_FILE, override=override)
+
+
+load_environment()
 
 BASE_URL = os.getenv("BASE_URL", "").strip()
 

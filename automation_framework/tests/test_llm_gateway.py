@@ -23,6 +23,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import os
 import socket
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -57,6 +58,7 @@ from api.services.llm_provider_gateway import (
 )
 from api.services.test_execution_service import execute_test_cases
 from api.services.test_input_normalizer import TestInputNormalizer
+from automation_framework.config.settings import load_environment
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +234,82 @@ def test_deterministic_planner_success(sample_scan_context):
     assert tc1["steps"][1]["target_label"] in {"Submit", "User Search"}
 
 
+def test_env_values_loaded_from_file(tmp_path, monkeypatch):
+    env_path = tmp_path / ".env"
+    env_path.write_text(
+        "\n".join((
+            "LLM_PROVIDER=ollama",
+            "OLLAMA_BASE_URL=http://127.0.0.1:11434",
+            "OLLAMA_MODEL=llama3.1:8b",
+            "OLLAMA_TIMEOUT_SECONDS=180",
+        )),
+        encoding="utf-8",
+    )
+    for key in ("LLM_PROVIDER", "OLLAMA_BASE_URL", "OLLAMA_MODEL", "OLLAMA_TIMEOUT_SECONDS"):
+        monkeypatch.delenv(key, raising=False)
+
+    load_environment(env_file=env_path, override=True)
+
+    assert os.getenv("LLM_PROVIDER") == "ollama"
+    assert os.getenv("OLLAMA_BASE_URL") == "http://127.0.0.1:11434"
+    assert os.getenv("OLLAMA_MODEL") == "llama3.1:8b"
+    assert os.getenv("OLLAMA_TIMEOUT_SECONDS") == "180"
+
+
+def test_default_provider_uses_ollama_when_configured(sample_scan_context, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_MODEL", "llama3.1:8b")
+    gateway = LLMProviderGateway()
+    ai_plan = {
+        "test_cases": [{
+            "tc_id": "TC_001",
+            "title": "Verify Home",
+            "module": "Home",
+            "route": "/home",
+            "steps": [
+                {"step_id": "TC_001_S01", "action": "navigate", "route": "/home"},
+                {"step_id": "TC_001_S02", "action": "assert_visible", "route": "/home", "target_label": "Submit", "selector": {"strategy": "role", "value": "button[name=Submit]"}, "expected_result": "visible"},
+            ],
+        }],
+        "planning_notes": ["ok"],
+        "warnings": [],
+    }
+    tags = {"models": [{"name": "llama3.1:8b"}]}
+    gen = {"response": json.dumps(ai_plan)}
+    responses = [MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(json.dumps(gen))]
+    with patch("api.services.llm_provider_gateway.urlopen", side_effect=responses):
+        result = gateway.plan_tests(
+            provider=None,
+            model=None,
+            scan_context=sample_scan_context,
+            requirements=[],
+            testcases=[],
+            user_prompt="check submit",
+        )
+    assert result["selected_provider"] == "ollama"
+
+
+def test_ollama_timeout_is_configurable(monkeypatch):
+    monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "180")
+    adapter = OllamaAdapter(base_url="http://127.0.0.1:11434", model="llama3.1:8b")
+    assert adapter.timeout == 180.0
+
+
+def test_missing_ollama_model_returns_clear_message(sample_scan_context):
+    gateway = LLMProviderGateway()
+    tags = {"models": [{"name": "llama3.2"}]}
+    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(json.dumps(tags))):
+        with pytest.raises(ValueError, match="Model llama3.1:8b is not installed. Run: ollama pull llama3.1:8b"):
+            gateway.plan_tests(
+                provider="ollama",
+                model="llama3.1:8b",
+                scan_context=sample_scan_context,
+                requirements=[],
+                testcases=[],
+                user_prompt="test",
+            )
+
+
 # ---------------------------------------------------------------------------
 # 3. Ollama Success (Mocked HTTP)
 # ---------------------------------------------------------------------------
@@ -264,7 +342,11 @@ def test_ollama_success_mocked_http(sample_scan_context):
     }
     mock_ollama_resp = json.dumps({"response": json.dumps(ai_plan)})
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(mock_ollama_resp)):
+    tags = {"models": [{"name": "llama3.2"}]}
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(mock_ollama_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -393,7 +475,11 @@ def test_hosted_provider_success_mocked_http(sample_scan_context, monkeypatch):
 def test_provider_timeout_triggers_fallback(sample_scan_context):
     gateway = LLMProviderGateway()
 
-    with patch("api.services.llm_provider_gateway.urlopen", side_effect=socket.timeout("Socket timed out")):
+    tags = {"models": [{"name": "llama3.2"}]}
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), socket.timeout("Socket timed out"), socket.timeout("Socket timed out")],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -417,10 +503,11 @@ def test_provider_timeout_triggers_fallback(sample_scan_context):
 
 def test_provider_unavailable_triggers_fallback(sample_scan_context):
     gateway = LLMProviderGateway()
+    tags = {"models": [{"name": "llama3.2"}]}
 
     with patch(
         "api.services.llm_provider_gateway.urlopen",
-        side_effect=URLError(ConnectionRefusedError("Connection refused on 11434")),
+        side_effect=[MockHTTPResponse(json.dumps(tags)), URLError(ConnectionRefusedError("Connection refused on 11434"))],
     ):
         result = gateway.plan_tests(
             provider="ollama",
@@ -444,8 +531,12 @@ def test_provider_unavailable_triggers_fallback(sample_scan_context):
 def test_malformed_json_triggers_fallback(sample_scan_context):
     gateway = LLMProviderGateway()
     bad_resp = json.dumps({"response": "Here is your plan: { broken json ..."})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(bad_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(bad_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -469,8 +560,12 @@ def test_schema_validation_failure_triggers_fallback(sample_scan_context):
     # Missing test_cases key
     bad_plan = {"unexpected_key": "some value"}
     bad_resp = json.dumps({"response": json.dumps(bad_plan)})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(bad_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(bad_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -505,8 +600,12 @@ def test_hallucinated_route_rejection_triggers_fallback(sample_scan_context):
         ]
     }
     mock_resp = json.dumps({"response": json.dumps(hallucinated_plan)})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(mock_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(mock_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -552,8 +651,12 @@ def test_hallucinated_selector_rejection_triggers_fallback(sample_scan_context):
         ]
     }
     mock_resp = json.dumps({"response": json.dumps(hallucinated_plan)})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(mock_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(mock_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -590,8 +693,12 @@ def test_unsupported_action_rejection_triggers_fallback(sample_scan_context):
         ]
     }
     mock_resp = json.dumps({"response": json.dumps(mutating_plan)})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(mock_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(mock_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -634,8 +741,12 @@ def test_destructive_action_safeguard_triggers_fallback(sample_scan_context):
         ]
     }
     mock_resp = json.dumps({"response": json.dumps(destructive_plan)})
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(mock_resp)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(mock_resp)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -658,8 +769,12 @@ def test_response_size_limit_exceeded_triggers_fallback(sample_scan_context):
     gateway = LLMProviderGateway()
     # Response larger than 512 KB
     giant_payload = "a" * (600 * 1024)
+    tags = {"models": [{"name": "llama3.2"}]}
 
-    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(giant_payload)):
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        side_effect=[MockHTTPResponse(json.dumps(tags)), MockHTTPResponse(giant_payload)],
+    ):
         result = gateway.plan_tests(
             provider="ollama",
             model="llama3.2",
@@ -794,3 +909,61 @@ def test_complete_flow_scan_to_plan_to_execute(sample_scan_context):
     assert all(row.Action in {"navigate", "assert_visible", "click", "type", "select"} for row in rows)
     # No mutating or destructive action was executed
     assert not any(row.Action in {"delete", "remove", "logout", "submit", "pay", "reset"} for row in rows)
+
+
+def test_provider_status_endpoint_is_safe(monkeypatch):
+    client = TestClient(app)
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434?token=abc")
+    monkeypatch.setenv("OLLAMA_MODEL", "llama3.1:8b")
+    monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "180")
+    tags = {"models": [{"name": "llama3.1:8b"}]}
+    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(json.dumps(tags))):
+        response = client.get("/llm/provider-status?provider=ollama")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["provider"] == "ollama"
+    assert data["configured_model"] == "llama3.1:8b"
+    assert data["base_url"] == "http://127.0.0.1:11434"
+    assert int(data["timeout_seconds"]) == 180
+    dumped = json.dumps(data).lower()
+    for secret in ("token=", "api_key", "authorization", "password", "gemini_api_key"):
+        assert secret not in dumped
+
+
+def test_generate_test_returns_missing_model_message(sample_scan_context):
+    client = TestClient(app)
+    scan_resp = ScanResponse(
+        status="success",
+        routes=[
+            RouteResult(
+                path="/home",
+                menu_name="Home",
+                purpose="Dashboard",
+                components=ComponentGroups(buttons=["Submit"], inputs=["User Search"]),
+                automation_targets=sample_scan_context["routes"][0]["automation_targets"],
+                route_status="HEALTHY",
+                route_score=100,
+            ),
+        ],
+        summary=ScanSummary(
+            total_routes=1,
+            total_buttons=1,
+            total_inputs=1,
+            total_tables=0,
+            scan_duration_seconds=1.0,
+        ),
+    )
+    tags = {"models": [{"name": "llama3.2"}]}
+    with patch("api.services.llm_provider_gateway.urlopen", return_value=MockHTTPResponse(json.dumps(tags))):
+        response = client.post(
+            "/generate-test",
+            json={
+                "base_url": "https://example.com",
+                "scan": scan_resp.model_dump(),
+                "provider": "ollama",
+                "model": "llama3.1:8b",
+                "user_prompt": "verify",
+            },
+        )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Model llama3.1:8b is not installed. Run: ollama pull llama3.1:8b"

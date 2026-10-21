@@ -21,6 +21,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -70,6 +71,11 @@ class GroundingValidationError(ProviderError):
         super().__init__(message, category=category)
 
 
+class ProviderConfigurationError(ProviderError):
+    def __init__(self, message: str, category: str = "CONFIGURATION_ERROR"):
+        super().__init__(message, category=category)
+
+
 # ---------------------------------------------------------------------------
 # Secret Redaction & Context Sanitization
 # ---------------------------------------------------------------------------
@@ -80,6 +86,21 @@ def redact_secrets_text(text: str) -> str:
         return text
     from automation_framework.utils.redactor import redact_text
     return redact_text(text)
+
+
+def sanitize_base_url(url: str) -> str:
+    """Return URL without credentials, query, or fragment."""
+    if not isinstance(url, str) or not url.strip():
+        return ""
+    try:
+        parsed = urlsplit(url.strip())
+        netloc = parsed.netloc
+        if "@" in netloc:
+            netloc = netloc.split("@", 1)[-1]
+        cleaned = urlunsplit((parsed.scheme, netloc, parsed.path.rstrip("/"), "", ""))
+        return redact_secrets_text(cleaned)
+    except Exception:
+        return redact_secrets_text(url.strip())
 
 
 def sanitize_context(context: Any) -> Any:
@@ -811,6 +832,7 @@ class OllamaAdapter(BaseLLMAdapter):
         except (TypeError, ValueError):
             self.timeout = 120.0
         self.model = self.default_model
+        self._last_health: dict[str, Any] = {}
 
     def health_check(self) -> dict[str, Any]:
         try:
@@ -818,14 +840,45 @@ class OllamaAdapter(BaseLLMAdapter):
             with urlopen(req, timeout=5) as res:
                 data = json.loads(res.read().decode("utf-8"))
                 models = [m.get("name") for m in data.get("models", [])]
-                return {"ok": True, "provider": "ollama", "models": models}
+                health = {
+                    "ok": True,
+                    "provider": "ollama",
+                    "models": models,
+                    "base_url": sanitize_base_url(self.base_url),
+                    "configured_model": self.default_model,
+                    "timeout_seconds": self.timeout,
+                }
+                self._last_health = health
+                return health
         except Exception as exc:
-            return {"ok": False, "provider": "ollama", "detail": str(exc)}
+            health = {
+                "ok": False,
+                "provider": "ollama",
+                "base_url": sanitize_base_url(self.base_url),
+                "configured_model": self.default_model,
+                "timeout_seconds": self.timeout,
+                "detail": redact_secrets_text(str(exc)),
+            }
+            self._last_health = health
+            return health
 
     def list_or_validate_model(self, model: str) -> bool:
         health = self.health_check()
         models = health.get("models", [])
-        return (model in models) or bool(models)
+        target = (model or self.default_model).strip()
+        return bool(target and target in models)
+
+    def ensure_model_available(self, model: str | None = None) -> None:
+        target_model = (model or self.default_model).strip()
+        health = self.health_check()
+        if not health.get("ok"):
+            raise ProviderUnavailableError(health.get("detail") or "Ollama service is unavailable")
+        models = health.get("models") or []
+        if target_model not in models:
+            raise ProviderConfigurationError(
+                f"Model {target_model} is not installed. Run: ollama pull {target_model}",
+                category="MODEL_NOT_INSTALLED",
+            )
 
     def generate_test_plan(
         self,
@@ -835,6 +888,7 @@ class OllamaAdapter(BaseLLMAdapter):
         user_prompt: str,
         correlation_id: str = "",
     ) -> dict[str, Any]:
+        self.ensure_model_available(self.default_model)
         prompt = _build_planning_prompt(scan_context, requirements, testcases, user_prompt)
         body = {
             "model": self.default_model,
@@ -1089,6 +1143,7 @@ class LLMProviderGateway:
             "hosted": HostedAdapter(),
             "openai_compatible": HostedAdapter(),
         }
+        self._last_provider_status: dict[str, dict[str, Any]] = {}
 
     def get_adapter(self, provider_id: str, model: str | None = None) -> BaseLLMAdapter:
         """Return an adapter, honoring a per-request model override."""
@@ -1096,11 +1151,11 @@ class LLMProviderGateway:
         if pid == "openai_compatible":
             pid = "hosted"
 
-        if model and pid == "ollama":
+        if pid == "ollama":
             return OllamaAdapter(model=model)
-        if model and pid == "gemini":
+        if pid == "gemini":
             return GeminiAdapter(model=model)
-        if model and pid in {"hosted", "openai_compatible"}:
+        if pid in {"hosted", "openai_compatible"}:
             return HostedAdapter(model=model)
         if model and pid == "deterministic":
             return DeterministicAdapter(model=model)
@@ -1155,6 +1210,17 @@ class LLMProviderGateway:
                     fallback_reason = fail_reason
                     logger.warning(f"[{correlation_id}] Grounding validation failed ({err_cat}): {fail_reason}")
             except ProviderError as p_err:
+                if p_err.category == "MODEL_NOT_INSTALLED":
+                    self._last_provider_status[chosen_provider] = {
+                        "provider": chosen_provider,
+                        "configured_model": model or getattr(adapter, "default_model", ""),
+                        "base_url": sanitize_base_url(getattr(adapter, "base_url", "")),
+                        "timeout_seconds": getattr(adapter, "timeout", None),
+                        "health_status": "error",
+                        "fallback_reason": str(p_err),
+                        "error_category": p_err.category,
+                    }
+                    raise ValueError(str(p_err)) from p_err
                 fallback_used = True
                 error_category = p_err.category
                 fallback_reason = str(p_err)
@@ -1209,5 +1275,34 @@ class LLMProviderGateway:
                 "plan_type": "scenario_proposal" if is_scenario_proposal else "requirement_verified_suite",
             },
         }
+        health_status = "fallback" if fallback_used else "ok"
+        self._last_provider_status[chosen_provider] = {
+            "provider": chosen_provider,
+            "configured_model": active_model,
+            "base_url": sanitize_base_url(getattr(adapter, "base_url", "")),
+            "timeout_seconds": getattr(adapter, "timeout", None),
+            "health_status": health_status,
+            "fallback_reason": fallback_reason if fallback_used else "",
+            "error_category": error_category,
+        }
 
         return normalized_resp
+
+    def provider_status(self, provider: str | None, model: str | None = None) -> dict[str, Any]:
+        chosen_provider = (provider or os.getenv("LLM_PROVIDER") or "deterministic").strip().lower()
+        if chosen_provider == "openai_compatible":
+            chosen_provider = "hosted"
+        adapter = self.get_adapter(chosen_provider, model)
+        health = adapter.health_check()
+        active_model = model or getattr(adapter, "default_model", getattr(adapter, "model", ""))
+        timeout = getattr(adapter, "timeout", None)
+        base_url = sanitize_base_url(getattr(adapter, "base_url", ""))
+        last = self._last_provider_status.get(chosen_provider, {})
+        return {
+            "provider": chosen_provider,
+            "configured_model": active_model,
+            "base_url": base_url,
+            "timeout_seconds": timeout,
+            "health_status": "ok" if health.get("ok") else "unavailable",
+            "fallback_reason": last.get("fallback_reason", ""),
+        }

@@ -74,7 +74,7 @@ from api.services.auth_lifecycle_service import (
     refresh_auth_session,
 )
 from api.services.llm_provider_gateway import LLMProviderGateway
-from api.services.llm_service import provider_catalog, request_plan, test_provider_connection
+from api.services.llm_service import provider_catalog, provider_status, request_plan, test_provider_connection
 from api.services.run_context_service import (
     create_run_context,
     delete_run_context,
@@ -604,15 +604,18 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
     # 2. Plan tests through the LLMProviderGateway
     gateway = LLMProviderGateway()
     scan_dict = request.scan.model_dump()
-    plan_result = await asyncio.to_thread(
-        gateway.plan_tests,
-        request.provider,
-        request.model,
-        scan_dict,
-        requirements_list,
-        testcases_list,
-        combined_prompt,
-    )
+    try:
+        plan_result = await asyncio.to_thread(
+            gateway.plan_tests,
+            request.provider,
+            request.model,
+            scan_dict,
+            requirements_list,
+            testcases_list,
+            combined_prompt,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     # 3. Assemble validated TestCase objects
     raw_cases = plan_result.get("test_cases", [])
@@ -700,6 +703,11 @@ async def list_llm_providers() -> list[LLMProviderInfo]:
 @router.post("/llm/test-connection", summary="Test connection to an AI provider")
 async def test_llm_connection(provider: str) -> dict:
     return await asyncio.to_thread(test_provider_connection, provider)
+
+
+@router.get("/llm/provider-status", summary="Safe provider diagnostics")
+async def llm_provider_status(provider: str | None = None, model: str | None = None) -> dict[str, Any]:
+    return await asyncio.to_thread(provider_status, provider, model)
 
 
 @router.post("/test-context/upload", response_model=TestContextResponse, summary="Store test inputs for the current test-generation session")

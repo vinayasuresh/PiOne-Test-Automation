@@ -218,6 +218,19 @@ Or execute the script directly:
 python .system_generated/scratch/live_saucedemo_proof.py
 ```
 
+### Ollama Setup
+
+Use these Windows PowerShell commands from the repository root:
+
+```powershell
+Copy-Item .env.example .env
+ollama serve
+ollama pull llama3.1:8b
+uvicorn api.main:app --reload --port 8000
+```
+
+PiOne Testmate auto-loads `.env` at startup. Keep `.env` local only; it is ignored by Git.
+
 ---
 
 ## Database Configuration

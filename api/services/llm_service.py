@@ -73,6 +73,11 @@ def test_provider_connection(provider: str) -> dict[str, Any]:
     return adapter.health_check()
 
 
+def provider_status(provider: str | None = None, model: str | None = None) -> dict[str, Any]:
+    """Return safe provider diagnostics without exposing secrets."""
+    return _gateway.provider_status(provider, model=model)
+
+
 def request_plan(provider: str, model: str | None, prompt: str) -> str:
     """Return planning notes or summary from the selected provider."""
     if provider == "deterministic":
