@@ -17,3 +17,9 @@ python-multipart>=0.0.9
 # Persistent run/checkpoint/regression repository
 SQLAlchemy>=2.0.30,<3.0
 psycopg[binary]>=3.2.0,<4.0
+
+# Test runner plugins used by pytest.ini and browser fixtures
+pytest-asyncio>=0.23.0,<2.0
+pytest-timeout>=2.2.0,<3.0
+pytest-rerunfailures>=13.0,<17.0
+pytest-xdist>=3.5.0,<4.0
