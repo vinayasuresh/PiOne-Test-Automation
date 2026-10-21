@@ -237,7 +237,66 @@ async def scan(request: ScanRequest) -> ScanResponse:
     # ──────────────────────────────────────────────────────────────────
     if request.mock:
         logger.info("[API] Mock mode: returning pre-defined sample data")
-        return mock_service.get_mock_response(request.url)
+        mock_resp = mock_service.get_mock_response(request.url)
+        mock_run_id = request.run_id or request.scan_id or f"mock_{uuid4().hex[:12]}"
+        mock_resp.run_id = mock_run_id
+
+        # Build page_intelligence dictionary for mock export
+        page_intelligence = {}
+        for r in mock_resp.routes:
+            buttons = [{"label": b, "tag": "button", "role": "button", "selector": f"button:has-text('{b}')"} for b in r.components.buttons]
+            inputs = [{"label": inp, "tag": "input", "role": "textbox", "selector": f"input[name='{inp.lower()}']"} for inp in r.components.inputs]
+            dropdowns = [{"label": d, "tag": "select", "role": "combobox", "selector": f"select[name='{d.lower()}']"} for d in r.components.dropdowns]
+            page_intelligence[r.path] = {
+                "route": r.path,
+                "url": f"{request.url.rstrip('/')}{r.path}",
+                "route_path": r.path,
+                "menu_name": r.menu_name,
+                "route_status": "WORKING",
+                "route_score": 100,
+                "dom_stable": True,
+                "buttons": buttons,
+                "inputs": inputs,
+                "dropdowns": dropdowns,
+                "tables": r.components.tables,
+                "charts": r.components.charts,
+                "interactions": [i.model_dump() for i in r.interactions],
+            }
+        crawl_data = {
+            "run_id": mock_run_id,
+            "target_url": request.url,
+            "page_intelligence": page_intelligence,
+            "interaction_flow": [],
+            "parking_lot_actions": [],
+            "scan_events": [],
+            "summary": mock_resp.summary.model_dump() if mock_resp.summary else {},
+        }
+        try:
+            crawler_service.export_crawl_results(crawl_data, run_id=mock_run_id)
+            checkpoint_file = REPORT_PATH / f"checkpoint_{mock_run_id}.json"
+            checkpoint_file.write_text(json.dumps(crawl_data, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.debug("[API] Mock export note: %s", exc)
+
+        try:
+            run_ctx = get_run_context(mock_run_id)
+            if not run_ctx:
+                run_ctx = create_run_context(
+                    target_origin=request.url,
+                    allowed_path_namespace="/",
+                    run_id=mock_run_id,
+                    status="scanned",
+                    auth_session_id=request.auth_session_id or f"mock_auth_{uuid4().hex[:8]}",
+                )
+            run_ctx.scan_results = mock_resp.model_dump()
+            run_ctx.selected_modules = request.selected_module_ids or ["mod_inventory", "mod_cart", "mod_checkout"]
+            run_ctx.status = "scanned"
+            save_run_context(run_ctx)
+            from api.db.repository import DBRepository
+            DBRepository.save_run(run_ctx.model_dump())
+        except Exception as exc:
+            logger.debug("[API] Failed to initialize mock run context: %s", exc)
+        return mock_resp
 
     scan_id = request.scan_id or uuid4().hex
     get_channel(scan_id)
@@ -389,13 +448,22 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
     if run_id:
         try:
             run_ctx = get_run_context(run_id)
+            if not run_ctx:
+                run_ctx = create_run_context(
+                    target_origin=request.base_url or "https://www.saucedemo.com",
+                    allowed_path_namespace="/",
+                    run_id=run_id,
+                    status="planned",
+                )
             if run_ctx:
                 run_ctx.generated_test_plan = [tc.model_dump() for tc in test_cases]
                 run_ctx.generated_script = script
                 run_ctx.status = "planned"
                 save_run_context(run_ctx)
-        except Exception:
-            pass
+            from api.db.repository import DBRepository
+            DBRepository.save_test_cases(run_id, [tc.model_dump() for tc in test_cases])
+        except Exception as exc:
+            logger.debug("[API] Failed to save test cases/plan for run %s: %s", run_id, exc)
 
     return GeneratedTestResponse(
         status="success",

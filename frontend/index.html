@@ -82,6 +82,32 @@
     </div>
   </nav>
 
+  <!-- Persistent Active-Run Context Bar -->
+  <div id="active-run-banner" class="hidden bg-slate-800 border-b border-slate-700 text-slate-200 px-4 py-2.5 text-xs shadow-inner" role="region" aria-label="Active scan run context">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span class="flex items-center gap-1.5 font-bold text-slate-300">
+          <i class="fa-solid fa-satellite-dish text-blue-400"></i> Active Run:
+        </span>
+        <span id="active-bar-run-id" class="font-mono text-amber-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700">--</span>
+        <span id="active-bar-url" class="font-mono text-blue-300 truncate max-w-xs" title="Target URL">--</span>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Mod: <strong id="active-bar-module" class="text-slate-200">--</strong></span>
+        <span class="text-slate-600">|</span>
+        <span class="text-slate-400">Route: <strong id="active-bar-route" class="font-mono text-slate-200">--</strong></span>
+      </div>
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span id="active-bar-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700">IDLE</span>
+        <span class="text-slate-400 text-[11px]">Prog: <strong id="active-bar-progress" class="text-emerald-400 font-bold">0%</strong></span>
+        <span id="active-bar-db" class="text-slate-400 text-[11px]">DB: --</span>
+        <span id="active-bar-auth" class="text-slate-400 text-[11px]"><i class="fa-solid fa-lock text-[10px]"></i> Auth: --</span>
+        <button id="btn-return-current-run" type="button" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-1 rounded shadow-sm flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-arrow-turn-up text-[10px]"></i> Return to Current Run
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Global Session Expiry Alert Banner -->
   <div id="session-expired-banner" class="hidden max-w-7xl mx-auto px-4 mt-4 w-full">
     <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -1307,15 +1333,94 @@
       currentModuleFilter: "",
       allSavedRuns: [],
       allRegressionSuites: [],
-      editingSuiteId: null
+      editingSuiteId: null,
+      currentModuleName: "",
+      currentRoute: "",
+      scanStatus: "IDLE",
+      scanProgressPct: 0
     };
     let pendingDangerAction = null;
+
+    function normalizeRouteStatus(status) {
+      if (!status) return "WORKING";
+      const s = String(status).trim().toUpperCase().replace(/-/g, "_");
+      if (s === "WORKING" || s === "WORKING_ROUTE") return "WORKING";
+      if (s === "PARTIAL" || s === "PARTIAL_ROUTE") return "PARTIAL";
+      if (s === "NON_WORKING" || s === "NON_WORKING_ROUTE") return "NON_WORKING";
+      return s;
+    }
+
+    function calculateRouteCounts(routes, scanSummary) {
+      routes = routes || [];
+      scanSummary = scanSummary || {};
+      let working = 0;
+      let partial = 0;
+      let nonWorking = 0;
+
+      if (routes.length > 0) {
+        routes.forEach(r => {
+          const st = normalizeRouteStatus(r.route_status);
+          if (st === "WORKING") working++;
+          else if (st === "PARTIAL") partial++;
+          else if (st === "NON_WORKING") nonWorking++;
+          else working++;
+        });
+      } else {
+        working = Number(scanSummary.working_routes) || 0;
+        partial = Number(scanSummary.partial_routes) || 0;
+        nonWorking = Number(scanSummary.non_working_routes) || 0;
+      }
+
+      const total = routes.length || Number(scanSummary.total_routes) || 0;
+      return { working, partial, nonWorking, total };
+    }
+
+    function updateActiveRunBar() {
+      const bar = document.getElementById("active-run-banner");
+      if (!bar) return;
+      if (!state.runId) {
+        bar.classList.add("hidden");
+        return;
+      }
+      bar.classList.remove("hidden");
+      document.getElementById("active-bar-run-id").textContent = state.runId.substring(0, 14);
+      document.getElementById("active-bar-url").textContent = state.targetUrl || "--";
+      document.getElementById("active-bar-url").title = state.targetUrl || "";
+      document.getElementById("active-bar-module").textContent = state.currentModuleName || (state.selectedModuleIds?.length ? `${state.selectedModuleIds.length} modules` : "--");
+      document.getElementById("active-bar-route").textContent = state.currentRoute || "/";
+
+      const statusElem = document.getElementById("active-bar-status");
+      const st = (state.scanStatus || (state.scanData ? "COMPLETED" : (state.currentStep > 1 ? "IN_PROGRESS" : "INITIALIZED"))).toUpperCase();
+      statusElem.textContent = st;
+      if (st.includes("COMPLET")) {
+        statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700";
+      } else if (st.includes("PAUS")) {
+        statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700";
+      } else {
+        statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700";
+      }
+
+      const pct = state.scanProgressPct || (state.currentStep >= 5 ? 100 : Math.round((state.currentStep / 8) * 100));
+      document.getElementById("active-bar-progress").textContent = `${pct}%`;
+
+      const dbTxt = document.getElementById("nav-db-text")?.textContent || "DB: Connected";
+      document.getElementById("active-bar-db").textContent = dbTxt;
+      document.getElementById("active-bar-auth").innerHTML = state.authSessionId
+        ? `<i class="fa-solid fa-lock text-emerald-400 text-[10px]"></i> Auth: Active`
+        : `<i class="fa-solid fa-lock-open text-slate-400 text-[10px]"></i> Auth: None`;
+
+      const returnBtn = document.getElementById("btn-return-current-run");
+      if (returnBtn) {
+        returnBtn.classList.toggle("hidden", state.activeView === "workflow");
+      }
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       renderStepper();
       bindAllEvents();
       checkDBStatus();
       setInterval(checkDBStatus, 30000);
+      updateActiveRunBar();
 
       // Safe state restoration on page refresh
       try {
@@ -1429,6 +1534,10 @@
           unlockStep(8);
         }
 
+        state.scanStatus = runCtx.status ? runCtx.status.toUpperCase() : "IDLE";
+        state.scanProgressPct = Math.round(runCtx.progress_percentage || 0);
+        state.currentRoute = runCtx.current_route || "/";
+        state.currentModuleName = runCtx.current_module || "";
         updateRunUI();
         if (state.modules.length) {
           renderModuleList();
@@ -1460,6 +1569,9 @@
     }
 
     function bindAllEvents() {
+      // Return to Current Run
+      document.getElementById("btn-return-current-run").onclick = () => switchView("workflow");
+
       // Views Switcher
       document.getElementById("btn-nav-workflow").onclick = () => switchView("workflow");
       document.getElementById("btn-nav-saved-runs").onclick = () => switchView("saved-runs");
@@ -1865,8 +1977,20 @@
         document.getElementById("live-health-nonworking").textContent = `${event.route_health.non_working_count}NW`;
       }
       if (event.current_route) {
+        state.currentRoute = event.current_route;
         document.getElementById("live-current-target").textContent = event.current_route;
       }
+      if (event.module_name) {
+        state.currentModuleName = event.module_name;
+      }
+      if (event.route_progress && event.route_progress.total) {
+        state.scanProgressPct = Math.round((event.route_progress.scanned / event.route_progress.total) * 100);
+      }
+      if (event.type === "scan_started") state.scanStatus = "IN_PROGRESS";
+      if (event.type === "scan_paused") state.scanStatus = "PAUSED";
+      if (event.type === "scan_resumed") state.scanStatus = "IN_PROGRESS";
+      if (event.type === "scan_completed" || event.type === "scan_stopped") state.scanStatus = "COMPLETED";
+      updateActiveRunBar();
       if (event.errors !== undefined) {
         document.getElementById("live-error-badge").textContent = `${event.errors} errors`;
         if (event.errors > 0) {
@@ -1948,7 +2072,7 @@
                       state.scanData = runCtx.scan_results;
                       renderAnalyzeView();
                       unlockStep(5);
-                      switchStep(5);
+                      document.getElementById("btn-view-analysis").classList.remove("hidden");
                     }
                   }
                 } catch (_) {}
@@ -1999,19 +2123,16 @@
       if (!state.scanData) return;
       const scanSummary = state.scanData.summary || {};
       const routes = state.scanData.routes || [];
-
-      const workingCount = scanSummary.working_routes !== undefined ? scanSummary.working_routes : routes.filter(r => (r.route_status === "WORKING" || r.route_status === "WORKING_ROUTE")).length;
-      const partialCount = scanSummary.partial_routes !== undefined ? scanSummary.partial_routes : routes.filter(r => (r.route_status === "PARTIAL" || r.route_status === "PARTIAL_ROUTE")).length;
-      const nonWorkingCount = scanSummary.non_working_routes !== undefined ? scanSummary.non_working_routes : routes.filter(r => (r.route_status === "NON-WORKING" || r.route_status === "NON_WORKING" || r.route_status === "NON_WORKING_ROUTE")).length;
+      const counts = calculateRouteCounts(routes, scanSummary);
 
       // Summary Cards
       const container = document.getElementById("analyze-cards");
       container.innerHTML = "";
       const cards = [
-        { label: "Total Routes", val: scanSummary.total_routes || routes.length, color: "text-blue-600" },
+        { label: "Total Routes", val: counts.total, color: "text-blue-600" },
         { label: "Total Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), color: "text-purple-600" },
-        { label: "Working Routes", val: workingCount, color: "text-emerald-600" },
-        { label: "Non-Working / Partial", val: partialCount + nonWorkingCount, color: "text-rose-600" }
+        { label: "Working Routes", val: counts.working, color: "text-emerald-600" },
+        { label: "Non-Working / Partial", val: counts.partial + counts.nonWorking, color: "text-rose-600" }
       ];
       cards.forEach(c => {
         const d = document.createElement("div");
@@ -2026,12 +2147,14 @@
       document.getElementById("analyze-route-count-badge").textContent = `${routes.length} routes`;
       routes.forEach(r => {
         const tr = document.createElement("tr");
-        const status = r.route_status || "WORKING";
-        const isOk = status === "WORKING";
+        const norm = normalizeRouteStatus(r.route_status);
+        const isOk = norm === "WORKING";
+        const isPartial = norm === "PARTIAL";
+        const badgeClass = isOk ? "bg-emerald-100 text-emerald-800" : (isPartial ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800");
         tr.innerHTML = `
           <td class="table-cell font-mono font-bold text-slate-800">${escapeHtml(r.path)}</td>
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
-          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isOk ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}">${escapeHtml(status)}</span></td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
           <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
           <td class="table-cell text-center">${r.dom_stable ? "✅ Yes" : "❌ No"}</td>
@@ -2321,13 +2444,10 @@
       const execSummary = state.executionResults?.summary || {};
       const routes = state.scanData?.routes || [];
       const rows = state.executionResults?.rows || [];
-
-      const workingCount = scanSummary.working_routes !== undefined ? scanSummary.working_routes : routes.filter(r => (r.route_status === "WORKING" || r.route_status === "WORKING_ROUTE")).length;
-      const partialCount = scanSummary.partial_routes !== undefined ? scanSummary.partial_routes : routes.filter(r => (r.route_status === "PARTIAL" || r.route_status === "PARTIAL_ROUTE")).length;
-      const nonWorkingCount = scanSummary.non_working_routes !== undefined ? scanSummary.non_working_routes : routes.filter(r => (r.route_status === "NON-WORKING" || r.route_status === "NON_WORKING" || r.route_status === "NON_WORKING_ROUTE")).length;
+      const counts = calculateRouteCounts(routes, scanSummary);
 
       const cards = [
-        { title: "Total Routes Scanned", val: scanSummary.total_routes || routes.length, sub: `${workingCount} Working | ${partialCount} Partial | ${nonWorkingCount} Non-Working`, color: "text-blue-600" },
+        { title: "Total Routes Scanned", val: counts.total, sub: `${counts.working} Working | ${counts.partial} Partial | ${counts.nonWorking} Non-Working`, color: "text-blue-600" },
         { title: "Elements Mapped", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), sub: "Across all targeted modules", color: "text-purple-600" },
         { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
         { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
@@ -2339,7 +2459,7 @@
         div.innerHTML = `
           <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">${c.title}</p>
           <p class="text-2xl font-bold mt-1 ${c.color}">${c.val}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5 truncate">${c.sub}</p>
+          <p class="text-[11px] text-slate-500 mt-0.5 truncate">${c.sub}</p>
         `;
         metricsContainer.appendChild(div);
       });
@@ -2349,14 +2469,14 @@
       routesBody.innerHTML = "";
       routes.forEach(r => {
         const tr = document.createElement("tr");
-        const status = r.route_status || "WORKING";
-        const isOk = status === "WORKING" || status === "WORKING_ROUTE";
-        const isPartial = status === "PARTIAL" || status === "PARTIAL_ROUTE";
+        const norm = normalizeRouteStatus(r.route_status);
+        const isOk = norm === "WORKING";
+        const isPartial = norm === "PARTIAL";
         const badgeClass = isOk ? "bg-emerald-100 text-emerald-800" : (isPartial ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800");
         tr.innerHTML = `
           <td class="table-cell font-mono font-bold text-slate-800">${escapeHtml(r.path)}</td>
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
-          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(status)}</span></td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
           <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
         `;
@@ -2546,6 +2666,7 @@
         document.getElementById("nav-run-id").textContent = state.runId.substring(0, 12);
         document.getElementById("nav-session-badge").classList.remove("hidden");
         saveActiveState();
+        updateActiveRunBar();
       }
     }
 
@@ -2600,9 +2721,15 @@
       state.generatedPlan = null;
       state.executionResults = null;
       state.regressionResults = null;
+      state.runId = null;
+      state.currentModuleName = "";
+      state.currentRoute = "";
+      state.scanStatus = "IDLE";
+      state.scanProgressPct = 0;
       document.getElementById("nav-run-badge").classList.add("hidden");
       document.getElementById("session-expired-banner").classList.add("hidden");
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+      updateActiveRunBar();
       switchStep(1);
     }
 
@@ -2635,6 +2762,8 @@
       if (stepper) {
         stepper.classList.toggle("hidden", viewName !== "workflow");
       }
+
+      updateActiveRunBar();
 
       if (viewName === "saved-runs") loadSavedRuns();
       if (viewName === "suites") loadRegressionSuites();
