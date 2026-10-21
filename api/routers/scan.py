@@ -1174,9 +1174,11 @@ async def end_and_save_endpoint(run_id: str) -> dict[str, Any]:
     stop_scan(run_id)
     run_ctx = get_run_context(run_id)
     if run_ctx:
-        run_ctx.status = "completed"
+        # The worker still owns finalization. Mark this as stopping so the UI
+        # cannot report a partial checkpoint as a completed scan.
+        run_ctx.status = "stopping"
         save_run_context(run_ctx)
-    return {"status": "completed", "run_id": run_id, "message": f"Run '{run_id}' ended and saved."}
+    return {"status": "stopping", "run_id": run_id, "message": f"Run '{run_id}' is stopping and will save the partial checkpoint."}
 
 
 @router.post("/runs/{run_id}/discard", summary="Discard run and cancel active tasks")

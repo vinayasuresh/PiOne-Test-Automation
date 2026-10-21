@@ -47,7 +47,7 @@ async def scan_events(
                 await websocket.send_json({"type": "heartbeat", "scan_id": effective_id, "run_id": effective_id})
                 continue
             await websocket.send_json(event)
-            if event.get("type") in {"scan_completed", "scan_failed"}:
+            if event.get("type") in {"scan_completed", "scan_stopped", "scan_failed"}:
                 return
     except WebSocketDisconnect:
         return

@@ -298,12 +298,14 @@ def run_scan(
                 run_ctx.checkpoints.append(crawl_results["checkpoint_id"])
             if export_paths:
                 run_ctx.artifact_paths.update(export_paths)
-            run_ctx.status = "scanned"
+            run_ctx.status = "partial_scanned" if stopped_early else "scanned"
             save_run_context(run_ctx)
         except Exception:
             logger.exception("[API] Failed to update RunContext with crawl results")
         if scan_id:
-            publish(scan_id, {"type": "scan_completed", "scan_id": scan_id,
+            publish(scan_id, {"type": "scan_stopped" if stopped_early else "scan_completed",
+                              "scan_id": scan_id, "status": scan_resp.status,
+                              "scan_stopped_early": stopped_early,
                               "routes": route_count, "duration_seconds": round(duration, 2)})
         return scan_resp
 
@@ -380,8 +382,11 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
     The saved Playwright storage state is scoped by an opaque selection-session
     ID. It contains browser auth state only and is not included in artifacts.
     """
-    auth_session_id = uuid4().hex
-    state_path = _auth_state_path(auth_session_id)
+    # Public/no-login targets must not receive a synthetic auth session. A
+    # fabricated session later makes execution and regression replay report
+    # "authentication expired" even though no credentials were required.
+    auth_session_id = uuid4().hex if username and password else None
+    state_path = _auth_state_path(auth_session_id) if auth_session_id else None
     playwright = browser = context = None
     try:
         playwright, browser, context, page = start_persistent_browser()
@@ -398,7 +403,8 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
             # failed optional sidebar expansion must not discard a valid
             # authenticated session or turn into a 500-level UI failure.
             logger.warning("[API] Navigation expansion failed during module discovery; continuing")
-        save_storage_state(context, state_path)
+        if state_path:
+            save_storage_state(context, state_path)
 
         engine = CrawlerEngine(page, base_url=url, credentials=None)
         modules = engine.discover_modules()
@@ -424,7 +430,7 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
 
         return {
             "run_id": run_ctx.run_id,
-            "auth_session_id": auth_session_id,
+            "auth_session_id": auth_session_id or "",
             "modules": safe_modules,
         }
     finally:

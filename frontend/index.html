@@ -2158,7 +2158,7 @@
       if (event.type === "scan_started") state.scanStatus = "IN_PROGRESS";
       if (event.type === "scan_paused") state.scanStatus = "PAUSED";
       if (event.type === "scan_resumed") state.scanStatus = "IN_PROGRESS";
-      if (event.type === "scan_completed") state.scanStatus = "COMPLETED";
+      if (event.type === "scan_completed" && !event.scan_stopped_early && event.status !== "partial_success") state.scanStatus = "COMPLETED";
       if (event.type === "scan_stopped" || event.type === "scan_budget_exceeded") state.scanStatus = "PARTIAL";
       updateActiveRunBar();
       if (event.errors !== undefined) {
@@ -2179,7 +2179,7 @@
         if (state.durationTimer) clearInterval(state.durationTimer);
         const pill = document.getElementById("live-scan-status-pill");
         if (pill) {
-          const normalCompletion = event.type === "scan_completed";
+          const normalCompletion = event.type === "scan_completed" && !event.scan_stopped_early && event.status !== "partial_success";
           pill.innerHTML = `<span class="w-2 h-2 rounded-full ${normalCompletion ? "bg-emerald-500" : "bg-amber-500"}"></span> ${normalCompletion ? "Completed" : "Partial / Stopped"}`;
           pill.className = normalCompletion
             ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
@@ -2233,7 +2233,12 @@
         } else if (action === "end") {
           const log = document.getElementById("scan-event-log");
           log.innerHTML += `<p class="text-amber-300 font-semibold">[CONTROL] End scan & save signal delivered. Exporting results...</p>`;
-          for (let delay of [500, 1500, 3000, 5000]) {
+          const stoppingPill = document.getElementById("live-scan-status-pill");
+          if (stoppingPill) {
+            stoppingPill.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Stopping...`;
+            stoppingPill.className = "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+          }
+          for (let delay of [500, 1500, 3000, 5000, 8000, 12000, 18000]) {
             setTimeout(async () => {
               if (state.currentStep === 4 && state.runId) {
                 try {
@@ -2243,6 +2248,14 @@
                     if (runCtx && runCtx.scan_results) {
                       if (state.durationTimer) clearInterval(state.durationTimer);
                       state.scanData = runCtx.scan_results;
+                      const partial = runCtx.status === "partial_scanned" || runCtx.scan_results.status === "partial_success" || runCtx.scan_results.scan_stopped_early;
+                      const pill = document.getElementById("live-scan-status-pill");
+                      if (pill) {
+                        pill.innerHTML = `<span class="w-2 h-2 rounded-full ${partial ? "bg-amber-500" : "bg-emerald-500"}"></span> ${partial ? "Partial / Stopped" : "Completed"}`;
+                        pill.className = partial
+                          ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+                          : "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+                      }
                       renderAnalyzeView();
                       unlockStep(5);
                       document.getElementById("btn-view-analysis").classList.remove("hidden");
@@ -2279,8 +2292,11 @@
                 state.scanData = runCtx.scan_results;
                 const pill = document.getElementById("live-scan-status-pill");
                 if (pill) {
-                  pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
-                  pill.className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+                  const partial = runCtx.status === "partial_scanned" || runCtx.scan_results.status === "partial_success" || runCtx.scan_results.scan_stopped_early;
+                  pill.innerHTML = `<span class="w-2 h-2 rounded-full ${partial ? "bg-amber-500" : "bg-emerald-500"}"></span> ${partial ? "Partial / Stopped" : "Completed"}`;
+                  pill.className = partial
+                    ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+                    : "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
                 }
                 renderAnalyzeView();
                 unlockStep(5);

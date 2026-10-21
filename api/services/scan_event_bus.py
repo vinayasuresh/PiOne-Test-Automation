@@ -92,7 +92,7 @@ def publish(scan_id: str, event: dict[str, Any]) -> None:
         except Exception:
             return
 
-    if bounded_event.get("type") in {"scan_completed", "scan_failed"}:
+    if bounded_event.get("type") in {"scan_completed", "scan_stopped", "scan_failed"}:
         timer = Timer(60, discard_channel, args=(canon,))
         timer.daemon = True
         timer.start()
