@@ -373,6 +373,10 @@
           <p id="live-safe-actions" class="text-base font-bold text-emerald-600 mt-0.5">0</p>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <span class="text-[10px] font-bold text-slate-500 uppercase">Retries</span>
+          <p id="live-retry-count" class="text-base font-bold text-indigo-600 mt-0.5">0</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span class="text-[10px] font-bold text-slate-500 uppercase">Parking Lot</span>
           <p id="live-parking-lot" class="text-base font-bold text-amber-600 mt-0.5">0</p>
         </div>
@@ -1373,7 +1377,11 @@
       scanStartTime: null,
       durationTimer: null,
       telemetrySocket: null,
+      telemetryRunId: "",
+      telemetryReconnectTimer: null,
+      telemetryReconnectAttempts: 0,
       isPaused: false,
+      scanRetryCount: 0,
       activeView: "workflow",
       selectedExecutionTestIds: [],
       currentExecutionFilter: "all",
@@ -2034,8 +2042,11 @@
         updateRunUI();
 
         if (state.durationTimer) clearInterval(state.durationTimer);
-        document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
-        document.getElementById("live-scan-status-pill").className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+        const completedNormally = data.status === "success";
+        document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full ${completedNormally ? "bg-emerald-500" : "bg-amber-500"}"></span> ${completedNormally ? "Completed" : "Partial / Stopped"}`;
+        document.getElementById("live-scan-status-pill").className = completedNormally
+          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+          : "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
 
         // Keep the completed crawl visible until the user explicitly opens Analyze.
         renderAnalyzeView();
@@ -2048,7 +2059,13 @@
       }
     }
 
-    function connectTelemetryStream(runId) {
+    function connectTelemetryStream(runId, reconnecting = false) {
+      state.telemetryRunId = runId;
+      if (!reconnecting) state.telemetryReconnectAttempts = 0;
+      if (state.telemetryReconnectTimer) {
+        clearTimeout(state.telemetryReconnectTimer);
+        state.telemetryReconnectTimer = null;
+      }
       if (state.telemetrySocket) {
         try { state.telemetrySocket.close(); } catch (_) {}
       }
@@ -2060,16 +2077,37 @@
         const ws = new WebSocket(wsUrl);
         state.telemetrySocket = ws;
 
+        ws.onopen = () => {
+          state.telemetryReconnectAttempts = 0;
+          log.innerHTML += `<p class="text-emerald-400 text-[10px]">[TELEMETRY] Connected; latest run snapshot requested.</p>`;
+        };
+
         ws.onmessage = (message) => {
           try {
             const event = JSON.parse(message.data || "{}");
             if (event.type === "heartbeat") return;
+            const eventRunId = event.run_id || event.scan_id;
+            if (eventRunId && eventRunId !== runId) return;
             handleTelemetryEvent(event);
           } catch (_) {}
         };
 
         ws.onerror = () => {
           log.innerHTML += `<p class="text-amber-400 text-[10px]">[TELEMETRY] Live stream connection re-establishing...</p>`;
+        };
+
+        ws.onclose = () => {
+          if (state.telemetryRunId !== runId || state.currentStep !== 4) return;
+          if (state.telemetryReconnectAttempts >= 5) {
+            log.innerHTML += `<p class="text-rose-400 text-[10px]">[TELEMETRY] Reconnect limit reached; scan state remains available from checkpoint.</p>`;
+            return;
+          }
+          const attempt = ++state.telemetryReconnectAttempts;
+          const delay = Math.min(5000, 500 * (2 ** (attempt - 1)));
+          state.telemetryReconnectTimer = setTimeout(() => {
+            state.telemetryReconnectTimer = null;
+            connectTelemetryStream(runId, true);
+          }, delay);
         };
       } catch (_) {}
     }
@@ -2078,6 +2116,9 @@
       const log = document.getElementById("scan-event-log");
       const label = event.type || event.event || "event";
       const detail = event.route || event.action || event.message || event.reason || "";
+
+      const eventRunId = event.run_id || event.scan_id;
+      if (eventRunId && state.runId && eventRunId !== state.runId) return;
 
       // Update live metrics
       if (event.module_progress) {
@@ -2094,6 +2135,10 @@
       }
       if (event.parking_lot_actions !== undefined) {
         document.getElementById("live-parking-lot").textContent = event.parking_lot_actions;
+      }
+      if (event.retry_count !== undefined || event.retries !== undefined) {
+        state.scanRetryCount = Number(event.retry_count ?? event.retries) || 0;
+        document.getElementById("live-retry-count").textContent = state.scanRetryCount;
       }
       if (event.route_health) {
         document.getElementById("live-health-working").textContent = `${event.route_health.working_count}W`;
@@ -2113,7 +2158,8 @@
       if (event.type === "scan_started") state.scanStatus = "IN_PROGRESS";
       if (event.type === "scan_paused") state.scanStatus = "PAUSED";
       if (event.type === "scan_resumed") state.scanStatus = "IN_PROGRESS";
-      if (event.type === "scan_completed" || event.type === "scan_stopped") state.scanStatus = "COMPLETED";
+      if (event.type === "scan_completed") state.scanStatus = "COMPLETED";
+      if (event.type === "scan_stopped" || event.type === "scan_budget_exceeded") state.scanStatus = "PARTIAL";
       updateActiveRunBar();
       if (event.errors !== undefined) {
         document.getElementById("live-error-badge").textContent = `${event.errors} errors`;
@@ -2133,8 +2179,11 @@
         if (state.durationTimer) clearInterval(state.durationTimer);
         const pill = document.getElementById("live-scan-status-pill");
         if (pill) {
-          pill.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> Completed`;
-          pill.className = "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+          const normalCompletion = event.type === "scan_completed";
+          pill.innerHTML = `<span class="w-2 h-2 rounded-full ${normalCompletion ? "bg-emerald-500" : "bg-amber-500"}"></span> ${normalCompletion ? "Completed" : "Partial / Stopped"}`;
+          pill.className = normalCompletion
+            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+            : "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
         }
         if (state.currentStep === 4 && state.runId) {
           fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`)
