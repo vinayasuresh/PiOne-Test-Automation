@@ -123,6 +123,20 @@ async def discover_modules(request: ModuleDiscoveryRequest) -> ModuleDiscoveryRe
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except AuthenticationExpiredError as exc:
+        # Discovery can fail after an existing login/session has expired.
+        # Return an explicit auth response so the UI can offer renewal rather
+        # than misclassifying the failure as an opaque server error.
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication expired. Refresh the session or start a new scan.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("[API] Module discovery failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Module discovery could not complete. Retry the scan or start a new scan.",
+        ) from exc
 
 
 @router.post(
