@@ -37,6 +37,7 @@ from api.services.run_context_service import (
 )
 from api.services.scan_control_service import (
     clear_scan_control,
+    finish_scan,
     is_scan_paused,
     is_scan_stop_requested,
     pause_scan,
@@ -44,6 +45,7 @@ from api.services.scan_control_service import (
     resume_scan,
     set_user_decision,
     stop_scan,
+    try_start_scan,
 )
 from api.services.scan_event_bus import (
     discard_channel,
@@ -245,6 +247,85 @@ def test_websocket_aliasing_and_telemetry_snapshot():
     assert snapshot["elements_found"] == 15
 
     discard_channel(scan_id)
+
+
+# 5b. Event sequence must progress for reconnect/stale filtering
+def test_websocket_event_sequence_progresses():
+    run_id = "run_seq_progress_01"
+    discard_channel(run_id)
+    publish(run_id, {"type": "route_started", "run_id": run_id, "scan_id": run_id, "current_route": "/a"})
+    first = get_latest_telemetry(run_id)
+    publish(run_id, {"type": "route_completed", "run_id": run_id, "scan_id": run_id, "current_route": "/a"})
+    second = get_latest_telemetry(run_id)
+    assert first is not None and second is not None
+    assert int(first["last_event_sequence"]) >= 1
+    assert int(second["last_event_sequence"]) > int(first["last_event_sequence"])
+    discard_channel(run_id)
+
+
+# 5c. Run state contract must include reconnect-safe fields
+def test_run_state_contract_includes_reconnect_fields(client: TestClient):
+    run_id = "run_state_contract_01"
+    ctx = create_run_context(url="https://example.test/app", run_id=run_id)
+    ctx.status = "running"
+    ctx.selected_modules = ["mod_users"]
+    save_run_context(ctx)
+    publish(run_id, {
+        "type": "route_started",
+        "run_id": run_id,
+        "scan_id": run_id,
+        "current_module": "mod_users",
+        "current_route": "https://example.test/app/users",
+        "route_progress": {"scanned": 1, "pending": 2, "total": 3},
+        "elements_found": 5,
+        "safe_actions_explored": 2,
+        "parking_lot_actions": 1,
+        "retry_count": 0,
+    })
+    res = client.get(f"/run/{run_id}/state")
+    assert res.status_code == 200
+    data = res.json()
+    required = {
+        "run_id", "scan_id", "target_origin", "allowed_path_namespace", "auth_status",
+        "selected_modules", "current_module", "current_route", "route_progress",
+        "elements_found", "safe_actions_explored", "parking_lot_actions",
+        "retry_count", "status", "last_event_sequence", "checkpoint_version",
+    }
+    assert required.issubset(set(data.keys()))
+    assert data["run_id"] == run_id
+    assert data["scan_id"] == run_id
+    assert data["status"] in {"running", "paused", "partial_scanned", "scanned", "failed", "executing", "executed", "discovered"}
+    assert data["current_module"] == "mod_users"
+    assert data["route_progress"]["total"] == 3
+    assert int(data["last_event_sequence"]) >= 1
+    discard_channel(run_id)
+
+
+# 5d. Duplicate run start is blocked while existing run is active
+def test_duplicate_run_prevention_when_active(client: TestClient, monkeypatch):
+    run_id = "run_duplicate_guard_01"
+    assert try_start_scan(run_id) is True
+    assert try_start_scan(run_id) is False
+    second = client.post("/scan", json={"url": "https://www.saucedemo.com", "run_id": run_id, "scan_id": run_id})
+    assert second.status_code == 409
+    finish_scan(run_id)
+
+
+# 5e. End-and-save never marks completed state
+def test_end_and_save_sets_partial_state(client: TestClient):
+    run_id = "run_end_partial_01"
+    ctx = create_run_context(url="https://example.test", run_id=run_id)
+    ctx.status = "running"
+    save_run_context(ctx)
+
+    res = client.post(f"/runs/{run_id}/end-and-save")
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "partial_scanned"
+
+    updated = get_run_context(run_id)
+    assert updated is not None
+    assert updated.status == "partial_scanned"
 
 
 # 6. Execution Failure Categorization Tests

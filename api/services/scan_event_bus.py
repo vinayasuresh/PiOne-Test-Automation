@@ -23,6 +23,7 @@ _channels: dict[str, Queue[dict[str, Any]]] = {}
 _aliases: dict[str, str] = {}
 _latest_telemetry: dict[str, dict[str, Any]] = {}
 _last_activity: dict[str, float] = {}
+_event_sequences: dict[str, int] = {}
 _MAX_EVENTS_PER_SCAN = 2048
 _MAX_FIELD_LENGTH = 8192
 _MAX_EVENT_BYTES = 32 * 1024  # 32 KB per event
@@ -76,9 +77,17 @@ def publish(scan_id: str, event: dict[str, Any]) -> None:
 
     if "timestamp" not in bounded_event:
         bounded_event["timestamp"] = time.time()
+    if "run_id" not in bounded_event:
+        bounded_event["run_id"] = scan_id
+    if "scan_id" not in bounded_event:
+        bounded_event["scan_id"] = scan_id
 
     # Track latest telemetry snapshot for reconnecting clients
     with _lock:
+        seq = _event_sequences.get(canon, 0) + 1
+        _event_sequences[canon] = seq
+        bounded_event["event_sequence"] = seq
+        bounded_event["last_event_sequence"] = seq
         _latest_telemetry[canon] = bounded_event
         _last_activity[canon] = time.time()
 
@@ -104,6 +113,7 @@ def discard_channel(scan_id: str) -> None:
         _channels.pop(canon, None)
         _latest_telemetry.pop(canon, None)
         _last_activity.pop(canon, None)
+        _event_sequences.pop(canon, None)
         # Clean up aliases pointing to this channel
         to_del = [k for k, v in _aliases.items() if v == canon or k == canon]
         for k in to_del:

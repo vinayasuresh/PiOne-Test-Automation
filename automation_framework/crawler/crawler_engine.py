@@ -1222,12 +1222,14 @@ class CrawlerEngine:
         non_working_count = sum(1 for v in validations.values() if v.get("status") in {"NON-WORKING", "NON_WORKING_ROUTE"})
 
         status = "running"
-        if event_type in {"scan_completed", "scan_stopped"}:
-            status = "completed"
+        if event_type == "scan_completed":
+            status = "scanned"
+        elif event_type in {"scan_stopped", "scan_budget_exceeded"}:
+            status = "partial_scanned"
         elif event_type in {"scan_failed", "route_failed"}:
             status = "failed"
         elif event_type == "module_review_started":
-            status = "waiting_approval"
+            status = "paused"
         elif event_type == "scan_paused":
             status = "paused"
         elif self.run_id:
@@ -1259,15 +1261,20 @@ class CrawlerEngine:
 
         errors_count = len(getattr(self, "_current_console_errors", [])) + non_working_count
 
+        route_total = routes_scanned + routes_pending
         return {
             "run_id": self.run_id or "",
             "scan_id": self.scan_id or self.run_id or "",
+            "target_origin": self.base_url,
+            "allowed_path_namespace": self._checkpoint_namespace(),
+            "auth_status": "expired" if self._is_login_page() else "authenticated",
+            "selected_modules": list(self._selected_module_ids or []),
             "timestamp": time.time(),
             "status": status,
             "current_module": current_module,
             "current_route": current_route,
             "module_progress": {"current": mod_curr, "total": mod_total},
-            "route_progress": {"scanned": routes_scanned, "pending": routes_pending},
+            "route_progress": {"scanned": routes_scanned, "pending": routes_pending, "total": route_total},
             "elements_found": total_elements,
             "safe_actions_explored": safe_actions_explored,
             "parking_lot_actions": parking_lot_actions,
@@ -1278,6 +1285,7 @@ class CrawlerEngine:
             },
             "retry_count": getattr(self, "_retry_count", 0),
             "errors": errors_count,
+            "last_event_sequence": len(self.scan_events) + 1,
         }
 
     def _check_pause_or_stop(self) -> None:

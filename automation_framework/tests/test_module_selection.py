@@ -26,6 +26,8 @@ from automation_framework.crawler.auth_exceptions import AuthenticationExpiredEr
 from automation_framework.storage.checkpoint_store import CheckpointStore
 from automation_framework.tests.fixtures.test_spa_server import start_test_spa_server
 
+pytestmark = pytest.mark.browser
+
 
 @pytest.fixture(scope="module")
 def spa_server():

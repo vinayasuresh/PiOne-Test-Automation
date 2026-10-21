@@ -44,6 +44,8 @@ from automation_framework.engine.ui_intelligence_engine import (
     extract_fallback_body_elements,
 )
 
+pytestmark = pytest.mark.browser
+
 
 @pytest.fixture(scope="module")
 def browser_page():

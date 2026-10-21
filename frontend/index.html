@@ -1393,7 +1393,8 @@
       currentModuleName: "",
       currentRoute: "",
       scanStatus: "IDLE",
-      scanProgressPct: 0
+      scanProgressPct: 0,
+      lastEventSequence: 0
     };
     let pendingDangerAction = null;
 
@@ -1594,6 +1595,7 @@
         state.scanProgressPct = Math.round(runCtx.progress_percentage || 0);
         state.currentRoute = runCtx.current_route || "/";
         state.currentModuleName = runCtx.current_module || "";
+        state.lastEventSequence = Number(runCtx.last_event_sequence || 0);
         updateRunUI();
         if (state.modules.length) {
           renderModuleList();
@@ -2119,6 +2121,9 @@
 
       const eventRunId = event.run_id || event.scan_id;
       if (eventRunId && state.runId && eventRunId !== state.runId) return;
+      const seq = Number(event.last_event_sequence ?? event.event_sequence ?? 0);
+      if (seq && seq <= Number(state.lastEventSequence || 0)) return;
+      if (seq) state.lastEventSequence = seq;
 
       // Update live metrics
       if (event.module_progress) {

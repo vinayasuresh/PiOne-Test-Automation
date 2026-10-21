@@ -23,6 +23,16 @@ from automation_framework.utils.logger import logger
 from automation_framework.utils.redactor import redact_sensitive_data
 
 _RUN_ID_REGEX = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+_RUN_STATUSES = {
+    "discovered",
+    "running",
+    "paused",
+    "partial_scanned",
+    "scanned",
+    "executing",
+    "executed",
+    "failed",
+}
 
 _RUN_CONTEXT_DIR = REPORT_PATH / "run_contexts"
 _RUN_CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
@@ -57,6 +67,7 @@ def create_run_context(
     rid = validate_run_id_safe(run_id) if run_id else generate_run_id()
     ctx = RunContext(
         run_id=rid,
+        scan_id=rid,
         target_origin=origin,
         allowed_path_namespace=allowed_path_namespace,
         auth_session_id=auth_session_id,
@@ -69,6 +80,17 @@ def create_run_context(
 
 def save_run_context(ctx: RunContext) -> None:
     validate_run_id_safe(ctx.run_id)
+    if not ctx.scan_id:
+        ctx.scan_id = ctx.run_id
+    if ctx.status not in _RUN_STATUSES:
+        if ctx.status in {"initialized", "created"}:
+            ctx.status = "discovered"
+        elif ctx.status in {"scanning", "waiting_approval", "stopping"}:
+            ctx.status = "running"
+        elif ctx.status in {"completed", "success"}:
+            ctx.status = "scanned"
+        elif ctx.status == "discarded":
+            ctx.status = "failed"
     ctx.update_timestamp()
     with _LOCK:
         _CACHE[ctx.run_id] = ctx
@@ -129,10 +151,10 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
                 "application_url": data.get("target_origin"),
                 "status": data.get("status", "initialized"),
                 "auth_status": data.get("auth_status", "none"),
-                "progress_percentage": 100.0 if data.get("status") in {"completed", "executed"} else 50.0,
+                "progress_percentage": 100.0 if data.get("status") in {"scanned", "executed"} else 50.0,
                 "selected_modules": data.get("selected_modules", []),
-                "completed_modules": data.get("selected_modules", []) if data.get("status") in {"completed", "executed"} else [],
-                "pending_modules": [] if data.get("status") in {"completed", "executed"} else data.get("selected_modules", []),
+                "completed_modules": data.get("selected_modules", []) if data.get("status") in {"scanned", "executed"} else [],
+                "pending_modules": [] if data.get("status") in {"scanned", "executed"} else data.get("selected_modules", []),
                 "route_count": len(data.get("route_graph", {}).get("nodes", [])),
                 "execution_summary": data.get("execution_summary", {}),
                 "is_archived": bool(data.get("is_archived")),

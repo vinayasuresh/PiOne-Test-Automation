@@ -42,6 +42,7 @@ class _ScanControl:
 
 _LOCK = threading.Lock()
 _CONTROLS: dict[str, _ScanControl] = {}
+_ACTIVE_SCANS: set[str] = set()
 
 
 def get_scan_control(run_id: str) -> _ScanControl:
@@ -98,3 +99,23 @@ def pop_user_decision(run_id: str) -> Optional[str]:
 def clear_scan_control(run_id: str) -> None:
     with _LOCK:
         _CONTROLS.pop(run_id, None)
+        _ACTIVE_SCANS.discard(run_id)
+
+
+def try_start_scan(run_id: str) -> bool:
+    """Mark run as active if not already active. Returns False on duplicate start."""
+    with _LOCK:
+        if run_id in _ACTIVE_SCANS:
+            return False
+        _ACTIVE_SCANS.add(run_id)
+        return True
+
+
+def finish_scan(run_id: str) -> None:
+    with _LOCK:
+        _ACTIVE_SCANS.discard(run_id)
+
+
+def is_scan_active(run_id: str) -> bool:
+    with _LOCK:
+        return run_id in _ACTIVE_SCANS

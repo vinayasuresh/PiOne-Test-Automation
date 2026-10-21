@@ -189,14 +189,19 @@ Follow the interactive prompts to enter the target URL, supply credentials, and 
 
 ### Method 3: Running the Automated Test Suite
 
-Run the complete unit, integration, and Playwright end-to-end suite:
+Run the default Windows-safe suite (non-browser tests only, browser tests are explicitly marked `@pytest.mark.browser`):
 ```bash
 python -m pytest automation_framework/tests -v
 ```
 
-For a fast non-browser verification:
+Run browser/Playwright tests explicitly when local browser execution is available:
 ```bash
-python -m pytest automation_framework/tests -q --ignore=automation_framework/tests/test_crawler_e2e.py
+python -m pytest automation_framework/tests -m browser -v
+```
+
+Run a bounded acceptance checklist runner (machine-readable JSON summary):
+```bash
+python tools/acceptance_runner.py
 ```
 
 ### Method 4: Running the Live SauceDemo End-to-End Proof

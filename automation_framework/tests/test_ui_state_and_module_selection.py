@@ -28,6 +28,8 @@ from automation_framework.crawler.ui_state_fingerprint import (
 from automation_framework.engine.element_identity_registry import ElementIdentityRegistry
 from automation_framework.tests.fixtures.test_spa_server import start_test_spa_server
 
+pytestmark = pytest.mark.browser
+
 
 @pytest.fixture(scope="module")
 def spa_server():

@@ -68,6 +68,16 @@ def run_scan(
 
     logger.info(f"[API] Scan started | run_id={actual_run_id} | url={url}")
     start_time = time.monotonic()
+    try:
+        run_ctx = get_run_context(actual_run_id)
+        if not run_ctx:
+            run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
+        run_ctx.scan_id = scan_id or actual_run_id
+        run_ctx.selected_modules = selected_module_ids or run_ctx.selected_modules
+        run_ctx.status = "running"
+        save_run_context(run_ctx)
+    except Exception:
+        logger.debug("[API] Unable to initialize run context state before crawl")
 
     playwright = None
     browser    = None
@@ -310,6 +320,14 @@ def run_scan(
         return scan_resp
 
     except Exception as exc:
+        try:
+            run_ctx = get_run_context(actual_run_id)
+            if run_ctx:
+                run_ctx.status = "failed"
+                run_ctx.error_message = f"{type(exc).__name__}: {exc}"
+                save_run_context(run_ctx)
+        except Exception:
+            logger.debug("[API] Unable to persist failed run status for %s", actual_run_id)
         if scan_id:
             publish(scan_id, {"type": "scan_failed", "scan_id": scan_id,
                               "error": f"{type(exc).__name__}: {exc}"})

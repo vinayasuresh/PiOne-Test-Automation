@@ -77,7 +77,7 @@ from api.services.run_context_service import (
     list_saved_runs,
     save_run_context,
 )
-from api.services.scan_event_bus import get_channel, publish
+from api.services.scan_event_bus import get_channel, get_latest_telemetry, publish
 from api.services.test_context_service import create_context, decode_upload, load_context
 from api.services.test_execution_service import (
     auth_session_path,
@@ -90,11 +90,14 @@ from api.services.test_planning_service import build_test_cases
 from automation_framework.utils.logger import logger
 from automation_framework.config.settings import REPORT_PATH
 from api.services.scan_control_service import (
+    finish_scan,
+    is_scan_active,
     pause_scan,
     resume_scan,
     is_scan_paused,
     stop_scan,
     set_user_decision,
+    try_start_scan,
 )
 
 router = APIRouter()
@@ -298,8 +301,39 @@ async def scan(request: ScanRequest) -> ScanResponse:
         return mock_resp
 
     scan_id = request.scan_id or uuid4().hex
+    effective_run_id = request.run_id or request.resume_run_id or scan_id
+
+    existing_ctx = get_run_context(effective_run_id)
+    if existing_ctx and existing_ctx.status in {"running", "paused"} and is_scan_active(effective_run_id):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run '{effective_run_id}' is already active. Reconnect to the existing run state.",
+        )
+
+    if not try_start_scan(effective_run_id):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run '{effective_run_id}' is already active. Reconnect to the existing run state.",
+        )
+
+    try:
+        run_ctx = existing_ctx or create_run_context(
+            target_origin=request.url,
+            allowed_path_namespace="/",
+            run_id=effective_run_id,
+            auth_session_id=request.auth_session_id,
+            username=request.username,
+        )
+        run_ctx.scan_id = scan_id
+        run_ctx.selected_modules = request.selected_module_ids or run_ctx.selected_modules
+        run_ctx.status = "running"
+        save_run_context(run_ctx)
+    except Exception as exc:
+        finish_scan(effective_run_id)
+        raise HTTPException(status_code=500, detail=f"Failed to initialize run context: {exc}") from exc
+
     get_channel(scan_id)
-    publish(scan_id, {"type": "scan_started", "scan_id": scan_id, "url": request.url})
+    publish(scan_id, {"type": "scan_started", "scan_id": scan_id, "run_id": effective_run_id, "url": request.url})
 
     # ──────────────────────────────────────────────────────────────────
     # Real mode — run the synchronous Playwright crawler in a worker thread.
@@ -317,7 +351,7 @@ async def scan(request: ScanRequest) -> ScanResponse:
             None,
             request.selected_module_ids,
             request.auth_session_id,
-            request.run_id,
+            effective_run_id,
         )
         return result
 
@@ -343,6 +377,8 @@ async def scan(request: ScanRequest) -> ScanResponse:
             status_code=500,
             detail=f"Scan failed: {type(exc).__name__}: {exc}",
         )
+    finally:
+        finish_scan(effective_run_id)
 
 
 @router.post("/replay-route", response_model=ScanResponse, summary="Replay and compare one scanned route")
@@ -750,6 +786,18 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
     run_ctx = get_run_context(run_id)
+    try:
+        latest_checkpoint = DBRepository.get_latest_checkpoint(run_id)
+    except Exception:
+        latest_checkpoint = None
+    latest_event = get_latest_telemetry(run_id) or {}
+
+    checkpoint_state = (latest_checkpoint or {}).get("state_data", {}) if latest_checkpoint else {}
+    route_progress = latest_event.get("route_progress") or checkpoint_state.get("route_progress") or {}
+    scanned = int(route_progress.get("scanned", len(checkpoint_state.get("visited_routes", []))) or 0)
+    pending = int(route_progress.get("pending", len(checkpoint_state.get("pending_routes", []))) or 0)
+    total = int(route_progress.get("total", scanned + pending) or 0)
+
     if not run_ctx:
         checkpoint_file = REPORT_PATH / f"checkpoint_{run_id}.json"
         if checkpoint_file.is_file():
@@ -757,10 +805,26 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                 chk_data = json.loads(checkpoint_file.read_text(encoding="utf-8"))
                 return {
                     "run_id": run_id,
+                    "scan_id": run_id,
                     "target_origin": chk_data.get("namespace", ""),
+                    "allowed_path_namespace": chk_data.get("allowed_scope", "/"),
+                    "auth_status": chk_data.get("auth_status", "none"),
                     "status": "partial_scanned",
                     "checkpoints": [run_id],
-                    "selected_modules": chk_data.get("completed_modules", []),
+                    "selected_modules": chk_data.get("selected_modules", chk_data.get("completed_modules", [])),
+                    "current_module": chk_data.get("current_module_id", ""),
+                    "current_route": chk_data.get("current_route", ""),
+                    "route_progress": {
+                        "scanned": len(chk_data.get("visited_routes", [])),
+                        "pending": len(chk_data.get("pending_routes", [])),
+                        "total": len(chk_data.get("visited_routes", [])) + len(chk_data.get("pending_routes", [])),
+                    },
+                    "elements_found": len(chk_data.get("element_map_snapshot", [])),
+                    "safe_actions_explored": len(chk_data.get("scan_events", [])),
+                    "parking_lot_actions": len(chk_data.get("parking_lot_actions", [])),
+                    "retry_count": int((latest_event or {}).get("retry_count", 0) or 0),
+                    "last_event_sequence": int((latest_event or {}).get("last_event_sequence", 0) or 0),
+                    "checkpoint_version": int((latest_checkpoint or {}).get("version", 0) or 0),
                     "scan_results": {
                         "page_intelligence": chk_data.get("page_intelligence", {}),
                         "route_validations": chk_data.get("route_validations", {}),
@@ -771,6 +835,16 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                 pass
         raise HTTPException(status_code=404, detail=f"Run context '{run_id}' not found")
     data = run_ctx.model_dump(mode="json")
+    data["scan_id"] = data.get("scan_id") or run_id
+    data["current_module"] = latest_event.get("current_module", data.get("current_module"))
+    data["current_route"] = latest_event.get("current_route", data.get("current_route"))
+    data["route_progress"] = {"scanned": scanned, "pending": pending, "total": total}
+    data["elements_found"] = int(latest_event.get("elements_found", data.get("elements_found", 0)) or 0)
+    data["safe_actions_explored"] = int(latest_event.get("safe_actions_explored", data.get("safe_actions_explored", 0)) or 0)
+    data["parking_lot_actions"] = int(latest_event.get("parking_lot_actions", data.get("parking_lot_actions", 0)) or 0)
+    data["retry_count"] = int(latest_event.get("retry_count", data.get("retry_count", 0)) or 0)
+    data["last_event_sequence"] = int(latest_event.get("last_event_sequence", data.get("last_event_sequence", 0)) or 0)
+    data["checkpoint_version"] = int((latest_checkpoint or {}).get("version", data.get("checkpoint_version", 0)) or 0)
     data["is_paused"] = is_scan_paused(run_id)
     return data
 
@@ -781,21 +855,34 @@ async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
     run_id = request.run_id
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
+    run_ctx = get_run_context(run_id)
+
     if action == "pause":
         pause_scan(run_id)
+        if run_ctx:
+            run_ctx.status = "paused"
+            save_run_context(run_ctx)
         msg = f"Pause signal sent to scan run '{run_id}'."
     elif action == "resume":
         resume_scan(run_id)
+        if run_ctx and run_ctx.status in {"paused", "running"}:
+            run_ctx.status = "running"
+            save_run_context(run_ctx)
         msg = f"Resume signal sent to scan run '{run_id}'."
     elif action in {"continue", "retry"}:
         set_user_decision(run_id, action)
+        if run_ctx and run_ctx.status in {"paused", "running"}:
+            run_ctx.status = "running"
+            save_run_context(run_ctx)
         msg = f"Decision '{action}' registered for scan run '{run_id}'."
     elif action in {"end", "stop"}:
         set_user_decision(run_id, "end")
         stop_scan(run_id)
+        if run_ctx:
+            run_ctx.status = "partial_scanned"
+            save_run_context(run_ctx)
         msg = f"End-and-save signal sent to scan run '{run_id}'."
     elif action == "save":
-        run_ctx = get_run_context(run_id)
         if run_ctx:
             save_run_context(run_ctx)
         msg = f"Save progress signal processed for scan run '{run_id}'."
@@ -808,6 +895,7 @@ async def scan_control(request: ScanControlRequest) -> ScanControlResponse:
         msg = f"Discard signal processed for scan run '{run_id}'."
     else:
         raise HTTPException(status_code=400, detail=f"Invalid scan control action: '{request.action}'")
+    publish(run_id, {"type": f"scan_control_{action}", "run_id": run_id, "scan_id": run_id, "action": action, "message": msg})
     return ScanControlResponse(status="success", run_id=run_id, action=action, message=msg)
 
 
@@ -846,7 +934,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         k: f"/reports/{run_id}/download/{k}" for k, v in artifacts_ready.items() if v
     }
 
-    is_in_progress = bool(run_ctx and run_ctx.status in {"scanning", "running", "waiting_approval", "executing"})
+    is_in_progress = bool(run_ctx and run_ctx.status in {"running", "paused", "executing"})
     status_str = "in_progress" if is_in_progress else ("ready" if any(artifacts_ready.values()) else "not_found")
 
     return ArtifactStatusResponse(
@@ -873,7 +961,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         raise HTTPException(status_code=403, detail="Access denied: Forbidden artifact access")
 
     run_ctx = get_run_context(run_id)
-    is_in_progress = bool(run_ctx and run_ctx.status in {"scanning", "running", "waiting_approval", "executing"})
+    is_in_progress = bool(run_ctx and run_ctx.status in {"running", "paused", "executing"})
     base_stem = f"{run_id}_crawl_results"
 
     media_types = {
@@ -1084,7 +1172,7 @@ async def get_run_endpoint(run_id: str) -> dict[str, Any]:
         "status": run_ctx.status,
         "auth_status": run_ctx.auth_status,
         "username": run_ctx.username,
-        "progress_percentage": 100.0 if run_ctx.status in {"completed", "executed"} else 50.0,
+        "progress_percentage": 100.0 if run_ctx.status in {"scanned", "executed"} else 50.0,
         "selected_modules": run_ctx.selected_modules,
         "discovered_modules": run_ctx.discovered_modules,
         "routes": [{"path": n} for n in run_ctx.route_graph.get("nodes", [])],
@@ -1123,7 +1211,7 @@ async def resume_run_endpoint(run_id: str, request: ResumeRunRequest) -> dict[st
             }
 
     resume_scan(run_id)
-    run_ctx.status = "scanning"
+    run_ctx.status = "running"
     save_run_context(run_ctx)
 
     return {
@@ -1174,11 +1262,10 @@ async def end_and_save_endpoint(run_id: str) -> dict[str, Any]:
     stop_scan(run_id)
     run_ctx = get_run_context(run_id)
     if run_ctx:
-        # The worker still owns finalization. Mark this as stopping so the UI
-        # cannot report a partial checkpoint as a completed scan.
-        run_ctx.status = "stopping"
+        run_ctx.status = "partial_scanned"
         save_run_context(run_ctx)
-    return {"status": "stopping", "run_id": run_id, "message": f"Run '{run_id}' is stopping and will save the partial checkpoint."}
+    publish(run_id, {"type": "scan_stopped", "run_id": run_id, "scan_id": run_id, "scan_stopped_early": True, "status": "partial_success"})
+    return {"status": "partial_scanned", "run_id": run_id, "message": f"Run '{run_id}' is stopping and saving a partial checkpoint."}
 
 
 @router.post("/runs/{run_id}/discard", summary="Discard run and cancel active tasks")
@@ -1550,5 +1637,3 @@ async def compare_baseline_endpoint(request: CompareBaselineRequest) -> dict[str
         current_run_id=request.current_run_id,
         baseline_run_id=request.baseline_run_id,
     )
-
-

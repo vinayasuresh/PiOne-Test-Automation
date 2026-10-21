@@ -30,6 +30,11 @@ async def scan_events(
 
     await websocket.accept()
     channel = get_channel(effective_id)
+    expected_ids = {effective_id}
+    if scan_id:
+        expected_ids.add(scan_id)
+    if run_id:
+        expected_ids.add(run_id)
 
     # If reconnecting, push the latest known telemetry state immediately
     snapshot = get_latest_telemetry(effective_id)
@@ -45,6 +50,10 @@ async def scan_events(
                 event = await asyncio.to_thread(channel.get, True, 20)
             except Empty:
                 await websocket.send_json({"type": "heartbeat", "scan_id": effective_id, "run_id": effective_id})
+                continue
+            event_run = str(event.get("run_id") or "").strip()
+            event_scan = str(event.get("scan_id") or "").strip()
+            if event_run and event_run not in expected_ids and event_scan and event_scan not in expected_ids:
                 continue
             await websocket.send_json(event)
             if event.get("type") in {"scan_completed", "scan_stopped", "scan_failed"}:

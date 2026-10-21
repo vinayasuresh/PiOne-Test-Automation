@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 class RunContext(BaseModel):
     run_id: str
+    scan_id: Optional[str] = None
     target_origin: str
     allowed_path_namespace: str = "/"
     auth_session_id: Optional[str] = None
@@ -32,6 +33,15 @@ class RunContext(BaseModel):
     checkpoints: list[str] = Field(default_factory=list)
     artifact_paths: dict[str, Any] = Field(default_factory=dict)
     status: str = "initialized"
+    current_module: Optional[str] = None
+    current_route: Optional[str] = None
+    route_progress: dict[str, int] = Field(default_factory=lambda: {"scanned": 0, "pending": 0, "total": 0})
+    elements_found: int = 0
+    safe_actions_explored: int = 0
+    parking_lot_actions: int = 0
+    retry_count: int = 0
+    last_event_sequence: int = 0
+    checkpoint_version: int = 0
     is_archived: bool = False
     error_message: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

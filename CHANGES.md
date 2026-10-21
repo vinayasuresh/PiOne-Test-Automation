@@ -1,5 +1,14 @@
 # PiOne Testmate — UX Stabilization and Production Safety Changes
 
+## Acceptance Hardening Update (Current)
+
+- Standardized the persisted run-state contract returned by `GET /run/{run_id}/state` to include `run_id`, `scan_id`, target namespace, auth status, selected/current module+route, route progress, element/action counters, retry count, last event sequence, and checkpoint version.
+- Added duplicate-run prevention for active runs (`409` on concurrent starts for the same run ID) so refresh/reconnect reuses the same run instead of creating a second worker.
+- Added monotonic event sequence metadata on telemetry events and stale-event filtering support for reconnect safety.
+- Updated scan-control and end-and-save behavior to preserve partial status (`partial_scanned`) and publish correlated control/stop events.
+- Made Windows-safe default test execution explicit: browser/Playwright suites are marked `browser` and excluded by default (`pytest -m "not browser"`), with hard per-test timeout to avoid silent hangs.
+- Added regression tests for reconnect contract fields, event sequence progression, duplicate run prevention, and partial end-and-save behavior.
+
 ## Summary of Completed Priorities
 
 This document records the UX stabilization, responsive layout, accessibility (WCAG AA), notification modernization, and authentication ergonomics implemented in PiOne Testmate.

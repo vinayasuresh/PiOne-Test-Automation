@@ -41,6 +41,8 @@ from automation_framework.crawler.action_classifier import (
     is_parking_lot_action,
     is_safe_action,
 )
+
+pytestmark = pytest.mark.browser
 from automation_framework.crawler.crawl_exporter import export_crawl_results
 from automation_framework.crawler.route_health_scorer import (
     RouteStatus,
@@ -736,4 +738,3 @@ def test_saucedemo_regression_replay_diff(saucedemo_server):
     assert diff["current_total"] == 2
     assert diff["newly_failing"] == 0
     assert len(diff["status_changes"]) == 0
-
