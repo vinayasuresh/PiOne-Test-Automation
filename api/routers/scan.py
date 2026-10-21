@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import shutil
 import os
 import platform
 import re
@@ -1234,6 +1235,57 @@ async def delete_regression_suite_endpoint(suite_id: str) -> dict[str, Any]:
     if not ok:
         raise HTTPException(status_code=404, detail=f"Regression suite '{suite_id}' not found")
     return {"status": "deleted", "suite_id": suite_id}
+
+
+@router.delete("/regression/suites", summary="Delete all regression suites")
+async def delete_all_regression_suites_endpoint() -> dict[str, Any]:
+    count = DBRepository.delete_all_regression_suites()
+    return {"status": "deleted", "deleted_count": count}
+
+
+@router.delete("/artifacts", summary="Delete all generated artifacts")
+async def delete_all_artifacts_endpoint() -> dict[str, Any]:
+    """Remove generated reports while preserving the database and auth state."""
+    deleted_files = 0
+    report_root = Path(REPORT_PATH)
+    preserved = {"pione_testmate.db", "auth_sessions", "run_contexts"}
+    if report_root.exists():
+        for child in report_root.iterdir():
+            if child.name in preserved:
+                continue
+            try:
+                if child.is_dir():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+                deleted_files += 1
+            except OSError as exc:
+                logger.warning(f"[ARTIFACTS] Could not remove {child}: {exc}")
+    deleted_records = DBRepository.delete_all_artifact_records()
+    return {
+        "status": "deleted",
+        "deleted_files": deleted_files,
+        "deleted_records": deleted_records,
+    }
+
+
+@router.get("/artifacts", summary="List runs with available generated artifacts")
+async def list_artifacts_endpoint() -> list[dict[str, Any]]:
+    """Return only saved runs that still have at least one downloadable artifact."""
+    artifact_runs: list[dict[str, Any]] = []
+    report_root = Path(REPORT_PATH)
+    for run in DBRepository.list_runs():
+        run_id = str(run.get("run_id", ""))
+        if not run_id:
+            continue
+        has_artifact = (
+            any(report_root.glob(f"{run_id}*"))
+            or any(report_root.glob(f"checkpoint_{run_id}*"))
+            or (report_root / run_id).exists()
+        )
+        if has_artifact:
+            artifact_runs.append(run)
+    return artifact_runs
 
 
 @router.post("/regression/execute-selected", summary="Execute strictly selected regression test cases with confirmation")

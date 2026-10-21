@@ -567,6 +567,30 @@ class DBRepository:
 
         return execute_with_retry(_op)
 
+    @staticmethod
+    def delete_all_regression_suites() -> int:
+        """Delete every regression suite and return the number removed."""
+        def _op(session: Session) -> int:
+            suites = session.query(RegressionSuite).all()
+            count = len(suites)
+            for suite in suites:
+                session.delete(suite)
+            return count
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def delete_all_artifact_records() -> int:
+        """Delete artifact metadata records; files are removed by the API layer."""
+        def _op(session: Session) -> int:
+            records = session.query(Artifact).all()
+            count = len(records)
+            for record in records:
+                session.delete(record)
+            return count
+
+        return execute_with_retry(_op)
+
     # -----------------------------------------------------------------------
     # 4. Executions & Steps
     # -----------------------------------------------------------------------

@@ -904,6 +904,9 @@
             <button id="btn-create-suite-modal" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-xs shadow-sm transition flex items-center gap-1.5">
               <i class="fa-solid fa-plus"></i> Create Suite
             </button>
+            <button id="btn-delete-all-suites" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-trash-can"></i> Delete All
+            </button>
           </div>
         </div>
 
@@ -943,6 +946,9 @@
           </div>
           <button id="btn-refresh-artifacts-view" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300 transition flex items-center gap-1.5">
             <i class="fa-solid fa-arrows-rotate"></i> Refresh
+          </button>
+          <button id="btn-delete-all-artifacts" class="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-trash-can"></i> Delete All
           </button>
         </div>
 
@@ -1445,12 +1451,14 @@
       // Regression Suites View
       document.getElementById("btn-refresh-suites").onclick = loadRegressionSuites;
       document.getElementById("btn-create-suite-modal").onclick = () => openCreateSuiteModal();
+      document.getElementById("btn-delete-all-suites").onclick = handleDeleteAllSuites;
       document.getElementById("btn-close-suite-modal").onclick = closeSuiteModal;
       document.getElementById("btn-cancel-suite").onclick = closeSuiteModal;
       document.getElementById("btn-submit-suite").onclick = handleSubmitSuite;
 
       // Artifacts View
       document.getElementById("btn-refresh-artifacts-view").onclick = loadArtifactsList;
+      document.getElementById("btn-delete-all-artifacts").onclick = handleDeleteAllArtifacts;
 
       // Step 1
       document.getElementById("btn-mode-live").onclick = () => setMode(true);
@@ -2995,6 +3003,17 @@
       }
     }
 
+    async function handleDeleteAllSuites() {
+      if (!confirm("Delete every regression suite? This cannot be undone.")) return;
+      try {
+        const res = await fetch(`${API_BASE}/regression/suites`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Delete all suites failed");
+        await loadRegressionSuites();
+      } catch (err) {
+        alert(`Delete all suites failed: ${err.message}`);
+      }
+    }
+
     // =========================================================================
     // Selectable Execution Scope & Confirmation Functions
     // =========================================================================
@@ -3266,7 +3285,7 @@
       const body = document.getElementById("artifacts-table-body");
       body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading artifacts...</td></tr>`;
       try {
-        const res = await fetch(`${API_BASE}/runs`);
+        const res = await fetch(`${API_BASE}/artifacts`);
         const runs = await res.json();
         body.innerHTML = "";
         if (!runs || !runs.length) {
@@ -3295,6 +3314,17 @@
         });
       } catch (err) {
         body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-rose-500 py-6">Failed to load artifacts: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    async function handleDeleteAllArtifacts() {
+      if (!confirm("Delete all generated reports, screenshots, checkpoints, and execution artifacts? This cannot be undone.")) return;
+      try {
+        const res = await fetch(`${API_BASE}/artifacts`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Delete all artifacts failed");
+        await loadArtifactsList();
+      } catch (err) {
+        alert(`Delete all artifacts failed: ${err.message}`);
       }
     }
 
