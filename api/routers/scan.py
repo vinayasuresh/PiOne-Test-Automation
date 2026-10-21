@@ -285,7 +285,6 @@ async def scan(request: ScanRequest) -> ScanResponse:
                     target_origin=request.url,
                     allowed_path_namespace="/",
                     run_id=mock_run_id,
-                    status="scanned",
                     auth_session_id=request.auth_session_id or f"mock_auth_{uuid4().hex[:8]}",
                 )
             run_ctx.scan_results = mock_resp.model_dump()

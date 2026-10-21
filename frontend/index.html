@@ -1743,6 +1743,7 @@
         document.body.appendChild(a);
         a.click();
         a.remove();
+        showToast("Pytest script download started", "info");
         showToast("Download started: Pytest test script (.py)", "success");
       };
       document.getElementById("btn-plan-back").onclick = () => switchStep(5);
@@ -1888,7 +1889,7 @@
           });
           const data = await res.json();
           if (!res.ok) {
-            throw new Error(data.detail || "Module discovery failed");
+            throw new Error(formatApiError(data, "Module discovery failed"));
           }
 
           state.runId = data.run_id;
@@ -2026,7 +2027,7 @@
         }
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Scan failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Scan failed"));
 
         state.scanData = data;
         state.runId = data.run_id || state.runId;
@@ -2364,7 +2365,7 @@
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Plan generation failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Plan generation failed"));
 
         state.generatedPlan = data;
         document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
@@ -2446,7 +2447,7 @@
         }
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Execution failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Execution failed"));
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
@@ -2691,7 +2692,7 @@
         }
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Regression run failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Regression run failed"));
 
         state.regressionResults = data;
         renderRegressionDiff(data.diff || {});
@@ -2754,7 +2755,7 @@
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Session refresh failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Session refresh failed"));
 
         state.authSessionId = data.auth_session_id;
         document.getElementById("session-expired-banner").classList.add("hidden");
@@ -2864,6 +2865,7 @@
         }
         const link = document.createElement("a");
         link.href = url;
+        link.setAttribute("download", "");
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2885,6 +2887,9 @@
     function resetRun() {
       state.currentStep = 1;
       state.maxUnlockedStep = 1;
+      const urlInput = document.getElementById("url-input");
+      if (urlInput) urlInput.value = "https://www.saucedemo.com";
+      state.targetUrl = "https://www.saucedemo.com";
       state.scanData = null;
       state.generatedPlan = null;
       state.executionResults = null;
@@ -3494,7 +3499,7 @@
         }
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Selective execution failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Selective execution failed"));
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
@@ -3543,7 +3548,7 @@
           showToast("A baseline already exists for this run. Check 'Confirm replacing' to overwrite.", "warning");
           return;
         }
-        if (!res.ok) throw new Error(data.detail || "Save baseline failed");
+        if (!res.ok) throw new Error(formatApiError(data, "Save baseline failed"));
         showToast(`Baseline '${name}' v${version} saved successfully.`, "success");
         closeBaselineModal();
       } catch (err) {
@@ -3739,6 +3744,18 @@ function closeScreenshotModal() {
         }
       }
     });
+
+    function formatApiError(data, fallback = "Operation failed") {
+      if (!data) return fallback;
+      if (typeof data.detail === "string") return data.detail;
+      if (Array.isArray(data.detail)) {
+        return data.detail.map(d => d.msg || (d.loc ? `${d.loc.join('.')}: ${d.msg}` : JSON.stringify(d))).join("; ");
+      }
+      if (data.detail && typeof data.detail === "object") {
+        return data.detail.message || JSON.stringify(data.detail);
+      }
+      return data.message || fallback;
+    }
 
     function escapeHtml(str) {
       return String(str || "").replace(/[&<>"']/g, c => ({
