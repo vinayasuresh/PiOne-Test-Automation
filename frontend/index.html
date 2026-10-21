@@ -1436,10 +1436,9 @@
         }
         unlockStep(targetStep || 1);
 
+        // Respect the user's saved step on refresh; a completed crawl must not
+        // silently move them away from telemetry and its explicit View Analysis action.
         let stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
-        if (stepToOpen === 4 && runCtx.scan_results) {
-          stepToOpen = 5;
-        }
         if (stepToOpen === 4) {
           connectTelemetryStream(state.runId);
           startDurationTimer();
