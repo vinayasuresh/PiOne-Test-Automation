@@ -803,6 +803,13 @@ class OllamaAdapter(BaseLLMAdapter):
         self.provider = "ollama"
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")).rstrip("/")
         self.default_model = model or os.getenv("OLLAMA_MODEL", "llama3.2")
+        # Local models can need more than the network-provider default while
+        # loading a multi-gigabyte model on CPU. Keep the timeout bounded but
+        # configurable instead of forcing a deterministic fallback at 30s.
+        try:
+            self.timeout = max(30.0, min(float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120")), 600.0))
+        except (TypeError, ValueError):
+            self.timeout = 120.0
         self.model = self.default_model
 
     def health_check(self) -> dict[str, Any]:
@@ -838,7 +845,7 @@ class OllamaAdapter(BaseLLMAdapter):
         }
         url = f"{self.base_url}/api/generate"
         headers = {"Content-Type": "application/json"}
-        raw_resp = _safe_http_post(url, headers, body, correlation_id=correlation_id)
+        raw_resp = _safe_http_post(url, headers, body, timeout=self.timeout, correlation_id=correlation_id)
         resp_obj = _extract_json_payload(raw_resp)
         raw_text = resp_obj.get("response", "")
         plan_data = _extract_json_payload(raw_text) if raw_text else resp_obj
@@ -866,7 +873,7 @@ class OllamaAdapter(BaseLLMAdapter):
         body = {"model": self.default_model, "prompt": prompt, "stream": False}
         req = Request(f"{self.base_url}/api/generate", data=json.dumps(body).encode("utf-8"),
                       headers={"Content-Type": "application/json"}, method="POST")
-        with urlopen(req, timeout=DEFAULT_TIMEOUT_SECONDS) as res:
+        with urlopen(req, timeout=self.timeout) as res:
             return json.loads(res.read().decode("utf-8")).get("response", "")
 
     def identify_coverage_gaps(
