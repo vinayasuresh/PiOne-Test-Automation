@@ -557,7 +557,17 @@
           </div>
 
           <div>
-            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Executable Pytest Script</h3>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Executable Pytest Script</h3>
+              <div class="flex items-center gap-1.5">
+                <button id="btn-copy-script" type="button" class="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded hover:bg-slate-50 text-slate-700 flex items-center gap-1 transition shadow-sm">
+                  <i class="fa-regular fa-copy"></i> Copy Script
+                </button>
+                <button id="btn-download-script" type="button" class="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded hover:bg-slate-50 text-slate-700 flex items-center gap-1 transition shadow-sm">
+                  <i class="fa-solid fa-download"></i> Download .py
+                </button>
+              </div>
+            </div>
             <pre id="plan-script-code" class="bg-slate-950 text-slate-100 rounded-lg p-3.5 font-mono text-[11px] overflow-x-auto max-h-48 whitespace-pre-wrap"># Script will appear here once generated...</pre>
           </div>
         </div>
@@ -677,7 +687,7 @@
             </tr>
           </thead>
           <tbody id="exec-table-body">
-            <tr><td colspan="9" class="table-cell text-center text-slate-500 py-8">Ready to execute. Click "Run Test Execution" above.</td></tr>
+            <tr><td colspan="9" class="table-cell text-center text-slate-500 py-8">Ready to execute. Click "Execute Selected Tests" above.</td></tr>
           </tbody>
         </table>
       </div>
@@ -702,28 +712,37 @@
           </div>
           <p class="text-xs text-slate-500 mt-1">Executive summaries, downloadable artifact packages via stable run ID endpoints, and regression baseline replay.</p>
         </div>
-        <div class="flex items-center gap-2 flex-wrap">
-          <button id="btn-dl-json" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-solid fa-file-code text-blue-600 mr-1"></i> JSON
-          </button>
-          <button id="btn-dl-yaml" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-solid fa-file-lines text-purple-600 mr-1"></i> YAML
-          </button>
-          <button id="btn-dl-excel" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition">
-            <i class="fa-solid fa-file-excel mr-1"></i> Excel (10 Sheets)
-          </button>
-          <button id="btn-dl-markdown" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-brands fa-markdown text-slate-800 mr-1"></i> Summary
-          </button>
-          <button id="btn-dl-execution" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Exec JSON
-          </button>
-          <button id="btn-dl-checkpoint" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
-          </button>
-          <button id="btn-dl-screenshots" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition">
-            <i class="fa-solid fa-images text-rose-600 mr-1"></i> Screenshots
-          </button>
+        <div class="flex flex-col lg:flex-row items-start lg:items-center gap-3">
+          <!-- Primary Audit Package -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mr-1">Primary:</span>
+            <button id="btn-dl-json" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-file-code text-blue-600 mr-1"></i> JSON
+            </button>
+            <button id="btn-dl-yaml" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-file-lines text-purple-600 mr-1"></i> YAML
+            </button>
+            <button id="btn-dl-excel" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition">
+              <i class="fa-solid fa-file-excel mr-1"></i> Excel (10 Sheets)
+            </button>
+            <button id="btn-dl-markdown" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-brands fa-markdown text-slate-800 mr-1"></i> Markdown
+            </button>
+          </div>
+          <span class="hidden lg:inline text-slate-300">|</span>
+          <!-- Technical Execution Evidence -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mr-1">Execution:</span>
+            <button id="btn-dl-execution" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Execution Results
+            </button>
+            <button id="btn-dl-checkpoint" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
+            </button>
+            <button id="btn-dl-screenshots" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-images text-rose-600 mr-1"></i> Screenshots
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1649,7 +1668,37 @@
 
       // Step 6 (Generate Tests)
       document.getElementById("btn-test-provider").onclick = handleTestProvider;
-      document.getElementById("btn-generate-plan").onclick = handleGeneratePlan;
+            document.getElementById("btn-generate-plan").onclick = handleGeneratePlan;
+
+      // Pytest script actions
+      document.getElementById("btn-copy-script").onclick = () => {
+        const code = document.getElementById("plan-script-code").textContent;
+        if (!code || code.startsWith("# Script will appear")) {
+          showToast("No generated script to copy", "warning");
+          return;
+        }
+        navigator.clipboard.writeText(code).then(() => {
+          showToast("Pytest script copied to clipboard!", "success");
+        }).catch(() => {
+          showToast("Failed to copy script to clipboard", "error");
+        });
+      };
+
+      document.getElementById("btn-download-script").onclick = () => {
+        const code = document.getElementById("plan-script-code").textContent;
+        if (!code || code.startsWith("# Script will appear")) {
+          showToast("No generated script to download", "warning");
+          return;
+        }
+        const blob = new Blob([code], { type: "text/x-python;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `test_plan_${(state.runId || "suite").substring(0, 10)}.py`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast("Download started: Pytest test script (.py)", "success");
+      };
       document.getElementById("btn-plan-back").onclick = () => switchStep(5);
       document.getElementById("btn-plan-proceed").onclick = () => {
         unlockStep(7);
@@ -2281,7 +2330,7 @@
       document.getElementById("plan-case-count").textContent = `${testCases.length} test cases`;
 
       if (!testCases.length) {
-        body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-400">No test cases generated.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="4" class="table-cell text-center py-8"><div class="flex flex-col items-center justify-center gap-1.5 text-slate-500"><i class="fa-solid fa-wand-magic-sparkles text-slate-300 text-2xl mb-1"></i><span class="font-semibold text-slate-700 text-xs">No test cases generated yet</span><span class="text-[11px] text-slate-500">Select an AI or deterministic provider and click "Generate Test Plan".</span></div></td></tr>`;
         return;
       }
 
@@ -2415,7 +2464,7 @@
 
     async function handleRerunStep(tcId, stepId) {
       const tc = (state.generatedPlan?.test_cases || []).find(c => c.tc_id === tcId);
-      if (!tc) return alert("Test case not found");
+      if (!tc) { showToast("Test case not found", "error"); return; }
 
       try {
         const res = await fetch(`${API_BASE}/rerun-step`, {
@@ -2436,7 +2485,7 @@
         }
 
         const data = await res.json();
-        alert(`Step Rerun Result: ${data.status}\n${data.actual_result}`);
+        showToast(`Step Rerun: ${data.status} - ${data.actual_result || ""}`, data.status === "Pass" ? "success" : "warning");
       } catch (err) {
         showActionableError("Rerun Step", state.runId, "RERUN_FAILED", err.message, "Inspect step locator or target page state.");
       }
@@ -2644,7 +2693,7 @@
         document.getElementById("btn-top-refresh-session").classList.add("hidden");
         document.getElementById("nav-session-badge").classList.remove("hidden");
         closeRefreshModal();
-        alert("Session refreshed successfully! You can now continue your workflow.");
+        showToast("Session refreshed successfully! You can now continue.", "success");
       } catch (err) {
         showActionableError("Session Refresh", state.runId, "AUTH_REFRESH_FAILED", err.message, "Verify credentials and retry.");
       } finally {
@@ -2654,11 +2703,46 @@
     }
 
     function showActionableError(operation, runId, category, message, suggestion) {
-      document.getElementById("error-modal-op-title").textContent = operation || "Operation Failed";
+      let displayCategory = category || "SYSTEM_NOTICE";
+      let displayMessage = message || "An unexpected error occurred.";
+      let displaySuggestion = suggestion || "Retry the operation or consult documentation.";
+
+      // Sanitize: strip credentials, cookies, tokens, API keys, full stack traces
+      displayMessage = String(displayMessage)
+        .replace(/(password|token|secret|cookie|key)=[^&\s]+/gi, "$1=[REDACTED]")
+        .replace(/Traceback \(most recent call last\):[\s\S]*/, "")
+        .replace(/File ".*?", line \d+, in .*/g, "")
+        .trim();
+
+      // Contextual remediation mapping
+      const combined = (displayMessage + " " + displayCategory).toLowerCase();
+      if (combined.includes("401") || combined.includes("auth") || combined.includes("session expired")) {
+        displayCategory = "AUTHENTICATION_EXPIRED";
+        displayMessage = "Your authentication session has expired or the session cookies are no longer valid.";
+        displaySuggestion = "Refresh credentials in Step 1 or click 'Refresh Session' to renew without restarting.";
+      } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable")) {
+        displayCategory = "BACKEND_UNAVAILABLE";
+        displayMessage = "Cannot connect to the PiOne Testmate backend service at localhost:8000.";
+        displaySuggestion = "Verify the Python FastAPI / Uvicorn server is running and accessible.";
+      } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
+        displayCategory = "ARTIFACT_UNAVAILABLE";
+        displayMessage = "The requested artifact or report has not been generated yet or is still processing.";
+        displaySuggestion = "Wait for scan and execution to finish, or run the test execution step.";
+      } else if (combined.includes("invalid run state") || combined.includes("no active scan")) {
+        displayCategory = "INVALID_RUN_STATE";
+        displayMessage = "The current run is missing required state or has not finished prerequisite steps.";
+        displaySuggestion = "Restore the run from a checkpoint in Saved Runs or begin a new scan.";
+      } else if (combined.includes("fallback") || combined.includes("provider error") || combined.includes("timeout") || combined.includes("quota")) {
+        displayCategory = "PROVIDER_FALLBACK";
+        displayMessage = "The configured AI model provider was unavailable or exceeded timeout.";
+        displaySuggestion = "Deterministic planning was automatically used to safely generate grounded test cases.";
+      }
+
+      document.getElementById("error-modal-op-title").textContent = operation || "Operation Notice";
       document.getElementById("error-modal-run-id").textContent = (runId || state.runId || "--").substring(0, 16);
-      document.getElementById("error-modal-category").textContent = category || "SYSTEM_NOTICE";
-      document.getElementById("error-modal-message").textContent = message || "An unexpected error occurred.";
-      document.getElementById("error-modal-suggestion").textContent = suggestion || "Retry the operation or consult documentation.";
+      document.getElementById("error-modal-category").textContent = displayCategory;
+      document.getElementById("error-modal-message").textContent = displayMessage;
+      document.getElementById("error-modal-suggestion").textContent = displaySuggestion;
       document.getElementById("actionable-error-modal").classList.remove("hidden");
     }
 
@@ -2703,11 +2787,11 @@
       try {
         const res = await fetch(url, { method: "HEAD" });
         if (res.status === 409) {
-          alert(`Artifact '${type}' is currently generating or scan is still in progress. Please wait for completion.`);
+          showActionableError("Download Artifact", state.runId, "ARTIFACT_GENERATING", `Artifact '${type}' is currently generating.`, "Wait for scan completion before downloading.");
           return;
         }
         if (res.status === 404) {
-          alert(`Artifact '${type}' not found for run ${state.runId}.`);
+          showActionableError("Download Artifact", state.runId, "ARTIFACT_UNAVAILABLE", `Artifact '${type}' not found for this run.`, "Verify scan and execution steps have completed.");
           return;
         }
         const link = document.createElement("a");
@@ -2715,6 +2799,16 @@
         document.body.appendChild(link);
         link.click();
         link.remove();
+        const labelMap = {
+          json: "JSON Audit Package",
+          yaml: "YAML Schema Export",
+          excel: "Excel Report (10 Sheets)",
+          markdown: "Markdown Summary",
+          execution_results: "Execution Results JSON",
+          checkpoint: "Checkpoint State",
+          screenshots: "Step Screenshots ZIP"
+        };
+        showToast(`Download started: ${labelMap[type] || type.toUpperCase()}`, "success");
       } catch (err) {
         window.open(url, "_blank");
       }
@@ -2805,7 +2899,7 @@
 
     async function handleSaveProgress() {
       if (!state.runId) {
-        alert("No active scan run to save.");
+        showToast("No active scan run to save.", "warning");
         return;
       }
       try {
@@ -2817,7 +2911,7 @@
         const data = await res.json();
         const ts = document.getElementById("autosave-timestamp");
         if (ts) ts.textContent = `Last checkpoint: ${new Date().toLocaleTimeString()}`;
-        alert(`Progress for run ${state.runId.substring(0, 8)} explicitly saved.`);
+        showToast(`Progress for run ${state.runId.substring(0, 8)} saved successfully.`, "success");
       } catch (err) {
         showActionableError("Save Progress", state.runId, "SAVE_FAILED", err.message, "Retry save progress.");
       }
@@ -2873,7 +2967,7 @@
       const body = document.getElementById("saved-runs-table-body");
       body.innerHTML = "";
       if (!runs || !runs.length) {
-        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-500 py-6">No saved runs found. Start a scan in "Current Run".</td></tr>`;
+        body.innerHTML = `<tr><td colspan="9" class="table-cell text-center py-10"><div class="flex flex-col items-center justify-center gap-1.5 text-slate-500"><i class="fa-solid fa-clock-rotate-left text-slate-300 text-3xl mb-1"></i><span class="font-semibold text-slate-700 text-xs">No saved runs found</span><span class="text-[11px] text-slate-500">Start a new scan to discover modules or save an active crawl checkpoint.</span></div></td></tr>`;
         return;
       }
 
@@ -2974,7 +3068,7 @@
       try {
         const res = await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}/duplicate`, { method: "POST" });
         const data = await res.json();
-        alert(`Run duplicated: new run ID ${data.new_run_id?.substring(0, 8)}`);
+        showToast(`Run duplicated successfully: ${data.new_run_id?.substring(0, 8)}`, "success");
         loadSavedRuns();
       } catch (err) {
         showActionableError("Duplicate Run", runId, "DUPLICATE_FAILED", err.message, "Retry duplication.");
@@ -3023,7 +3117,7 @@
       const body = document.getElementById("regression-suites-table-body");
       body.innerHTML = "";
       if (!suites || !suites.length) {
-        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center text-slate-500 py-6">No regression suites found. Click "Create Suite".</td></tr>`;
+        body.innerHTML = `<tr><td colspan="7" class="table-cell text-center py-10"><div class="flex flex-col items-center justify-center gap-1.5 text-slate-500"><i class="fa-solid fa-layer-group text-slate-300 text-3xl mb-1"></i><span class="font-semibold text-slate-700 text-xs">No regression suites found</span><span class="text-[11px] text-slate-500">Save a completed run's test cases as a reusable regression baseline suite.</span></div></td></tr>`;
         return;
       }
 
@@ -3110,7 +3204,7 @@
       const baseline_run_id = document.getElementById("suite-baseline-select").value || null;
 
       if (!name || !base_url) {
-        alert("Suite name and target base URL are required.");
+        showToast("Suite name and target base URL are required.", "warning");
         return;
       }
 
@@ -3133,7 +3227,7 @@
         closeSuiteModal();
         loadRegressionSuites();
       } catch (err) {
-        alert(`Failed to save suite: ${err.message}`);
+        showToast(`Failed to save suite: ${err.message}`, "error");
       }
     }
 
@@ -3147,7 +3241,7 @@
         await restoreActiveRunState(state.runId, 7);
         openExecConfirmModal();
       } catch (err) {
-        alert(`Failed to prepare suite execution: ${err.message}`);
+        showToast(`Failed to prepare execution: ${err.message}`, "error");
       }
     }
 
@@ -3156,7 +3250,7 @@
         await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}/duplicate`, { method: "POST" });
         loadRegressionSuites();
       } catch (err) {
-        alert(`Duplicate failed: ${err.message}`);
+        showToast(`Duplicate failed: ${err.message}`, "error");
       }
     }
 
@@ -3166,7 +3260,7 @@
           await fetch(`${API_BASE}/regression/suites/${encodeURIComponent(suiteId)}`, { method: "DELETE" });
           loadRegressionSuites();
         } catch (err) {
-          alert(`Delete failed: ${err.message}`);
+          showToast(`Delete failed: ${err.message}`, "error");
         }
       });
     }
@@ -3178,7 +3272,7 @@
           if (!res.ok) throw new Error("Delete all suites failed");
           await loadRegressionSuites();
         } catch (err) {
-          alert(`Delete all suites failed: ${err.message}`);
+          showToast(`Delete all suites failed: ${err.message}`, "error");
         }
       });
     }
@@ -3282,7 +3376,7 @@
     function openExecConfirmModal() {
       const checked = state.selectedExecutionTestIds;
       if (!checked || !checked.length) {
-        alert("Please select at least one test case to execute.");
+        showToast("Please select at least one test case to execute.", "warning");
         return;
       }
       const cases = state.generatedPlan?.test_cases || [];
@@ -3378,14 +3472,14 @@
         });
         const data = await res.json();
         if (res.status === 409) {
-          alert("A baseline already exists for this run. Check 'Confirm replacing/overwriting' to overwrite.");
+          showToast("A baseline already exists for this run. Check 'Confirm replacing' to overwrite.", "warning");
           return;
         }
         if (!res.ok) throw new Error(data.detail || "Save baseline failed");
-        alert(`Baseline '${name}' v${version} saved successfully.`);
+        showToast(`Baseline '${name}' v${version} saved successfully.`, "success");
         closeBaselineModal();
       } catch (err) {
-        alert(`Save baseline error: ${err.message}`);
+        showToast(`Save baseline error: ${err.message}`, "error");
       }
     }
 
@@ -3411,7 +3505,7 @@
     async function handleRunCompareBaseline() {
       const baseRunId = document.getElementById("compare-baseline-select").value;
       if (!baseRunId) {
-        alert("Please select a reference baseline.");
+        showToast("Please select a reference baseline.", "warning");
         return;
       }
       try {
@@ -3446,7 +3540,7 @@
 
         document.getElementById("compare-diff-results").classList.remove("hidden");
       } catch (err) {
-        alert(`Compare failed: ${err.message}`);
+        showToast(`Compare failed: ${err.message}`, "error");
       }
     }
 
@@ -3458,7 +3552,7 @@
         const runs = await res.json();
         body.innerHTML = "";
         if (!runs || !runs.length) {
-          body.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-slate-500 py-6">No runs available yet.</td></tr>`;
+          body.innerHTML = `<tr><td colspan="4" class="table-cell text-center py-10"><div class="flex flex-col items-center justify-center gap-1.5 text-slate-500"><i class="fa-solid fa-box-archive text-slate-300 text-3xl mb-1"></i><span class="font-semibold text-slate-700 text-xs">No artifacts available</span><span class="text-[11px] text-slate-500">Audit reports, checkpoints, and execution evidence will appear here after running scans.</span></div></td></tr>`;
           return;
         }
         runs.forEach(r => {
@@ -3493,7 +3587,7 @@
           if (!res.ok) throw new Error("Delete all artifacts failed");
           await loadArtifactsList();
         } catch (err) {
-          alert(`Delete all artifacts failed: ${err.message}`);
+          showToast(`Delete all artifacts failed: ${err.message}`, "error");
         }
       });
     }
@@ -3584,5 +3678,8 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
+  <!-- Floating Toast Notifications -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
+
 </body>
 </html>
