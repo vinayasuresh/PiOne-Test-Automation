@@ -21,6 +21,8 @@ class RunContext(BaseModel):
     auth_status: str = "none"  # "authenticated" | "expired" | "none"
     username: Optional[str] = None
     selected_modules: list[str] = Field(default_factory=list)
+    completed_modules: list[str] = Field(default_factory=list)
+    pending_modules: list[str] = Field(default_factory=list)
     discovered_modules: list[dict[str, Any]] = Field(default_factory=list)
     route_graph: dict[str, Any] = Field(default_factory=dict)
     ui_state_graph: dict[str, Any] = Field(default_factory=dict)
@@ -32,7 +34,7 @@ class RunContext(BaseModel):
     execution_summary: Optional[dict[str, Any]] = None
     checkpoints: list[str] = Field(default_factory=list)
     artifact_paths: dict[str, Any] = Field(default_factory=dict)
-    status: str = "initialized"
+    status: str = "discovered"
     current_module: Optional[str] = None
     current_route: Optional[str] = None
     route_progress: dict[str, int] = Field(default_factory=lambda: {"scanned": 0, "pending": 0, "total": 0})

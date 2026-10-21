@@ -41,8 +41,10 @@ from api.services.run_context_service import (
     get_run_context,
     save_run_context,
 )
+from api.services.run_state_reconciliation import calculate_module_progress, calculate_route_progress
 from api.services.scan_event_bus import publish, register_alias
 from api.utils.response_builder import build_scan_response
+from automation_framework.storage.checkpoint_store import load_checkpoint, save_checkpoint
 
 
 def run_scan(
@@ -301,26 +303,115 @@ def run_scan(
         )
 
         export_paths = _safe_export(crawl_results, actual_run_id)
+        terminal_event: dict[str, object] | None = None
         try:
             run_ctx = get_run_context(actual_run_id)
             if not run_ctx:
                 run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
-            run_ctx.selected_modules = selected_module_ids or run_ctx.selected_modules
+            selected = list(selected_module_ids or run_ctx.selected_modules or crawl_results.get("selected_modules", []) or [])
+            completed = list(crawl_results.get("completed_modules", []) or run_ctx.completed_modules or [])
+            current_module_id = str(crawl_results.get("current_module_id") or run_ctx.current_module or "")
+            if not stopped_early and selected:
+                completed = list(selected)
+            if current_module_id and current_module_id in selected and current_module_id not in completed and not stopped_early:
+                completed.append(current_module_id)
+
+            run_ctx.selected_modules = selected
+            mod_progress = calculate_module_progress({
+                "selected_modules": run_ctx.selected_modules,
+                "completed_modules": completed,
+            })
+            run_ctx.completed_modules = mod_progress["completed_modules"]
+            run_ctx.pending_modules = mod_progress["pending_modules"]
+
             run_ctx.scan_results = scan_resp.model_dump(mode="json")
             run_ctx.route_graph = crawl_results.get("route_graph", {})
             run_ctx.ui_state_graph = crawl_results.get("ui_state_graph", {})
             run_ctx.element_registry = crawl_results.get("element_registry", {})
+            run_ctx.route_progress = calculate_route_progress({
+                "route_progress": {
+                    "scanned": route_count,
+                    "pending": 0 if not stopped_early else max(0, int(run_ctx.route_progress.get("pending", 0) or 0)),
+                    "total": max(route_count, int(run_ctx.route_progress.get("total", 0) or 0)),
+                },
+                "scan_results": run_ctx.scan_results or {},
+            })
+            run_ctx.elements_found = _count_elements(crawl_results)
+            run_ctx.safe_actions_explored = _count_safe_actions(crawl_results)
+            run_ctx.parking_lot_actions = len(crawl_results.get("parking_lot_actions", []) or [])
+            run_ctx.retry_count = int(getattr(engine, "_retry_count", run_ctx.retry_count or 0) or 0)
+
             if crawl_results.get("checkpoint_id") and crawl_results["checkpoint_id"] not in run_ctx.checkpoints:
                 run_ctx.checkpoints.append(crawl_results["checkpoint_id"])
             if export_paths:
                 run_ctx.artifact_paths.update(export_paths)
             run_ctx.status = "partial_scanned" if stopped_early else "scanned"
+            if run_ctx.status == "scanned":
+                run_ctx.current_module = ""
+                run_ctx.current_route = ""
+            else:
+                run_ctx.current_module = current_module_id
+                run_ctx.current_route = str(getattr(page, "url", "") or run_ctx.current_route or "")
             save_run_context(run_ctx)
+
+            checkpoint_data = load_checkpoint(actual_run_id) or {}
+            checkpoint_data.update({
+                "run_id": actual_run_id,
+                "session_id": actual_run_id,
+                "current_module_id": run_ctx.current_module or "",
+                "current_route": run_ctx.current_route or "",
+                "selected_modules": list(run_ctx.selected_modules),
+                "completed_modules": list(run_ctx.completed_modules),
+                "pending_modules": list(run_ctx.pending_modules),
+                "state_data": {
+                    **(checkpoint_data.get("state_data", {}) if isinstance(checkpoint_data.get("state_data"), dict) else {}),
+                    "status": run_ctx.status,
+                    "route_progress": run_ctx.route_progress,
+                    "module_progress": {
+                        "current": mod_progress["current"],
+                        "total": mod_progress["total"],
+                        "completed_count": mod_progress["completed_count"],
+                        "pending_count": mod_progress["pending_count"],
+                    },
+                },
+            })
+            save_checkpoint(actual_run_id, checkpoint_data)
+
+            route_health = _route_health_counts(crawl_results)
+            terminal_event = {
+                "type": "scan_stopped" if stopped_early else "scan_completed",
+                "run_id": actual_run_id,
+                "scan_id": scan_id or actual_run_id,
+                "status": run_ctx.status,
+                "scan_stopped_early": stopped_early,
+                "selected_module_count": len(run_ctx.selected_modules),
+                "completed_module_count": mod_progress["completed_count"],
+                "pending_module_count": mod_progress["pending_count"],
+                "completed_modules": list(run_ctx.completed_modules),
+                "pending_modules": list(run_ctx.pending_modules),
+                "route_count": route_count,
+                "module_progress": {"current": mod_progress["current"], "total": mod_progress["total"]},
+                "route_progress": {
+                    "scanned": int(run_ctx.route_progress.get("scanned", 0) or 0),
+                    "pending": int(run_ctx.route_progress.get("pending", 0) or 0),
+                    "total": int(run_ctx.route_progress.get("total", 0) or 0),
+                },
+                "elements_found": run_ctx.elements_found,
+                "safe_actions_explored": run_ctx.safe_actions_explored,
+                "parking_lot_actions": run_ctx.parking_lot_actions,
+                "retry_count": run_ctx.retry_count,
+                "current_route": run_ctx.current_route,
+                "current_module": run_ctx.current_module,
+                "route_health": route_health,
+                "duration_seconds": round(duration, 2),
+            }
         except Exception:
             logger.exception("[API] Failed to update RunContext with crawl results")
-        if scan_id:
+        if terminal_event:
+            publish(actual_run_id, terminal_event)
+        elif scan_id:
             publish(scan_id, {"type": "scan_stopped" if stopped_early else "scan_completed",
-                              "scan_id": scan_id, "status": scan_resp.status,
+                              "scan_id": scan_id, "status": ("partial_scanned" if stopped_early else "scanned"),
                               "scan_stopped_early": stopped_early,
                               "routes": route_count, "duration_seconds": round(duration, 2)})
         return scan_resp
@@ -398,6 +489,38 @@ def _safe_export(crawl_results: dict, run_id: str) -> dict[str, str]:
     except Exception:
         logger.exception("[API] Failed to export test-ready artifacts")
         return {}
+
+
+def _count_elements(crawl_results: dict) -> int:
+    page_intelligence = crawl_results.get("page_intelligence", {}) or {}
+    return sum(len((doc or {}).get("automation_targets", []) or []) for doc in page_intelligence.values())
+
+
+def _count_safe_actions(crawl_results: dict) -> int:
+    page_intelligence = crawl_results.get("page_intelligence", {}) or {}
+    total = 0
+    for doc in page_intelligence.values():
+        for target in (doc or {}).get("automation_targets", []) or []:
+            classification = str(target.get("classification") or "").upper()
+            if classification in {"SAFE_NAVIGATION", "SAFE_EXPAND", "SAFE_PROBE"}:
+                total += 1
+    return total
+
+
+def _route_health_counts(crawl_results: dict) -> dict[str, int]:
+    validations = crawl_results.get("route_validations", {}) or {}
+    working = 0
+    partial = 0
+    non_working = 0
+    for route_data in validations.values():
+        status = str((route_data or {}).get("status") or "").upper().replace("-", "_")
+        if status == "PARTIAL":
+            partial += 1
+        elif status in {"NON_WORKING", "NON_WORKING_ROUTE"}:
+            non_working += 1
+        else:
+            working += 1
+    return {"working_count": working, "partial_count": partial, "non_working_count": non_working}
 
 
 def discover_modules(url: str, username: str | None, password: str | None) -> dict:

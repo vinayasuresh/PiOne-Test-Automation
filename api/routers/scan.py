@@ -1,6 +1,7 @@
 """POST /scan router — the main API endpoint."""
 
 import asyncio
+from datetime import datetime, timezone
 import json
 import shutil
 import os
@@ -82,6 +83,7 @@ from api.services.run_context_service import (
     list_saved_runs,
     save_run_context,
 )
+from api.services.run_state_reconciliation import calculate_module_progress, calculate_route_progress
 from api.services.scan_event_bus import get_channel, get_latest_telemetry, publish
 from api.services.test_context_service import create_context, decode_upload, load_context
 from api.services.test_execution_service import (
@@ -994,6 +996,11 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                     "status": "partial_scanned",
                     "checkpoints": [run_id],
                     "selected_modules": chk_data.get("selected_modules", chk_data.get("completed_modules", [])),
+                    "completed_modules": chk_data.get("completed_modules", []),
+                    "pending_modules": [
+                        m for m in chk_data.get("selected_modules", chk_data.get("completed_modules", []))
+                        if m not in chk_data.get("completed_modules", [])
+                    ],
                     "current_module": chk_data.get("current_module_id", ""),
                     "current_route": chk_data.get("current_route", ""),
                     "route_progress": {
@@ -1001,6 +1008,19 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                         "pending": len(chk_data.get("pending_routes", [])),
                         "total": len(chk_data.get("visited_routes", [])) + len(chk_data.get("pending_routes", [])),
                     },
+                    "module_progress": {
+                        "current": min(
+                            len(chk_data.get("selected_modules", chk_data.get("completed_modules", []))),
+                            len(chk_data.get("completed_modules", [])) + 1,
+                        ) if chk_data.get("selected_modules", chk_data.get("completed_modules", [])) else 0,
+                        "total": len(chk_data.get("selected_modules", chk_data.get("completed_modules", []))),
+                    },
+                    "completed_module_count": len(chk_data.get("completed_modules", [])),
+                    "pending_module_count": max(
+                        0,
+                        len(chk_data.get("selected_modules", chk_data.get("completed_modules", [])))
+                        - len(chk_data.get("completed_modules", [])),
+                    ),
                     "elements_found": len(chk_data.get("element_map_snapshot", [])),
                     "safe_actions_explored": len(chk_data.get("scan_events", [])),
                     "parking_lot_actions": len(chk_data.get("parking_lot_actions", [])),
@@ -1017,15 +1037,46 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                 pass
         raise HTTPException(status_code=404, detail=f"Run context '{run_id}' not found")
     data = run_ctx.model_dump(mode="json")
+    latest_sequence = int(latest_event.get("last_event_sequence", 0) or 0)
+    current_sequence = int(data.get("last_event_sequence", 0) or 0)
+    event_run = (latest_event.get("run_id") or latest_event.get("scan_id") or "").strip()
+    event_scan = (latest_event.get("scan_id") or "").strip()
+    same_run = (not event_run or event_run == run_id) and (not event_scan or event_scan == (data.get("scan_id") or run_id))
+    use_latest_event = same_run and latest_sequence >= current_sequence
+    if use_latest_event and latest_event.get("timestamp") and data.get("updated_at"):
+        try:
+            run_updated = datetime.fromisoformat(str(data["updated_at"]).replace("Z", "+00:00"))
+            event_ts = datetime.fromtimestamp(float(latest_event["timestamp"]), tz=timezone.utc)
+            if event_ts < run_updated:
+                use_latest_event = False
+        except Exception:
+            pass
+    effective_event = latest_event if use_latest_event else {}
+
     data["scan_id"] = data.get("scan_id") or run_id
-    data["current_module"] = latest_event.get("current_module", data.get("current_module"))
-    data["current_route"] = latest_event.get("current_route", data.get("current_route"))
-    data["route_progress"] = {"scanned": scanned, "pending": pending, "total": total}
-    data["elements_found"] = int(latest_event.get("elements_found", data.get("elements_found", 0)) or 0)
-    data["safe_actions_explored"] = int(latest_event.get("safe_actions_explored", data.get("safe_actions_explored", 0)) or 0)
-    data["parking_lot_actions"] = int(latest_event.get("parking_lot_actions", data.get("parking_lot_actions", 0)) or 0)
-    data["retry_count"] = int(latest_event.get("retry_count", data.get("retry_count", 0)) or 0)
-    data["last_event_sequence"] = int(latest_event.get("last_event_sequence", data.get("last_event_sequence", 0)) or 0)
+    data["current_module"] = effective_event.get("current_module", data.get("current_module"))
+    data["current_route"] = effective_event.get("current_route", data.get("current_route"))
+    data["route_progress"] = calculate_route_progress({
+        "route_progress": effective_event.get("route_progress") or {"scanned": scanned, "pending": pending, "total": total},
+        "scan_results": data.get("scan_results") or {},
+    })
+    data["elements_found"] = int(effective_event.get("elements_found", data.get("elements_found", 0)) or 0)
+    data["safe_actions_explored"] = int(effective_event.get("safe_actions_explored", data.get("safe_actions_explored", 0)) or 0)
+    data["parking_lot_actions"] = int(effective_event.get("parking_lot_actions", data.get("parking_lot_actions", 0)) or 0)
+    data["retry_count"] = int(effective_event.get("retry_count", data.get("retry_count", 0)) or 0)
+    data["last_event_sequence"] = int(effective_event.get("last_event_sequence", data.get("last_event_sequence", 0)) or 0)
+    module_progress = calculate_module_progress({
+        "selected_modules": data.get("selected_modules") or [],
+        "completed_modules": data.get("completed_modules") or [],
+    })
+    data["module_progress"] = {"current": module_progress["current"], "total": module_progress["total"]}
+    data["completed_module_count"] = module_progress["completed_count"]
+    data["pending_module_count"] = module_progress["pending_count"]
+    data["completed_modules"] = module_progress["completed_modules"]
+    data["pending_modules"] = module_progress["pending_modules"]
+    if data.get("status") == "scanned" and module_progress["pending_count"] == 0 and int(data["route_progress"]["pending"]) == 0:
+        data["current_module"] = ""
+        data["current_route"] = ""
     data["checkpoint_version"] = int((latest_checkpoint or {}).get("version", data.get("checkpoint_version", 0)) or 0)
     data["is_paused"] = is_scan_paused(run_id)
     return data

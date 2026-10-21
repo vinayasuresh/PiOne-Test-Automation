@@ -35,6 +35,7 @@ from api.services.run_context_service import (
     get_run_context,
     save_run_context,
 )
+from api.services.run_state_reconciliation import calculate_module_progress, calculate_route_progress
 from api.services.scan_control_service import (
     clear_scan_control,
     finish_scan,
@@ -326,6 +327,144 @@ def test_end_and_save_sets_partial_state(client: TestClient):
     updated = get_run_context(run_id)
     assert updated is not None
     assert updated.status == "partial_scanned"
+
+
+def test_terminal_completion_reconciles_module_and_route_progress(client: TestClient):
+    run_id = "run_terminal_complete_01"
+    ctx = create_run_context(url="https://www.saucedemo.com", run_id=run_id)
+    ctx.status = "scanned"
+    ctx.selected_modules = ["m1", "m2", "m3"]
+    ctx.completed_modules = ["m1", "m2", "m3"]
+    ctx.pending_modules = []
+    ctx.route_progress = {"scanned": 3, "pending": 0, "total": 3}
+    ctx.current_module = ""
+    ctx.current_route = ""
+    save_run_context(ctx)
+
+    publish(run_id, {
+        "type": "scan_completed",
+        "run_id": run_id,
+        "scan_id": run_id,
+        "status": "scanned",
+        "selected_module_count": 3,
+        "completed_module_count": 3,
+        "pending_module_count": 0,
+        "completed_modules": ["m1", "m2", "m3"],
+        "pending_modules": [],
+        "route_count": 3,
+        "module_progress": {"current": 3, "total": 3},
+        "route_progress": {"scanned": 3, "pending": 0, "total": 3},
+        "scan_stopped_early": False,
+    })
+
+    res = client.get(f"/run/{run_id}/state")
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["status"] == "scanned"
+    assert payload["completed_module_count"] == 3
+    assert payload["pending_module_count"] == 0
+    assert payload["module_progress"]["total"] == 3
+    assert payload["route_progress"]["scanned"] == 3
+    assert payload["route_progress"]["pending"] == 0
+    assert payload["current_module"] == ""
+    assert payload["current_route"] == ""
+    discard_channel(run_id)
+
+
+def test_partial_terminal_state_keeps_non_100_progress(client: TestClient):
+    run_id = "run_terminal_partial_01"
+    ctx = create_run_context(url="https://www.saucedemo.com", run_id=run_id)
+    ctx.status = "partial_scanned"
+    ctx.selected_modules = ["m1", "m2", "m3"]
+    ctx.completed_modules = ["m1"]
+    ctx.pending_modules = ["m2", "m3"]
+    ctx.route_progress = {"scanned": 2, "pending": 3, "total": 5}
+    save_run_context(ctx)
+
+    publish(run_id, {
+        "type": "scan_stopped",
+        "run_id": run_id,
+        "scan_id": run_id,
+        "status": "partial_scanned",
+        "scan_stopped_early": True,
+        "module_progress": {"current": 1, "total": 3},
+        "route_progress": {"scanned": 2, "pending": 3, "total": 5},
+        "completed_modules": ["m1"],
+        "pending_modules": ["m2", "m3"],
+    })
+    payload = client.get(f"/run/{run_id}/state").json()
+    assert payload["status"] == "partial_scanned"
+    assert payload["completed_module_count"] == 1
+    assert payload["pending_module_count"] == 2
+    pct = calculate_route_progress(payload)["percentage"]
+    assert pct < 100
+    discard_channel(run_id)
+
+
+def test_stale_event_does_not_overwrite_newer_run_state(client: TestClient):
+    run_id = "run_stale_event_guard_01"
+    ctx = create_run_context(url="https://example.test", run_id=run_id)
+    ctx.status = "scanned"
+    ctx.last_event_sequence = 10
+    ctx.selected_modules = ["m1", "m2", "m3"]
+    ctx.completed_modules = ["m1", "m2", "m3"]
+    ctx.pending_modules = []
+    save_run_context(ctx)
+
+    publish(run_id, {
+        "type": "scan_completed",
+        "run_id": run_id,
+        "scan_id": run_id,
+        "status": "scanned",
+        "event_sequence": 1,
+        "last_event_sequence": 1,
+        "current_module": "m1",
+        "current_route": "https://example.test/inventory.html",
+    })
+
+    payload = client.get(f"/run/{run_id}/state").json()
+    assert payload["last_event_sequence"] == 10
+    assert payload["current_module"] in {"", None}
+    assert payload["current_route"] in {"", None}
+    discard_channel(run_id)
+
+
+def test_duplicate_terminal_event_idempotent_counts(client: TestClient):
+    run_id = "run_terminal_idempotent_01"
+    ctx = create_run_context(url="https://example.test", run_id=run_id)
+    ctx.status = "scanned"
+    ctx.selected_modules = ["m1", "m2", "m3"]
+    ctx.completed_modules = ["m1", "m2", "m3"]
+    ctx.pending_modules = []
+    save_run_context(ctx)
+
+    event = {
+        "type": "scan_completed",
+        "run_id": run_id,
+        "scan_id": run_id,
+        "status": "scanned",
+        "module_progress": {"current": 3, "total": 3},
+        "route_progress": {"scanned": 3, "pending": 0, "total": 3},
+        "completed_modules": ["m1", "m2", "m3"],
+        "pending_modules": [],
+    }
+    publish(run_id, event)
+    publish(run_id, event)
+
+    payload = client.get(f"/run/{run_id}/state").json()
+    progress = calculate_module_progress(payload)
+    assert progress["completed_count"] == 3
+    assert progress["pending_count"] == 0
+    assert payload["route_progress"]["scanned"] == 3
+    discard_channel(run_id)
+
+
+def test_step4_terminal_message_and_controls_present(client: TestClient):
+    html = client.get("/").text
+    assert "Crawl complete. Review results or continue to analysis." in html
+    assert "btn-scan-pause" in html
+    assert "btn-scan-end-save" in html
+    assert "btn-view-analysis" in html
 
 
 # 6. Execution Failure Categorization Tests

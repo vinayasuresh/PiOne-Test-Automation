@@ -353,6 +353,7 @@
         </span>
         <span id="autosave-timestamp" class="text-slate-400 font-mono">Last checkpoint: Just now</span>
       </div>
+      <div id="live-terminal-note" class="hidden text-xs rounded-lg border px-3 py-2"></div>
 
       <!-- Live Metric Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -1402,7 +1403,9 @@
       currentRoute: "",
       scanStatus: "IDLE",
       scanProgressPct: 0,
-      lastEventSequence: 0
+      lastEventSequence: 0,
+      terminalStateProcessed: false,
+      lastCompletedRoute: ""
     };
     let pendingDangerAction = null;
 
@@ -1438,6 +1441,130 @@
 
       const total = routes.length || Number(scanSummary.total_routes) || 0;
       return { working, partial, nonWorking, total };
+    }
+
+    function calculate_module_progress(runContext) {
+      const selected = Array.isArray(runContext?.selected_modules) ? runContext.selected_modules.filter(Boolean) : [];
+      const completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
+      const pending = selected.filter(m => !completed.includes(m));
+      const total = selected.length;
+      const done = completed.length;
+      const current = total ? Math.min(total, done + 1) : 0;
+      return { current, total, completed_count: done, pending_count: pending.length, completed_modules: completed, pending_modules: pending };
+    }
+
+    function calculate_route_progress(runContext) {
+      const rp = runContext?.route_progress || {};
+      const scanned = Number(rp.scanned || 0);
+      const pending = Number(rp.pending || 0);
+      const total = Number(rp.total || (scanned + pending) || 0);
+      const percentage = total > 0 ? Math.round((scanned / total) * 100) : 0;
+      return { scanned, pending, total, percentage };
+    }
+
+    function closeTelemetryStream() {
+      if (state.telemetryReconnectTimer) {
+        clearTimeout(state.telemetryReconnectTimer);
+        state.telemetryReconnectTimer = null;
+      }
+      if (state.telemetrySocket) {
+        try { state.telemetrySocket.close(); } catch (_) {}
+        state.telemetrySocket = null;
+      }
+    }
+
+    function isTerminalStatus(status) {
+      const s = String(status || "").toLowerCase();
+      return s === "scanned" || s === "partial_scanned" || s === "failed" || s === "scan_stopped";
+    }
+
+    function updateTerminalControls(status, reason) {
+      const pauseBtn = document.getElementById("btn-scan-pause");
+      const resumeBtn = document.getElementById("btn-scan-resume");
+      const endBtn = document.getElementById("btn-scan-end-save");
+      const viewBtn = document.getElementById("btn-view-analysis");
+      const note = document.getElementById("live-terminal-note");
+      const normalized = String(status || "").toLowerCase();
+
+      if (!pauseBtn || !resumeBtn || !endBtn || !viewBtn || !note) return;
+      const completed = normalized === "scanned";
+      const partial = normalized === "partial_scanned";
+
+      pauseBtn.disabled = completed || partial;
+      endBtn.disabled = completed || partial;
+      resumeBtn.classList.add("hidden");
+      pauseBtn.classList.remove("hidden");
+      viewBtn.classList.remove("hidden");
+
+      if (completed) {
+        note.className = "text-xs rounded-lg border px-3 py-2 bg-emerald-50 border-emerald-200 text-emerald-800";
+        note.textContent = "Crawl complete. Review results or continue to analysis.";
+        note.classList.remove("hidden");
+      } else if (partial) {
+        note.className = "text-xs rounded-lg border px-3 py-2 bg-amber-50 border-amber-200 text-amber-800";
+        note.textContent = `Crawl partial / stopped${reason ? `: ${reason}` : "."}`;
+        note.classList.remove("hidden");
+      } else {
+        note.classList.add("hidden");
+      }
+    }
+
+    function reconcile_terminal_snapshot(localState, snapshot) {
+      if (!snapshot || !snapshot.run_id || snapshot.run_id !== localState.runId) return false;
+      const incomingSeq = Number(snapshot.last_event_sequence || 0);
+      if (incomingSeq && incomingSeq < Number(localState.lastEventSequence || 0)) return false;
+      if (incomingSeq) localState.lastEventSequence = incomingSeq;
+
+      const moduleProgress = calculate_module_progress(snapshot);
+      const routeProgress = calculate_route_progress(snapshot);
+      const status = String(snapshot.status || "").toLowerCase();
+      const isComplete = status === "scanned";
+      const isPartial = status === "partial_scanned";
+
+      localState.scanStatus = isComplete ? "COMPLETED" : (isPartial ? "PARTIAL" : String(snapshot.status || "IDLE").toUpperCase());
+      localState.scanProgressPct = isComplete ? 100 : routeProgress.percentage;
+      if (snapshot.current_route) localState.lastCompletedRoute = snapshot.current_route;
+      localState.currentModuleName = (isComplete && moduleProgress.pending_count === 0) ? "" : (snapshot.current_module || localState.currentModuleName || "");
+      localState.currentRoute = (isComplete && routeProgress.pending === 0) ? "" : (snapshot.current_route || localState.currentRoute || "");
+
+      document.getElementById("live-module-progress").textContent = `${moduleProgress.completed_count} / ${moduleProgress.total}`;
+      document.getElementById("live-route-progress").textContent = `${routeProgress.scanned} scanned (${routeProgress.pending} pend)`;
+      document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || 0);
+      document.getElementById("live-safe-actions").textContent = Number(snapshot.safe_actions_explored || 0);
+      document.getElementById("live-parking-lot").textContent = Number(snapshot.parking_lot_actions || 0);
+      document.getElementById("live-retry-count").textContent = Number(snapshot.retry_count || 0);
+      document.getElementById("live-current-target").textContent = localState.currentRoute
+        ? localState.currentRoute
+        : (isComplete && localState.lastCompletedRoute ? `No active route (last: ${localState.lastCompletedRoute})` : "No active route");
+      if (snapshot.route_health) {
+        document.getElementById("live-health-working").textContent = `${Number(snapshot.route_health.working_count || 0)}W`;
+        document.getElementById("live-health-partial").textContent = `${Number(snapshot.route_health.partial_count || 0)}P`;
+        document.getElementById("live-health-nonworking").textContent = `${Number(snapshot.route_health.non_working_count || 0)}NW`;
+      }
+
+      const progressBar = document.getElementById("scan-progress-bar");
+      if (progressBar) {
+        const pct = Math.max(0, Math.min(100, Number(localState.scanProgressPct || 0)));
+        progressBar.style.width = `${pct}%`;
+        progressBar.classList.remove("animate-pulse");
+      }
+
+      const pill = document.getElementById("live-scan-status-pill");
+      if (pill) {
+        const partialLabel = snapshot.scan_stopped_early ? "Partial / Stopped" : "Partial / Stopped";
+        const label = isComplete ? "Completed" : (isPartial ? partialLabel : "Running");
+        const dotClass = isComplete ? "bg-emerald-500" : (isPartial ? "bg-amber-500" : "bg-blue-500 animate-pulse");
+        pill.innerHTML = `<span class="w-2 h-2 rounded-full ${dotClass}"></span> ${label}`;
+        pill.className = isComplete
+          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+          : isPartial
+            ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+            : "bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+      }
+
+      updateTerminalControls(status, snapshot.terminal_reason || snapshot.reason || "");
+      updateActiveRunBar();
+      return true;
     }
 
     function updateActiveRunBar() {
@@ -1617,8 +1744,10 @@
         state.scanStatus = runCtx.status ? runCtx.status.toUpperCase() : "IDLE";
         state.scanProgressPct = Math.round(runCtx.progress_percentage || 0);
         state.currentRoute = runCtx.current_route || "/";
+        state.lastCompletedRoute = runCtx.current_route || "";
         state.currentModuleName = runCtx.current_module || "";
         state.lastEventSequence = Number(runCtx.last_event_sequence || 0);
+        state.terminalStateProcessed = isTerminalStatus(runCtx.status);
         updateRunUI();
         if (state.modules.length) {
           renderModuleList();
@@ -1630,14 +1759,20 @@
         // silently move them away from telemetry and its explicit View Analysis action.
         let stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
         if (stepToOpen === 4) {
-          connectTelemetryStream(state.runId);
-          startDurationTimer();
-          if (runCtx.is_paused) {
-            document.getElementById("btn-scan-pause").classList.add("hidden");
-            document.getElementById("btn-scan-resume").classList.remove("hidden");
+          reconcile_terminal_snapshot(state, runCtx);
+          if (!isTerminalStatus(runCtx.status)) {
+            connectTelemetryStream(state.runId);
+            startDurationTimer();
+            if (runCtx.is_paused) {
+              document.getElementById("btn-scan-pause").classList.add("hidden");
+              document.getElementById("btn-scan-resume").classList.remove("hidden");
+            } else {
+              document.getElementById("btn-scan-resume").classList.add("hidden");
+              document.getElementById("btn-scan-pause").classList.remove("hidden");
+            }
           } else {
-            document.getElementById("btn-scan-resume").classList.add("hidden");
-            document.getElementById("btn-scan-pause").classList.remove("hidden");
+            if (state.durationTimer) clearInterval(state.durationTimer);
+            closeTelemetryStream();
           }
         }
         if (stepToOpen === 5) renderAnalyzeView();
@@ -2073,6 +2208,7 @@
     async function handleStartScan() {
       unlockStep(4);
       switchStep(4);
+      state.terminalStateProcessed = false;
 
       const log = document.getElementById("scan-event-log");
       log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
@@ -2118,8 +2254,14 @@
           ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
           : "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
 
-        // Keep the completed crawl visible until the user explicitly opens Analyze.
-        renderAnalyzeView();
+        try {
+          const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
+          if (r.ok) {
+            const snapshot = await r.json();
+            reconcile_terminal_snapshot(state, snapshot);
+            state.terminalStateProcessed = isTerminalStatus(snapshot.status);
+          }
+        } catch (_) {}
         unlockStep(5);
         document.getElementById("btn-view-analysis").classList.remove("hidden");
       } catch (err) {
@@ -2130,6 +2272,7 @@
     }
 
     function connectTelemetryStream(runId, reconnecting = false) {
+      if (state.terminalStateProcessed) return;
       state.telemetryRunId = runId;
       if (!reconnecting) state.telemetryReconnectAttempts = 0;
       if (state.telemetryReconnectTimer) {
@@ -2167,7 +2310,7 @@
         };
 
         ws.onclose = () => {
-          if (state.telemetryRunId !== runId || state.currentStep !== 4) return;
+          if (state.telemetryRunId !== runId || state.currentStep !== 4 || state.terminalStateProcessed) return;
           if (state.telemetryReconnectAttempts >= 5) {
             log.innerHTML += `<p class="text-rose-400 text-[10px]">[TELEMETRY] Reconnect limit reached; scan state remains available from checkpoint.</p>`;
             return;
@@ -2220,6 +2363,7 @@
       }
       if (event.current_route) {
         state.currentRoute = event.current_route;
+        state.lastCompletedRoute = event.current_route;
         document.getElementById("live-current-target").textContent = event.current_route;
       }
       if (event.module_name) {
@@ -2247,28 +2391,31 @@
         document.getElementById("checkpoint-module-label").textContent = event.module_name || "Module Complete";
       }
 
-      // Handle scan completion via WebSocket (e.g. after browser refresh)
-      if (event.type === "scan_completed" || event.type === "scan_stopped" || event.type === "scan_budget_exceeded") {
+      const isTerminalEvent = event.type === "scan_completed" || event.type === "scan_stopped" || event.type === "scan_budget_exceeded" || event.type === "scan_failed";
+      if (isTerminalEvent) {
+        state.terminalStateProcessed = true;
         if (state.durationTimer) clearInterval(state.durationTimer);
-        const pill = document.getElementById("live-scan-status-pill");
-        if (pill) {
-          const normalCompletion = event.type === "scan_completed" && !event.scan_stopped_early && event.status !== "partial_success";
-          pill.innerHTML = `<span class="w-2 h-2 rounded-full ${normalCompletion ? "bg-emerald-500" : "bg-amber-500"}"></span> ${normalCompletion ? "Completed" : "Partial / Stopped"}`;
-          pill.className = normalCompletion
-            ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
-            : "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
-        }
+        closeTelemetryStream();
         if (state.currentStep === 4 && state.runId) {
           fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`)
-            .then(r => r.json())
+            .then(r => r.ok ? r.json() : null)
             .then(runCtx => {
-              if (runCtx && runCtx.scan_results) {
+              if (!runCtx) return;
+              if (!reconcile_terminal_snapshot(state, runCtx)) return;
+              if (runCtx.scan_results) {
                 state.scanData = runCtx.scan_results;
                 renderAnalyzeView();
                 unlockStep(5);
                 document.getElementById("btn-view-analysis").classList.remove("hidden");
               }
             }).catch(() => {});
+        } else {
+          reconcile_terminal_snapshot(state, {
+            ...event,
+            run_id: state.runId,
+            selected_modules: state.selectedModuleIds || [],
+            completed_modules: event.completed_modules || [],
+          });
         }
       }
 
@@ -2311,33 +2458,6 @@
             stoppingPill.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Stopping...`;
             stoppingPill.className = "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
           }
-          for (let delay of [500, 1500, 3000, 5000, 8000, 12000, 18000]) {
-            setTimeout(async () => {
-              if (state.currentStep === 4 && state.runId) {
-                try {
-                  const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
-                  if (r.ok) {
-                    const runCtx = await r.json();
-                    if (runCtx && runCtx.scan_results) {
-                      if (state.durationTimer) clearInterval(state.durationTimer);
-                      state.scanData = runCtx.scan_results;
-                      const partial = runCtx.status === "partial_scanned" || runCtx.scan_results.status === "partial_success" || runCtx.scan_results.scan_stopped_early;
-                      const pill = document.getElementById("live-scan-status-pill");
-                      if (pill) {
-                        pill.innerHTML = `<span class="w-2 h-2 rounded-full ${partial ? "bg-amber-500" : "bg-emerald-500"}"></span> ${partial ? "Partial / Stopped" : "Completed"}`;
-                        pill.className = partial
-                          ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
-                          : "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
-                      }
-                      renderAnalyzeView();
-                      unlockStep(5);
-                      document.getElementById("btn-view-analysis").classList.remove("hidden");
-                    }
-                  }
-                } catch (_) {}
-              }
-            }, delay);
-          }
         }
       } catch (err) {
         showActionableError("Scan Control", state.runId, "CONTROL_SIGNAL_FAILED", err.message, "Verify active scan status.");
@@ -2355,25 +2475,31 @@
         if (durElem) durElem.textContent = `${mins}:${secs}`;
 
         // Periodically verify if scan finished in backend
-        if (state.currentStep === 4 && state.runId && elapsedSec % 2 === 0) {
+        if (state.currentStep === 4 && state.runId && elapsedSec % 2 === 0 && !state.terminalStateProcessed) {
           try {
             const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
             if (r.ok) {
               const runCtx = await r.json();
-              if (runCtx && runCtx.scan_results) {
-                clearInterval(state.durationTimer);
-                state.scanData = runCtx.scan_results;
-                const pill = document.getElementById("live-scan-status-pill");
-                if (pill) {
-                  const partial = runCtx.status === "partial_scanned" || runCtx.scan_results.status === "partial_success" || runCtx.scan_results.scan_stopped_early;
-                  pill.innerHTML = `<span class="w-2 h-2 rounded-full ${partial ? "bg-amber-500" : "bg-emerald-500"}"></span> ${partial ? "Partial / Stopped" : "Completed"}`;
-                  pill.className = partial
-                    ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
-                    : "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+              if (runCtx && runCtx.run_id === state.runId) {
+                const seq = Number(runCtx.last_event_sequence || 0);
+                if (seq && seq < Number(state.lastEventSequence || 0)) {
+                  return;
                 }
-                renderAnalyzeView();
-                unlockStep(5);
-                document.getElementById("btn-view-analysis").classList.remove("hidden");
+                if (isTerminalStatus(runCtx.status)) {
+                  state.terminalStateProcessed = true;
+                  clearInterval(state.durationTimer);
+                  closeTelemetryStream();
+                  if (runCtx.scan_results) {
+                    state.scanData = runCtx.scan_results;
+                    renderAnalyzeView();
+                  }
+                  reconcile_terminal_snapshot(state, runCtx);
+                  unlockStep(5);
+                  document.getElementById("btn-view-analysis").classList.remove("hidden");
+                } else if (seq > Number(state.lastEventSequence || 0)) {
+                  state.lastEventSequence = seq;
+                  reconcile_terminal_snapshot(state, runCtx);
+                }
               }
             }
           } catch (_) {}
@@ -3062,6 +3188,9 @@
       state.currentRoute = "";
       state.scanStatus = "IDLE";
       state.scanProgressPct = 0;
+      state.terminalStateProcessed = false;
+      state.lastCompletedRoute = "";
+      closeTelemetryStream();
 
       document.getElementById("nav-run-badge").classList.add("hidden");
       document.getElementById("nav-session-badge").classList.add("hidden");
