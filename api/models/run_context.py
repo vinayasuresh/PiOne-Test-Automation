@@ -32,6 +32,7 @@ class RunContext(BaseModel):
     generated_script: Optional[str] = None
     execution_results: Optional[list[dict[str, Any]]] = None
     execution_summary: Optional[dict[str, Any]] = None
+    security_report: Optional[dict[str, Any]] = None
     checkpoints: list[str] = Field(default_factory=list)
     artifact_paths: dict[str, Any] = Field(default_factory=dict)
     status: str = "discovered"

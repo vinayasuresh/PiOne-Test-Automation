@@ -1644,6 +1644,11 @@ async def delete_all_regression_suites_endpoint() -> dict[str, Any]:
 @router.delete("/artifacts", summary="Delete all generated artifacts")
 async def delete_all_artifacts_endpoint() -> dict[str, Any]:
     """Remove generated reports while preserving the database and auth state."""
+    from api.services.security_scan_service import clear_reports
+    try:
+        clear_reports()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     deleted_files = 0
     report_root = Path(REPORT_PATH)
     preserved = {"pione_testmate.db", "auth_sessions", "run_contexts"}

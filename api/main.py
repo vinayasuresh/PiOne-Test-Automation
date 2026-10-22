@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import scan, scan_events
+from api.routers import scan, scan_events, security_scan
 from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
 
@@ -194,6 +194,7 @@ app.add_middleware(
 
 app.include_router(scan.router, tags=["Scan"])
 app.include_router(scan_events.router, tags=["Scan Events"])
+app.include_router(security_scan.router)
 
 # ---------------------------------------------------------------------------
 # Serve the frontend

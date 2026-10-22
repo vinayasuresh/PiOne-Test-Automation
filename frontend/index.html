@@ -453,6 +453,32 @@
         <p class="text-xs text-slate-500 mt-1">Review captured routes, UI element maps, route health classifications, and deferred parking-lot items.</p>
       </div>
 
+      <div class="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3" id="security-review-panel">
+        <h3 class="font-bold text-slate-900">Security Scan — scoped HTTP review</h3>
+        <p class="text-xs text-slate-700">Checks discovered pages and linked resources without browser login. Forms are never submitted. Coverage is limited; this is not a complete penetration test.</p>
+        <label class="block text-xs"><input type="checkbox" id="security-authorized"> I have permission to assess this run's application.</label>
+        <div class="flex flex-wrap gap-3 text-xs">
+          <label><input type="checkbox" name="security-check" value="headers" checked> Headers</label>
+          <label><input type="checkbox" name="security-check" value="cookies" checked> Cookie attributes</label>
+          <label><input type="checkbox" name="security-check" value="mixed_content" checked> Mixed content</label>
+          <label><input type="checkbox" name="security-check" value="disclosure" checked> Exposure signals</label>
+        </div>
+        <label class="block text-xs"><input type="checkbox" id="security-active"> Also send low-impact CORS and harmless reflection probes (explicit opt-in).</label>
+        <p class="text-xs text-slate-600">Maximum 20 requests / 120 seconds. Stop and Pause take effect after the current request. Starting again replaces this run's previous security review; export it first if needed.</p>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <button id="security-start" type="button" class="bg-blue-600 text-white rounded px-3 py-2">Start Security Scan</button>
+          <button id="security-pause" type="button" class="bg-white border rounded px-3 py-2" disabled>Pause</button>
+          <button id="security-resume" type="button" class="bg-white border rounded px-3 py-2" disabled>Resume</button>
+          <button id="security-stop" type="button" class="bg-white border rounded px-3 py-2" disabled>Stop</button>
+          <button id="security-refresh" type="button" class="bg-white border rounded px-3 py-2">Refresh Results</button>
+          <button id="security-json" type="button" class="bg-white border rounded px-3 py-2" disabled>Download JSON</button>
+          <button id="security-markdown" type="button" class="bg-white border rounded px-3 py-2" disabled>Download Markdown</button>
+          <button id="security-excel" type="button" class="bg-white border rounded px-3 py-2" disabled>Download Excel</button>
+        </div>
+        <p id="security-status" class="text-xs font-semibold" aria-live="polite">Not started for this run.</p>
+        <div id="security-findings" class="space-y-2 text-xs max-h-96 overflow-auto"></div>
+      </div>
+
       <!-- Overview Cards -->
       <div id="analyze-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
 
@@ -4090,6 +4116,7 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
+  <script src="/ui/js/security_review.js"></script>
   <!-- Floating Toast Notifications -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 
