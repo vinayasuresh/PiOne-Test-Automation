@@ -5,11 +5,18 @@
   const active = status => ['running', 'paused', 'stopping'].includes(status);
   function clear() {
     currentStatus = 'not_started';
-    clearTimeout(timer);
+    clearTimeout(timer); timer = null;
     el('findings').replaceChildren();
     el('status').textContent = 'Not started for this run.';
     ['pause', 'resume', 'stop', 'json', 'markdown', 'excel'].forEach(x => el(x).disabled = true);
     el('start').disabled = false;
+  }
+  function scheduleRefresh() {
+    clearTimeout(timer); timer = null;
+    const panel = document.getElementById('panel-5');
+    if (panel && !panel.classList.contains('hidden') && active(currentStatus)) {
+      timer = setTimeout(refresh, 2000);
+    }
   }
   function applyMode() {
     const mode = document.getElementById('assessment-mode')?.value || 'both';
@@ -44,7 +51,8 @@
     el('resume').disabled = status !== 'paused';
     el('stop').disabled = !['running', 'paused'].includes(status);
     ['json', 'markdown', 'excel'].forEach(x => el(x).disabled = status === 'not_started');
-    el('status').textContent = `Run ${data.run_id || ''} | ${status} | ${data.requests || 0} requests | ${data.completed_pages || 0} pages reviewed | ${data.pending_pages || 0} pending | ${(data.findings || []).length} findings`;
+    const mode = data.assessment_mode === 'vapt' ? 'VAPT' : 'Security review';
+    el('status').textContent = `${mode} · Run ${data.run_id || ''} | ${status} | ${data.requests || 0} requests | ${data.completed_pages || 0} pages reviewed | ${data.pending_pages || 0} pending | ${(data.findings || []).length} findings`;
     el('findings').replaceChildren();
     const counts = {};
     for (const f of data.findings || []) {
@@ -81,6 +89,7 @@
       }
       el('findings').append(details);
     }
+    scheduleRefresh();
   }
   async function request(action, body) {
     const run = state.runId;
@@ -103,7 +112,7 @@
       if (!state.runId) { clear(); return; }
       await request('');
     } catch (e) { el('status').textContent = e.message; }
-    if (!document.getElementById('panel-5').classList.contains('hidden')) timer = setTimeout(refresh, 2000);
+    scheduleRefresh();
   }
   document.addEventListener('DOMContentLoaded', () => {
     const mode = document.getElementById('assessment-mode');
@@ -138,13 +147,13 @@
     });
     new MutationObserver(() => {
       const panel = document.getElementById('panel-5');
-      if (panel.classList.contains('hidden')) { clearTimeout(timer); return; }
+      if (panel.classList.contains('hidden')) { clearTimeout(timer); timer = null; return; }
       if (displayedRun !== state.runId) {
         displayedRun = state.runId; clear(); el('authorized').checked = false; el('active').checked = false;
         if (mode) mode.value = 'both';
       }
       applyMode();
-      refresh();
+      if (currentStatus === 'not_started') refresh();
     }).observe(document.getElementById('panel-5'), {attributes: true, attributeFilter: ['class']});
   });
 })();

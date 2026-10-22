@@ -458,7 +458,7 @@
         <p class="text-xs text-slate-700">VAPT mode inventories same-origin routes and APIs and runs safe evidence-based checks. It never performs destructive actions, brute force, denial of service, payment/deletion, or mutation requests.</p>
         <div class="border border-blue-200 bg-white rounded-md p-3 space-y-1.5">
           <label for="assessment-mode" class="block text-xs font-bold text-slate-700">Assessment mode</label>
-          <select id="assessment-mode" class="w-full sm:w-auto text-xs border border-slate-300 rounded px-2.5 py-2 bg-white">
+          <select id="assessment-mode" class="w-full sm:w-auto text-xs font-semibold border border-blue-300 rounded-lg px-3 py-2.5 bg-white shadow-sm focus:ring-2 focus:ring-blue-400">
             <option value="both" selected>Functional testing + Security review</option>
             <option value="functional_only">Functional testing only</option>
             <option value="security_only">Security review only</option>
@@ -467,14 +467,14 @@
           <p id="assessment-mode-help" class="text-[11px] text-slate-600">Run the normal test-planning/execution flow and start the security review separately when ready.</p>
         </div>
         <label class="block text-xs"><input type="checkbox" id="security-authorized"> I have permission to assess this run's application.</label>
-        <div class="flex flex-wrap gap-3 text-xs">
-          <label><input type="checkbox" name="security-check" value="headers" checked> Headers</label>
-          <label><input type="checkbox" name="security-check" value="cookies" checked> Cookie attributes</label>
-          <label><input type="checkbox" name="security-check" value="mixed_content" checked> Mixed content</label>
-          <label><input type="checkbox" name="security-check" value="disclosure" checked> Exposure signals</label>
-          <label><input type="checkbox" name="security-check" value="api_inventory" checked> API inventory</label>
-          <label><input type="checkbox" name="security-check" value="auth_boundary" checked> Auth boundary</label>
-          <label><input type="checkbox" name="security-check" value="error_disclosure" checked> Error disclosure</label>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" aria-label="VAPT checks">
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="headers" checked> Headers</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="cookies" checked> Cookies</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="mixed_content" checked> Mixed content</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="disclosure" checked> Exposure signals</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="api_inventory" checked> API inventory</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="auth_boundary" checked> Auth boundary</label>
+          <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="error_disclosure" checked> Error disclosure</label>
         </div>
         <label class="block text-xs"><input type="checkbox" id="security-active"> Also send low-impact CORS and harmless reflection probes (explicit opt-in).</label>
         <p class="text-xs text-slate-600">Maximum 20 requests / 120 seconds. Stop and Pause take effect after the current request. Starting again replaces this run's previous security review; export it first if needed.</p>
