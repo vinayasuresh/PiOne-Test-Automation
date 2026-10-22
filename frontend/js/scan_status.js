@@ -13,10 +13,11 @@ function updateScanCounts(auto, manual, merged) {
 function showToast(message, type = 'info') {
   let toast = document.createElement('div');
   const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600';
-  toast.className = `fixed top-6 right-6 z-50 px-5 py-3 rounded-lg shadow-lg text-white font-semibold text-sm ${bgClass} transition-all duration-300`;
+  toast.className = `px-5 py-3 rounded-lg shadow-lg text-white font-semibold text-sm ${bgClass} transition-all duration-300`;
   toast.textContent = message;
-  document.body.appendChild(toast);
-  setTimeout(() => { toast.remove(); }, 3500);
+  const container = document.getElementById('toast-container');
+  (container || document.body).appendChild(toast);
+  window.setTimeout(() => { toast.remove(); }, 3500);
 }
 
 // Scoped WebSocket connection by run_id or scan_id

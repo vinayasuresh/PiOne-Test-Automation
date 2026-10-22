@@ -1354,6 +1354,8 @@
     <span id="app-build-id" class="font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">build: loading...</span>
   </footer>
 
+  <!-- Shared UI helpers must load before the inline workflow handlers below. -->
+  <script src="/ui/js/scan_status.js"></script>
   <script>
     const API_BASE = window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin;
     const STORAGE_KEY = "pione_testmate_active_run";
