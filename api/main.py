@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routers import scan, scan_events, security_scan
+from api.services import browser_readiness
 from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
 
@@ -48,46 +49,6 @@ def _get_build_id() -> str:
 
 
 BUILD_IDENTIFIER = _get_build_id()
-BROWSER_INSTALL_HINT = r"Run .venv\Scripts\python.exe -m playwright install chromium"
-
-
-def _check_browser_readiness() -> dict[str, object]:
-    """Verify that the pinned Playwright Chromium executable is installed."""
-    try:
-        browsers_manifest = (
-            Path(__file__).resolve().parents[1]
-            / ".venv"
-            / "Lib"
-            / "site-packages"
-            / "playwright"
-            / "driver"
-            / "package"
-            / "browsers.json"
-        )
-        manifest = json.loads(browsers_manifest.read_text(encoding="utf-8"))
-        revision = next(
-            str(item["revision"])
-            for item in manifest.get("browsers", [])
-            if item.get("name") == "chromium"
-        )
-        configured_root = os.getenv("PLAYWRIGHT_BROWSERS_PATH", "").strip()
-        browser_root = (
-            Path(configured_root)
-            if configured_root and configured_root != "0"
-            else Path.home() / "AppData" / "Local" / "ms-playwright"
-        )
-        candidates = list((browser_root / f"chromium-{revision}").glob("chrome-win*/chrome.exe"))
-        if candidates and candidates[0].exists():
-            return {"ready": True, "error": None}
-        return {
-            "ready": False,
-            "error": f"Chromium executable for Playwright revision {revision} is missing. {BROWSER_INSTALL_HINT}",
-        }
-    except Exception:
-        return {
-            "ready": False,
-            "error": f"Chromium readiness check failed. {BROWSER_INSTALL_HINT}",
-        }
 
 
 def _verify_and_clean_storage_template() -> None:
@@ -234,7 +195,7 @@ async def _global_exception_handler(request: Request, exc: Exception) -> JSONRes
 
 @app.get("/health", tags=["Health"], summary="Service health check")
 def health() -> dict:
-    browser = _check_browser_readiness()
+    browser = browser_readiness.check_browser_readiness()
     return {
         "status": "ok",
         "service": "PiOne Testmate API",

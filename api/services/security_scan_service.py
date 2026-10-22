@@ -213,6 +213,13 @@ def analyze_response(url, response, enabled):
             csp = headers.get("content-security-policy", "").lower()
             if "frame-ancestors" not in csp and headers.get("x-frame-options", "").lower() not in {"deny", "sameorigin"}:
                 add("headers", "Framing protection missing", "No enforced frame-ancestors directive or valid X-Frame-Options.", "Set CSP frame-ancestors to the intended embedding origins.", cwe="CWE-1021")
+        acao = headers.get("access-control-allow-origin", "")
+        acac = headers.get("access-control-allow-credentials", "").lower()
+        if acao == "*" and acac == "true":
+            add("headers", "Insecure CORS configuration (wildcard with credentials)",
+                "Access-Control-Allow-Origin is set to '*' with Access-Control-Allow-Credentials: true.",
+                "Avoid wildcard origins when credentials are supported; configure an explicit allowlist.",
+                severity="medium", category="A05:2021", cwe="CWE-942")
     if "cookies" in enabled:
         for name, value in response["headers"]:
             if name.lower() != "set-cookie":
@@ -234,6 +241,10 @@ def analyze_response(url, response, enabled):
     if "disclosure" in enabled and successful:
         if re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\bghp_[A-Za-z0-9]{36}\b", body):
             add("disclosure", "Potential credential material in response", "A credential-format pattern matched. Matched value and body withheld.", "Verify the exposure, remove it and rotate confirmed credentials; investigate use.", "high", "A02:2021", "medium", "CWE-200")
+        if re.search(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", body):
+            add("disclosure", "Potential JWT token in response body", "A JSON Web Token pattern matched. Token contents withheld.", "Transmit tokens via secure HTTP-only cookies or authorization headers rather than response bodies.", "medium", "A02:2021", "medium", "CWE-200")
+        if re.search(r"\b(?:postgres|postgresql|mysql|mongodb|redis)://[^\s\"'<>]+", body):
+            add("disclosure", "Potential database connection string exposed", "A database connection string format was detected. Credentials and host withheld.", "Remove database connection URI from client responses and keep credentials in server environment configurations.", "high", "A05:2021", "high", "CWE-200")
         if html and re.search(r"<title>\s*Index of\s", body, re.I) and re.search(r"Parent Directory|Last modified", body, re.I):
             add("disclosure", "Directory index signals", "Response contains an Index of title and directory listing markers.", "Disable directory listing and restrict unintended file access.", confidence="medium", cwe="CWE-548")
         if re.search(r"sourceMappingURL\s*=", body):
@@ -268,6 +279,14 @@ def _enrich_finding(item, run_id, module="Web"):
         "platform": "Web",
         "module": module,
         "modules": [module],
+        "request_metadata": {
+            "method": item.get("method", "GET"),
+            "url": item.get("url", ""),
+            "headers": {
+                "User-Agent": "PiOne-Testmate-Security/1.0",
+                "Accept-Encoding": "identity",
+            },
+        },
     })
     return item
 

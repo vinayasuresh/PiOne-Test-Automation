@@ -74,6 +74,7 @@ from api.services.auth_lifecycle_service import (
     check_auth_session_validity,
     refresh_auth_session,
 )
+from api.services import browser_readiness
 from api.services.llm_provider_gateway import LLMProviderGateway
 from api.services.llm_service import provider_catalog, provider_status, request_plan, test_provider_connection
 from api.services.run_context_service import (
@@ -118,6 +119,23 @@ router = APIRouter()
 async def discover_modules(request: ModuleDiscoveryRequest) -> Any:
     """Return the live application's current menu modules without crawling them."""
     correlation_id = str(uuid4())
+    browser_status = browser_readiness.check_browser_readiness()
+    if not browser_status.get("ready"):
+        msg = browser_status.get("error") or f"Playwright Chromium executable is missing. {browser_readiness.BROWSER_INSTALL_HINT}"
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail": {
+                    "category": "DISCOVERY_UNAVAILABLE",
+                    "message": msg,
+                    "correlation_id": correlation_id,
+                },
+                "category": "DISCOVERY_UNAVAILABLE",
+                "message": msg,
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id},
+        )
     try:
         result = await asyncio.to_thread(
             crawler_service.discover_modules, request.url, request.username, request.password,
@@ -475,6 +493,12 @@ async def scan(request: ScanRequest) -> ScanResponse:
         except Exception as exc:
             logger.debug("[API] Failed to initialize mock run context: %s", exc)
         return mock_resp
+
+    if not request.mock:
+        browser_status = browser_readiness.check_browser_readiness()
+        if not browser_status.get("ready"):
+            msg = browser_status.get("error") or f"Playwright Chromium executable is missing. {browser_readiness.BROWSER_INSTALL_HINT}"
+            raise HTTPException(status_code=503, detail=msg)
 
     scan_id = request.scan_id or uuid4().hex
     effective_run_id = request.run_id or request.resume_run_id or scan_id

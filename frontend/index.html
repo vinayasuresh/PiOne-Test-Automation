@@ -1391,6 +1391,7 @@
     <span>PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise</span>
     <span class="text-slate-300">|</span>
     <span id="app-build-id" class="font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">build: loading...</span>
+    <span id="browser-runtime-status" class="hidden font-mono px-2 py-0.5 rounded border"></span>
   </footer>
 
   <!-- Shared UI helpers must load before the inline workflow handlers below. -->
@@ -1671,6 +1672,20 @@
           if (el && data.build_id) {
             el.textContent = `build: ${data.build_id}`;
             el.title = `Process Start: ${data.process_start || "unknown"} | Service: ${data.service || "PiOne Testmate"}`;
+          }
+          const browserEl = document.getElementById("browser-runtime-status");
+          if (browserEl) {
+            if (data.browser_ready === false) {
+              browserEl.className = "font-mono text-red-700 bg-red-100 border border-red-300 px-2 py-0.5 rounded text-[11px]";
+              browserEl.textContent = "browser: missing chromium";
+              browserEl.title = data.browser_error || "Run .venv\\Scripts\\python.exe -m playwright install chromium";
+              browserEl.classList.remove("hidden");
+            } else if (data.browser_ready === true) {
+              browserEl.className = "font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px]";
+              browserEl.textContent = "browser: chromium ready";
+              browserEl.title = "Playwright Chromium executable is verified and ready.";
+              browserEl.classList.remove("hidden");
+            }
           }
         }
       } catch (_) {}

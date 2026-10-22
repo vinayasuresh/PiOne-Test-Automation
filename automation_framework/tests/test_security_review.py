@@ -164,6 +164,55 @@ def test_api_authorization_opt_in_and_export_ownership(store):
         assert wb['Coverage']['B1'].value == 'run_a'
 
 
+def test_cors_wildcard_with_credentials_detection():
+    items, _ = s.analyze_response(
+        'https://example.com/api',
+        response(
+            '{"ok": true}',
+            [
+                ('Content-Type', 'application/json'),
+                ('Access-Control-Allow-Origin', '*'),
+                ('Access-Control-Allow-Credentials', 'true'),
+            ],
+        ),
+        ['headers'],
+    )
+    cors_findings = [x for x in items if 'CORS' in x['title']]
+    assert len(cors_findings) == 1
+    assert cors_findings[0]['severity'] == 'medium'
+    assert cors_findings[0]['owasp'] == 'A05:2021'
+
+
+def test_jwt_and_db_connection_disclosure_detection():
+    fake_jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    fake_db = "postgres://appuser:supersecretpass@db.internal:5432/production"
+    body = f"<html><body>Token: {fake_jwt} and Config: {fake_db}</body></html>"
+    items, _ = s.analyze_response(
+        'https://example.com/debug',
+        response(body, [('Content-Type', 'text/html')]),
+        ['disclosure'],
+    )
+    titles = [x['title'] for x in items]
+    assert any('JWT token' in t for t in titles)
+    assert any('database connection string' in t for t in titles)
+    for x in items:
+        assert 'supersecretpass' not in x['evidence']
+
+
+def test_enriched_finding_contains_safe_request_metadata():
+    raw_item = {
+        'rule': 'headers',
+        'title': 'Test Finding',
+        'url': 'https://example.com/test',
+        'method': 'GET',
+    }
+    enriched = s._enrich_finding(raw_item, 'run_test_meta')
+    assert 'request_metadata' in enriched
+    assert enriched['request_metadata']['method'] == 'GET'
+    assert enriched['request_metadata']['url'] == 'https://example.com/test'
+    assert 'Cookie' not in enriched['request_metadata']['headers']
+
+
 @pytest.mark.browser
 def test_live_security_panel_against_local_fixture(store, monkeypatch, tmp_path):
     """Exercise the security panel over real sockets, without attacking public sites."""

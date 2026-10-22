@@ -105,6 +105,8 @@ def export(run_id: str, format: Literal["json", "markdown", "excel"]):
         for sheet in wb:
             for row in sheet:
                 for cell in row:
+                    if cell.value is not None:
+                        cell.value = str(cell.value)
                     cell.data_type = "s"
             sheet.freeze_panes = "A2"
         output = BytesIO()
