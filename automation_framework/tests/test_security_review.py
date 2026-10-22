@@ -112,6 +112,16 @@ def test_budget_no_cross_run_artifacts_and_no_redirect_following(store, monkeypa
     assert report['pending_pages'] == 1
 
 
+def test_all_invalid_routes_are_not_reported_as_success(store, monkeypatch):
+    monkeypatch.setattr(s, 'fetch_page', lambda *a, **kw: response(status=404))
+    s.start('run_a', ['headers'], max_requests=2)
+    report = wait_done('run_a')
+    assert report['status'] == 'route_validation_failed', (report.get('scanner_error_category'), report)
+    assert report['valid_pages_assessed'] == 0
+    assert report['invalid_routes_skipped'] == 2
+    assert any('No valid target page' in warning for warning in report['warnings'])
+
+
 def test_pause_resume_stop_and_single_job(store, monkeypatch):
     entered, release = threading.Event(), threading.Event()
     def fetch(*a, **kw):

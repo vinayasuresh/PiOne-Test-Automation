@@ -342,6 +342,8 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
                                "Zero findings does not establish application security."],
                   "not_tested": VAPT_NOT_TESTED if assessment_mode == "vapt" else UNTESTED,
                   "completed_pages": 0, "pending_pages": len(queue),
+                  "valid_pages_assessed": 0, "invalid_routes_skipped": 0,
+                  "scanner_error_category": None,
                   "summary": {"total": 0, "confirmed": 0, "observations": 0, "by_severity": {}, "by_owasp": {}}}
         job = {"report": report, "queue": queue, "seen": set(queue), "base": ctx.target_origin,
                "namespace": ctx.allowed_path_namespace, "headers": session_headers, "paused": False, "stop": False}
@@ -416,6 +418,10 @@ def _worker(run_id, job):
             with _LOCK:
                 report["endpoints"].append({"url": safe_url(url), "method": "GET", "status": response["status"]})
                 report["endpoints"][-1]["source"] = "route_or_api_inventory"
+                if 200 <= response["status"] < 400:
+                    report["valid_pages_assessed"] += 1
+                else:
+                    report["invalid_routes_skipped"] += 1
             if response["status"] in {429, 503}:
                 report["warnings"].append("Target requested backoff or is unavailable; review stopped.")
                 raise InterruptedError()
@@ -460,26 +466,31 @@ def _worker(run_id, job):
                             job["queue"].append(candidate)
                     except ValueError:
                         pass
-            if "cors_probe" in report["checks"] and 200 <= response["status"] < 300:
-                probe = request(url, {"Origin": "https://pione-security.invalid"})
-                h = {k.lower(): v for k, v in probe["headers"]}
-                if 200 <= probe["status"] < 300 and h.get("access-control-allow-origin") == "https://pione-security.invalid":
-                    with _LOCK:
-                        record([{"rule": "cors_probe", "title": "Probe origin accepted by CORS", "url": safe_url(url), "method": "GET",
-                                 "severity": "low", "confidence": "medium", "owasp": "A05:2021", "cwe": "CWE-942",
-                                 "verification": "potential; sensitive-data impact not established", "evidence": "ACAO matched the reserved probe origin.",
-                                 "impact": "May allow cross-origin reads if sensitive responses are also exposed.",
-                                 "remediation": "Allow only intended origins; review credentialed sensitive endpoints.", "timestamp": now()}])
-            if "reflection_canary" in report["checks"] and 200 <= response["status"] < 300:
-                marker = "pione_" + uuid4().hex
-                probe = request(url + "?" + urlencode({"pione_probe": marker}))
-                if 200 <= probe["status"] < 300 and marker in probe["body"]:
-                    with _LOCK:
-                        record([{"rule": "reflection_canary", "title": "Harmless marker reflected (not confirmed XSS)", "url": safe_url(url),
-                                 "method": "GET", "severity": "info", "confidence": "high", "owasp": "A03:2021", "cwe": "CWE-20",
-                                 "verification": "reflection only", "evidence": "Response contained the unique alphanumeric query marker.",
-                                 "impact": "Reflection alone is not a vulnerability; output context requires manual review.",
-                                 "remediation": "Verify context-appropriate output encoding and input handling.", "timestamp": now()}])
+            try:
+                if "cors_probe" in report["checks"] and 200 <= response["status"] < 300:
+                    probe = request(url, {"Origin": "https://pione-security.invalid"})
+                    h = {k.lower(): v for k, v in probe["headers"]}
+                    if 200 <= probe["status"] < 300 and h.get("access-control-allow-origin") == "https://pione-security.invalid":
+                        with _LOCK:
+                            record([{"rule": "cors_probe", "title": "Probe origin accepted by CORS", "url": safe_url(url), "method": "GET",
+                                     "severity": "low", "confidence": "medium", "owasp": "A05:2021", "cwe": "CWE-942",
+                                     "verification": "potential; sensitive-data impact not established", "evidence": "ACAO matched the reserved probe origin.",
+                                     "impact": "May allow cross-origin reads if sensitive responses are also exposed.",
+                                     "remediation": "Allow only intended origins; review credentialed sensitive endpoints.", "timestamp": now()}])
+                if "reflection_canary" in report["checks"] and 200 <= response["status"] < 300:
+                    marker = "pione_" + uuid4().hex
+                    probe = request(url + "?" + urlencode({"pione_probe": marker}))
+                    if 200 <= probe["status"] < 300 and marker in probe["body"]:
+                        with _LOCK:
+                            record([{"rule": "reflection_canary", "title": "Harmless marker reflected (not confirmed XSS)", "url": safe_url(url),
+                                     "method": "GET", "severity": "info", "confidence": "high", "owasp": "A03:2021", "cwe": "CWE-20",
+                                     "verification": "reflection only", "evidence": "Response contained the unique alphanumeric query marker.",
+                                     "impact": "Reflection alone is not a vulnerability; output context requires manual review.",
+                                     "remediation": "Verify context-appropriate output encoding and input handling.", "timestamp": now()}])
+            except InterruptedError:
+                raise
+            except Exception:
+                report["warnings"].append("An optional low-impact probe could not be completed; primary page coverage was retained.")
             with _LOCK:
                 job["queue"].pop(0)
                 report["completed_pages"] += 1
@@ -490,14 +501,19 @@ def _worker(run_id, job):
                 report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
                 report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
                 _persist(run_id, report)
-        if authenticated and report["completed_pages"] and all(int(endpoint.get("status", 0)) >= 400 for endpoint in report["endpoints"]):
+        if report.get("auth_session_used") and report["completed_pages"] and report["valid_pages_assessed"] == 0:
             report["warnings"].append("The stored authenticated session did not unlock any captured route; refresh authentication and repeat the crawl before trusting this assessment.")
-        report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
+        if report["completed_pages"] and report["valid_pages_assessed"] == 0:
+            report["warnings"].append("No valid target page or API response was assessed; this run cannot establish security coverage.")
+            report["status"] = "route_validation_failed"
+        else:
+            report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
     except InterruptedError:
         report["status"] = "stopped" if job["stop"] else "partial"
         report["warnings"].append("Stopped or budget exhausted; remaining work was not assessed.")
-    except Exception:
-        report["status"] = "failed"
+    except Exception as exc:
+        report["status"] = "scanner_error"
+        report["scanner_error_category"] = type(exc).__name__
         report["warnings"].append("Security review failed. Partial findings retained; inspect server diagnostics.")
     finally:
         with _LOCK:
