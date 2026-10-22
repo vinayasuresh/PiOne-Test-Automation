@@ -113,6 +113,7 @@ class CrawlerEngine:
         event_callback: Callable[[str, dict[str, Any]], None] | None = None,
         run_id: str | None = None,
         scan_id: str | None = None,
+        session_state_trusted: bool = False,
     ) -> None:
         self.page = page
         self.page.set_default_timeout(ROUTE_SCAN_TIMEOUT)
@@ -155,7 +156,11 @@ class CrawlerEngine:
         self.scan_stop_requested = False
         self.parking_lot_actions: list[dict[str, Any]] = []
         self.scan_events: list[dict[str, Any]] = []
-        self.session_manager = SessionManager(self.base_url, credentials=self.credentials)
+        self.session_manager = SessionManager(
+            self.base_url,
+            credentials=self.credentials,
+            session_state_trusted=session_state_trusted,
+        )
 
         # Core intelligence & exploration engines
         self.element_registry = ElementIdentityRegistry()
@@ -1878,7 +1883,7 @@ class CrawlerEngine:
             return True
 
         try:
-            return self.page.locator('input[type="password"]').first.is_visible()
+            return (not self.session_manager.session_state_trusted) and self.page.locator('input[type="password"]').first.is_visible()
         except Exception:
             return False
 

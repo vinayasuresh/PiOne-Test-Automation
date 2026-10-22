@@ -1,6 +1,7 @@
 """Tests for RunContext, SSRF security guard, Auth lifecycle, 10-sheet Excel export, and regression diff."""
 
 import gc
+import base64
 import json
 import os
 import tempfile
@@ -150,6 +151,27 @@ def test_auth_session_expired_cookies():
             session_file.unlink()
 
 
+def test_auth_session_accepts_unexpired_local_storage_token():
+    """SPA sessions with a valid localStorage JWT pass preflight without a browser probe."""
+    session_id = "test_local_storage_token"
+    session_dir = REPORT_PATH / "auth_sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_file = session_dir / f"{session_id}.json"
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": 4102444800}).encode()).decode().rstrip("=")
+    state_content = {
+        "cookies": [{"name": "refresh_token", "value": "present", "domain": "example.test", "path": "/", "expires": -1}],
+        "origins": [{"origin": "https://example.test", "localStorage": [{"name": "access_token", "value": f"header.{payload}.signature"}]}],
+    }
+    session_file.write_text(json.dumps(state_content), encoding="utf-8")
+    try:
+        is_valid, reason = check_auth_session_validity("https://example.test", session_id)
+        assert is_valid is True
+        assert "token" in reason.lower()
+    finally:
+        if session_file.exists():
+            session_file.unlink()
+
+
 def test_refresh_session_preserves_run_id():
     """Verify refresh_auth_session updates session state and binds to the same run_id."""
     url = "https://www.saucedemo.com"
@@ -225,6 +247,21 @@ def test_session_manager_storage_state_restoration(tmp_path):
     assert mock_browser.new_context.called
     kwargs = mock_browser.new_context.call_args.kwargs
     assert kwargs.get("storage_state") == str(state_file)
+
+
+def test_session_manager_trusted_spa_token_ignores_bootstrap_login_form():
+    """A validated token-backed SPA may retain a visible form during bootstrap."""
+    from automation_framework.crawler.session_manager import SessionManager
+
+    page = MagicMock()
+    page.url = "https://catsentinel.pionedata.com/"
+    page.locator.return_value.first.is_visible.return_value = True
+
+    trusted = SessionManager("https://catsentinel.pionedata.com", session_state_trusted=True)
+    untrusted = SessionManager("https://catsentinel.pionedata.com", session_state_trusted=False)
+
+    assert trusted.is_login_page(page) is False
+    assert untrusted.is_login_page(page) is True
 
 
 def test_test_execution_stops_on_authentication_expired():

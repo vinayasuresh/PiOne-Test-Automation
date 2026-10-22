@@ -29,6 +29,7 @@ ALLOWED_ARTIFACT_TYPES = {
     "execution_results",
     "checkpoint",
     "screenshots",
+    "log",
 }
 
 from api.models.scan_models import (
@@ -96,7 +97,7 @@ from api.services.test_execution_service import (
 from api.services.test_input_normalizer import TestInputNormalizer
 from api.services.test_planning_service import build_test_cases
 from automation_framework.utils.logger import logger
-from automation_framework.config.settings import REPORT_PATH
+from automation_framework.config.settings import LOG_PATH, REPORT_PATH
 from api.services.scan_control_service import (
     finish_scan,
     is_scan_active,
@@ -504,6 +505,12 @@ async def scan(request: ScanRequest) -> ScanResponse:
     effective_run_id = request.run_id or request.resume_run_id or scan_id
 
     existing_ctx = get_run_context(effective_run_id)
+    # A retry may arrive from a refreshed browser tab before its in-memory
+    # auth_session_id is updated. Reuse the run-bound session as the safe
+    # fallback; never require the user to start the crawl over.
+    effective_auth_session_id = request.auth_session_id or (
+        existing_ctx.auth_session_id if existing_ctx else None
+    )
     if existing_ctx and existing_ctx.status in {"running", "paused"} and is_scan_active(effective_run_id):
         raise HTTPException(
             status_code=409,
@@ -521,10 +528,12 @@ async def scan(request: ScanRequest) -> ScanResponse:
             target_origin=request.url,
             allowed_path_namespace="/",
             run_id=effective_run_id,
-            auth_session_id=request.auth_session_id,
+            auth_session_id=effective_auth_session_id,
             username=request.username,
         )
         run_ctx.scan_id = scan_id
+        if effective_auth_session_id:
+            run_ctx.auth_session_id = effective_auth_session_id
         run_ctx.selected_modules = request.selected_module_ids or run_ctx.selected_modules
         run_ctx.status = "running"
         save_run_context(run_ctx)
@@ -550,7 +559,7 @@ async def scan(request: ScanRequest) -> ScanResponse:
             scan_id,
             None,
             request.selected_module_ids,
-            request.auth_session_id,
+            effective_auth_session_id,
             effective_run_id,
         )
         return result
@@ -1176,6 +1185,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
     if exec_dir.exists():
         screenshots.extend(list(exec_dir.glob("*.png")))
     screenshots.extend(list(REPORT_PATH.glob(f"{run_id}*.png")))
+    log_path = LOG_PATH / f"{run_id}.log"
 
     artifacts_ready = {
         "json": json_path.is_file(),
@@ -1185,6 +1195,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         "execution_results": bool(exec_json and exec_json.is_file()) or bool(run_ctx and run_ctx.execution_results),
         "checkpoint": chk_path.is_file(),
         "screenshots": len(screenshots) > 0,
+        "log": log_path.is_file(),
     }
 
     download_urls = {
@@ -1229,6 +1240,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         "execution_results": "application/json",
         "checkpoint": "application/json",
         "screenshots": "application/zip",
+        "log": "text/plain",
     }
 
     target_file: Path | None = None
@@ -1307,16 +1319,21 @@ async def download_artifact(run_id: str, artifact_type: str):
             media_type="application/zip",
             headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
         )
+    elif artifact_type == "log":
+        target_file = LOG_PATH / f"{run_id}.log"
+        filename = f"{run_id}_failure.log"
 
     if target_file and target_file.is_file():
         resolved = target_file.resolve()
-        base_resolved = REPORT_PATH.resolve()
-        if not resolved.is_relative_to(base_resolved):
+        report_root = REPORT_PATH.resolve()
+        log_root = LOG_PATH.resolve()
+        if not (resolved.is_relative_to(report_root) or resolved.is_relative_to(log_root)):
             raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
         is_owned_artifact = (
             resolved.name.startswith(run_id)
             or resolved.name == f"checkpoint_{run_id}.json"
             or resolved.parent.name == run_id
+            or (artifact_type == "log" and resolved == (LOG_PATH / f"{run_id}.log").resolve())
             or (run_ctx and str(resolved) in [str(Path(p).resolve()) for p in run_ctx.artifact_paths.values()])
         )
         if not is_owned_artifact:

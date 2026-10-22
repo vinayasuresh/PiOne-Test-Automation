@@ -339,6 +339,12 @@
           <button id="btn-view-analysis" type="button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
             <i class="fa-solid fa-chart-pie mr-1"></i> View Analysis
           </button>
+          <button id="btn-scan-retry" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-rotate-right mr-1"></i> Retry Crawl
+          </button>
+          <button id="btn-scan-download-log" type="button" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-slate-300 transition">
+            <i class="fa-solid fa-file-lines mr-1"></i> Download Failure Log
+          </button>
           <button id="btn-scan-discard" type="button" class="bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-rose-300 transition">
             <i class="fa-solid fa-trash-can mr-1"></i> Discard Run
           </button>
@@ -1539,18 +1545,23 @@
       const resumeBtn = document.getElementById("btn-scan-resume");
       const endBtn = document.getElementById("btn-scan-end-save");
       const viewBtn = document.getElementById("btn-view-analysis");
+      const retryBtn = document.getElementById("btn-scan-retry");
+      const logBtn = document.getElementById("btn-scan-download-log");
       const note = document.getElementById("live-terminal-note");
       const normalized = String(status || "").toLowerCase();
 
-      if (!pauseBtn || !resumeBtn || !endBtn || !viewBtn || !note) return;
+      if (!pauseBtn || !resumeBtn || !endBtn || !viewBtn || !retryBtn || !logBtn || !note) return;
       const completed = normalized === "scanned";
       const partial = normalized === "partial_scanned";
+      const failed = normalized === "failed";
 
-      pauseBtn.disabled = completed || partial;
-      endBtn.disabled = completed || partial;
+      pauseBtn.disabled = completed || partial || failed;
+      endBtn.disabled = completed || partial || failed;
       resumeBtn.classList.add("hidden");
       pauseBtn.classList.remove("hidden");
-      viewBtn.classList.remove("hidden");
+      viewBtn.classList.toggle("hidden", failed);
+      retryBtn.classList.toggle("hidden", !failed);
+      logBtn.classList.toggle("hidden", !failed);
 
       if (completed) {
         note.className = "text-xs rounded-lg border px-3 py-2 bg-emerald-50 border-emerald-200 text-emerald-800";
@@ -1559,6 +1570,10 @@
       } else if (partial) {
         note.className = "text-xs rounded-lg border px-3 py-2 bg-amber-50 border-amber-200 text-amber-800";
         note.textContent = `Crawl partial / stopped${reason ? `: ${reason}` : "."}`;
+        note.classList.remove("hidden");
+      } else if (failed) {
+        note.className = "text-xs rounded-lg border px-3 py-2 bg-rose-50 border-rose-200 text-rose-800";
+        note.textContent = `Crawl failed${reason ? `: ${reason}` : ". Refresh credentials if requested, then retry the crawl."}`;
         note.classList.remove("hidden");
       } else {
         note.classList.add("hidden");
@@ -1576,8 +1591,9 @@
       const status = String(snapshot.status || "").toLowerCase();
       const isComplete = status === "scanned";
       const isPartial = status === "partial_scanned";
+      const isFailed = status === "failed";
 
-      localState.scanStatus = isComplete ? "COMPLETED" : (isPartial ? "PARTIAL" : String(snapshot.status || "IDLE").toUpperCase());
+      localState.scanStatus = isComplete ? "COMPLETED" : (isPartial ? "PARTIAL" : (isFailed ? "FAILED" : String(snapshot.status || "IDLE").toUpperCase()));
       localState.scanProgressPct = isComplete ? 100 : routeProgress.percentage;
       if (snapshot.current_route) localState.lastCompletedRoute = snapshot.current_route;
       localState.currentModuleName = (isComplete && moduleProgress.pending_count === 0) ? "" : (snapshot.current_module || localState.currentModuleName || "");
@@ -1608,17 +1624,19 @@
       const pill = document.getElementById("live-scan-status-pill");
       if (pill) {
         const partialLabel = snapshot.scan_stopped_early ? "Partial / Stopped" : "Partial / Stopped";
-        const label = isComplete ? "Completed" : (isPartial ? partialLabel : "Running");
-        const dotClass = isComplete ? "bg-emerald-500" : (isPartial ? "bg-amber-500" : "bg-blue-500 animate-pulse");
+        const label = isComplete ? "Completed" : (isPartial ? partialLabel : (isFailed ? "Failed" : "Running"));
+        const dotClass = isComplete ? "bg-emerald-500" : (isPartial ? "bg-amber-500" : (isFailed ? "bg-rose-500" : "bg-blue-500 animate-pulse"));
         pill.innerHTML = `<span class="w-2 h-2 rounded-full ${dotClass}"></span> ${label}`;
         pill.className = isComplete
           ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
           : isPartial
             ? "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
-            : "bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
+            : isFailed
+              ? "bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
+              : "bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
       }
 
-      updateTerminalControls(status, snapshot.terminal_reason || snapshot.reason || "");
+      updateTerminalControls(status, snapshot.terminal_reason || snapshot.reason || snapshot.error_message || "");
       updateActiveRunBar();
       return true;
     }
@@ -1644,6 +1662,8 @@
         statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-700";
       } else if (st.includes("PAUS")) {
         statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-amber-900/60 text-amber-300 border border-amber-700";
+      } else if (st.includes("FAIL")) {
+        statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-900/60 text-rose-300 border border-rose-700";
       } else {
         statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700";
       }
@@ -2081,6 +2101,8 @@
       document.getElementById("danger-confirm-input").oninput = updateDangerConfirmState;
       document.getElementById("btn-submit-danger-confirm").onclick = confirmDangerAction;
       document.getElementById("btn-view-analysis").onclick = () => switchStep(5);
+      document.getElementById("btn-scan-retry").onclick = () => handleStartScan();
+      document.getElementById("btn-scan-download-log").onclick = () => downloadArtifact("log");
 
       document.getElementById("btn-top-newscan").onclick = resetRun;
     }
@@ -2294,6 +2316,9 @@
       unlockStep(4);
       switchStep(4);
       state.terminalStateProcessed = false;
+      state.scanStatus = "IN_PROGRESS";
+      const retryButton = document.getElementById("btn-scan-retry");
+      if (retryButton) retryButton.classList.add("hidden");
 
       const log = document.getElementById("scan-event-log");
       log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
@@ -2321,6 +2346,8 @@
         });
 
         if (res.status === 401) {
+          state.scanStatus = "FAILED";
+          updateTerminalControls("failed", "Authentication expired. Refresh the session, then retry the crawl.");
           triggerSessionExpired();
           return;
         }
@@ -2351,6 +2378,10 @@
         document.getElementById("btn-view-analysis").classList.remove("hidden");
       } catch (err) {
         if (state.durationTimer) clearInterval(state.durationTimer);
+        state.scanStatus = "FAILED";
+        state.terminalStateProcessed = true;
+        closeTelemetryStream();
+        updateTerminalControls("failed", err.message);
         log.innerHTML += `<p class="text-rose-400 font-semibold">[ERROR] ${escapeHtml(err.message)}</p>`;
         showActionableError("Deep Crawl", state.runId, "CRAWL_INTERRUPTED", err.message, "You can export the partial checkpoint results or retry the current module.");
       }
@@ -2462,6 +2493,10 @@
       if (event.type === "scan_resumed") state.scanStatus = "IN_PROGRESS";
       if (event.type === "scan_completed" && !event.scan_stopped_early && event.status !== "partial_success") state.scanStatus = "COMPLETED";
       if (event.type === "scan_stopped" || event.type === "scan_budget_exceeded") state.scanStatus = "PARTIAL";
+      if (event.type === "scan_failed") {
+        state.scanStatus = "FAILED";
+        updateTerminalControls("failed", event.error || event.message || "The crawl stopped before completion.");
+      }
       updateActiveRunBar();
       if (event.errors !== undefined) {
         document.getElementById("live-error-badge").textContent = `${event.errors} errors`;
@@ -3229,7 +3264,7 @@
     }
 
     async function downloadArtifact(type) {
-      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "execution_results", "checkpoint", "screenshots"];
+      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "execution_results", "checkpoint", "screenshots", "log"];
       if (!ALLOWED_TYPES.includes(type)) {
         showActionableError("Download Artifact", state.runId, "INVALID_ARTIFACT", `Artifact type '${type}' is not permitted.`, "Select a standard artifact type.");
         return;
@@ -3262,7 +3297,8 @@
           markdown: "Markdown Summary",
           execution_results: "Execution Results JSON",
           checkpoint: "Checkpoint State",
-          screenshots: "Step Screenshots ZIP"
+          screenshots: "Step Screenshots ZIP",
+          log: "Failure Log"
         };
         showToast(`Download started: ${labelMap[type] || type.toUpperCase()}`, "success");
       } catch (err) {

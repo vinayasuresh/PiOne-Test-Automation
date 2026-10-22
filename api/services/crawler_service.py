@@ -90,6 +90,7 @@ def run_scan(
     browser    = None
     context    = None
     engine: CrawlerEngine | None = None
+    session_state_trusted = False
 
     try:
         # ── Boot browser ────────────────────────────────────────────────
@@ -100,6 +101,7 @@ def run_scan(
             valid, reason = check_auth_session_validity(url, auth_session_id, actual_run_id)
             if not valid:
                 raise AuthenticationExpiredError(f"Authentication expired ({reason}). Refresh the session to continue.")
+            session_state_trusted = True
         try:
             playwright, browser, context, page = start_persistent_browser(state_path)
         except (PlaywrightError, PlaywrightTimeoutError, OSError) as init_err:
@@ -175,7 +177,7 @@ def run_scan(
             page.goto(target_nav_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
             if auth_session_id:
                 try:
-                    if page.locator('input[type="password"]').first.is_visible(timeout=1000):
+                    if page.locator('input[type="password"]').first.is_visible(timeout=1000) and not session_state_trusted:
                         if start_module_url and target_nav_url != start_module_url:
                             logger.info(f"[API] Retrying on protected route: {start_module_url}")
                             page.goto(start_module_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
@@ -204,6 +206,7 @@ def run_scan(
             resume_from_checkpoint=bool(resume_run_id),
             run_id=actual_run_id,
             scan_id=scan_id or actual_run_id,
+            session_state_trusted=session_state_trusted,
             event_callback=(
                 lambda event_type, data: publish(
                     actual_run_id, {"type": event_type, "scan_id": scan_id or actual_run_id, "run_id": actual_run_id, **data}

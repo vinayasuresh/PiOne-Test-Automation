@@ -32,10 +32,12 @@ class SessionManager:
         base_url: str,
         credentials: tuple[str, str] | None = None,
         storage_state_path: str | Path | None = None,
+        session_state_trusted: bool = False,
     ) -> None:
         self.base_url = base_url.strip()
         self.credentials = credentials
         self.storage_state_path = Path(storage_state_path) if storage_state_path else None
+        self.session_state_trusted = session_state_trusted
 
     @property
     def has_credentials(self) -> bool:
@@ -75,8 +77,8 @@ class SessionManager:
             if path_parts & self.LOGIN_URL_INDICATORS:
                 return True
 
-            # If a visible password field exists, it's almost certainly a login screen
-            return page.locator('input[type="password"]').first.is_visible()
+            # Token-backed SPA shells may retain the login form during bootstrap.
+            return (not self.session_state_trusted) and page.locator('input[type="password"]').first.is_visible()
         except Exception:
             return False
 
