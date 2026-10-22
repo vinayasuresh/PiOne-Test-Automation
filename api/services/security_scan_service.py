@@ -7,6 +7,7 @@ Only one security job runs per server process; deploy this local app with one wo
 from __future__ import annotations
 
 import copy
+import json
 import hashlib
 import http.client
 import ipaddress
@@ -74,6 +75,40 @@ def safe_url(url):
     # Never export query values, userinfo, or long token-like path segments.
     path = re.sub(r"[A-Za-z0-9_.=-]{40,}", "[REDACTED]", p.path)
     return redact_text(urlunsplit((p.scheme, p.netloc, path, "", "")))
+
+
+def _session_headers(ctx):
+    """Load only same-origin cookie pairs from the server-side auth session.
+
+    Values remain in process memory and are never copied into reports or logs.
+    """
+    session_id = getattr(ctx, "auth_session_id", None)
+    if not session_id or str(session_id).startswith("mock_"):
+        return {}, False
+    try:
+        from api.services.auth_lifecycle_service import auth_session_path
+        path = auth_session_path(session_id)
+        data = json.loads(path.read_text(encoding="utf-8"))
+        target = origin(ctx.target_origin)
+        pairs = []
+        valid_until = time.time()
+        for cookie in data.get("cookies", []):
+            domain = str(cookie.get("domain", "")).lstrip(".").lower()
+            if domain and target[1] != domain and not target[1].endswith("." + domain):
+                continue
+            expires = cookie.get("expires", -1)
+            if expires not in (-1, None) and float(expires) <= valid_until:
+                continue
+            name, value = str(cookie.get("name", "")), str(cookie.get("value", ""))
+            if name and len(name) < 128 and len(value) < 4096:
+                pairs.append(f"{name}={value}")
+        if not pairs:
+            raise ValueError("Authentication session has no valid cookies")
+        return {"Cookie": "; ".join(pairs)}, True
+    except FileNotFoundError as exc:
+        raise ValueError("Authentication session expired; refresh the session before starting VAPT") from exc
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Authentication session could not be loaded; refresh the session before starting VAPT") from exc
 
 
 def approved_address(url):
@@ -298,17 +333,18 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
                 continue
         if not queue:
             raise ValueError("No eligible in-scope routes were captured")
+        session_headers, authenticated = _session_headers(ctx)
         report = {"run_id": run_id, "review_id": uuid4().hex, "status": "running", "started_at": now(),
-                  "target": safe_url(ctx.target_origin), "assessment_mode": assessment_mode, "checks": list(checks), "requests": 0,
+                  "target": safe_url(ctx.target_origin), "assessment_mode": assessment_mode, "auth_session_used": authenticated, "checks": list(checks), "requests": 0,
                   "max_requests": max_requests, "max_seconds": max_seconds, "endpoints": [], "findings": [],
-                  "warnings": ["Anonymous HTTP review; browser authentication and JavaScript execution are not used.",
+                  "warnings": [("Authenticated HTTP review using the run's server-side session; browser JavaScript is not executed." if authenticated else "Anonymous HTTP review; browser authentication and JavaScript execution are not used."),
                                "Query values are omitted from collection; forms are inventoried but never submitted.",
                                "Zero findings does not establish application security."],
                   "not_tested": VAPT_NOT_TESTED if assessment_mode == "vapt" else UNTESTED,
                   "completed_pages": 0, "pending_pages": len(queue),
                   "summary": {"total": 0, "confirmed": 0, "observations": 0, "by_severity": {}, "by_owasp": {}}}
         job = {"report": report, "queue": queue, "seen": set(queue), "base": ctx.target_origin,
-               "namespace": ctx.allowed_path_namespace, "paused": False, "stop": False}
+               "namespace": ctx.allowed_path_namespace, "headers": session_headers, "paused": False, "stop": False}
         _JOBS[run_id] = job
         _persist(run_id, report)
         threading.Thread(target=_worker, args=(run_id, job), daemon=True, name="security-review").start()
@@ -347,7 +383,9 @@ def _worker(run_id, job):
         with _LOCK:
             report["requests"] += 1
         # A strict one-request-per-second pace; no retries or redirect follow-ups.
-        response = fetch_page(url, headers, timeout=min(8, max(.1, deadline - time.monotonic())))
+        merged_headers = dict(job.get("headers", {}))
+        merged_headers.update(headers or {})
+        response = fetch_page(url, merged_headers, timeout=min(8, max(.1, deadline - time.monotonic())))
         time.sleep(1)
         return response
 
@@ -452,6 +490,8 @@ def _worker(run_id, job):
                 report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
                 report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
                 _persist(run_id, report)
+        if authenticated and report["completed_pages"] and all(int(endpoint.get("status", 0)) >= 400 for endpoint in report["endpoints"]):
+            report["warnings"].append("The stored authenticated session did not unlock any captured route; refresh authentication and repeat the crawl before trusting this assessment.")
         report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
     except InterruptedError:
         report["status"] = "stopped" if job["stop"] else "partial"

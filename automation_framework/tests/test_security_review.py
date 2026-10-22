@@ -60,6 +60,20 @@ def test_no_clickjacking_warning_when_csp_protects_frames():
     assert not any('Framing' in x['title'] for x in items)
 
 
+def test_vapt_reuses_only_same_origin_auth_cookies(tmp_path, monkeypatch):
+    state = tmp_path / 'auth.json'
+    state.write_text(json.dumps({'cookies': [
+        {'name': 'session-username', 'value': 'standard_user', 'domain': 'www.saucedemo.com', 'expires': -1},
+        {'name': 'unrelated', 'value': 'must-not-send', 'domain': '.example.net', 'expires': -1},
+    ]}), encoding='utf-8')
+    monkeypatch.setattr('api.services.auth_lifecycle_service.auth_session_path', lambda _sid: state)
+    ctx = RunContext(run_id='r', target_origin='https://www.saucedemo.com', auth_session_id='sid')
+    headers, authenticated = s._session_headers(ctx)
+    assert authenticated is True
+    assert headers['Cookie'] == 'session-username=standard_user'
+    assert 'unrelated' not in headers['Cookie']
+
+
 @pytest.fixture
 def store(monkeypatch):
     contexts = {rid: RunContext(run_id=rid, target_origin='https://example.com', status='scanned',
