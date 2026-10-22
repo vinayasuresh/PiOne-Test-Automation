@@ -1381,10 +1381,24 @@
   </footer>
 
   <!-- Shared UI helpers must load before the inline workflow handlers below. -->
-  <script src="/ui/js/scan_status.js"></script>
+  <script src="/ui/js/scan_status.js?v=2"></script>
   <script>
     const API_BASE = window.location.protocol === "file:" ? "http://localhost:8000" : window.location.origin;
     const STORAGE_KEY = "pione_testmate_active_run";
+
+    // Keep an old/cached page from turning a successful operation into a
+    // misleading failure when the optional helper script was not loaded.
+    if (typeof window.showToast !== "function") {
+      window.showToast = function (message, type = "info") {
+        const container = document.getElementById("toast-container") || document.body;
+        const toast = document.createElement("div");
+        const color = type === "success" ? "bg-emerald-600" : type === "error" ? "bg-red-600" : "bg-blue-600";
+        toast.className = `px-5 py-3 rounded-lg shadow-lg text-white font-semibold text-sm ${color}`;
+        toast.textContent = String(message || "");
+        container.appendChild(toast);
+        window.setTimeout(() => toast.remove(), 3500);
+      };
+    }
 
     // 8 Workflow Stages
     const STEPS = [
@@ -3049,6 +3063,7 @@
       btn.disabled = true;
       btn.textContent = "Refreshing...";
 
+      let refreshSucceeded = false;
       try {
         const res = await fetch(`${API_BASE}/session/refresh`, {
           method: "POST",
@@ -3069,9 +3084,20 @@
         document.getElementById("btn-top-refresh-session").classList.add("hidden");
         document.getElementById("nav-session-badge").classList.remove("hidden");
         closeRefreshModal();
-        showToast("Session refreshed successfully! You can now continue.", "success");
+        refreshSucceeded = true;
+        // Credentials are only needed for this request; never retain them in
+        // the refresh form after a successful re-authentication.
+        document.getElementById("refresh-password").value = "";
+        try {
+          window.showToast("Session refreshed successfully. You can now continue.", "success");
+        } catch (_) {
+          // A notification must never change a successful refresh into an
+          // AUTH_REFRESH_FAILED result.
+        }
       } catch (err) {
-        showActionableError("Session Refresh", state.runId, "AUTH_REFRESH_FAILED", err.message, "Verify credentials and retry.");
+        if (!refreshSucceeded) {
+          showActionableError("Session Refresh", state.runId, "AUTH_REFRESH_FAILED", err.message, "Verify credentials and retry.");
+        }
       } finally {
         btn.disabled = false;
         btn.textContent = "Refresh & Continue";
