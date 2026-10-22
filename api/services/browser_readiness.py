@@ -22,7 +22,31 @@ def check_browser_readiness(force_refresh: bool = False) -> dict[str, Any]:
         if _CACHED_STATUS.get("ready") and exec_path and os.path.exists(exec_path):
             return dict(_CACHED_STATUS)
 
-    # 1. Preferred method: ask Playwright directly
+    # Resolve the executable without starting Playwright's sync driver. On
+    # Windows that driver startup can block on an asyncio socketpair and would
+    # make /health hang before the application is usable.
+    configured_root = os.getenv("PLAYWRIGHT_BROWSERS_PATH", "").strip()
+    roots = []
+    if configured_root and configured_root != "0":
+        roots.append(Path(configured_root))
+    else:
+        roots.extend([
+            Path.home() / "AppData" / "Local" / "ms-playwright",
+            Path.home() / ".cache" / "ms-playwright",
+        ])
+    patterns = ["chromium-*/chrome-win*/chrome.exe", "chromium-*/chrome-linux/chrome", "chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium"]
+    for root in roots:
+        try:
+            for pattern in patterns:
+                candidates = sorted(root.glob(pattern))
+                if candidates and candidates[0].is_file():
+                    _CACHED_STATUS = {"ready": True, "error": None, "executable_path": str(candidates[0])}
+                    return dict(_CACHED_STATUS)
+        except OSError:
+            continue
+
+    # Fallback for non-standard Playwright installations. This path is only
+    # reached when no installed browser executable can be found directly.
     try:
         from playwright.sync_api import sync_playwright
 
@@ -44,20 +68,7 @@ def check_browser_readiness(force_refresh: bool = False) -> dict[str, Any]:
     except Exception as exc:
         # 2. Filesystem fallback if playwright python wrapper fails to launch driver
         try:
-            configured_root = os.getenv("PLAYWRIGHT_BROWSERS_PATH", "").strip()
-            browser_root = (
-                Path(configured_root)
-                if configured_root and configured_root != "0"
-                else Path.home() / "AppData" / "Local" / "ms-playwright"
-            )
-            candidates = list(browser_root.glob("chromium-*/chrome-win*/chrome.exe"))
-            if candidates and candidates[0].exists():
-                _CACHED_STATUS = {
-                    "ready": True,
-                    "error": None,
-                    "executable_path": str(candidates[0]),
-                }
-                return dict(_CACHED_STATUS)
+            pass
         except Exception:
             pass
 
