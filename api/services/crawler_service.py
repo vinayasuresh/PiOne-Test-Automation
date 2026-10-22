@@ -100,7 +100,16 @@ def run_scan(
             valid, reason = check_auth_session_validity(url, auth_session_id, actual_run_id)
             if not valid:
                 raise AuthenticationExpiredError(f"Authentication expired ({reason}). Refresh the session to continue.")
-        playwright, browser, context, page = start_persistent_browser(state_path)
+        try:
+            playwright, browser, context, page = start_persistent_browser(state_path)
+        except (PlaywrightError, PlaywrightTimeoutError, OSError) as init_err:
+            if "executable doesn't exist" in str(init_err).lower():
+                raise RuntimeError(
+                    r"Browser runtime is unavailable. Run .venv\Scripts\python.exe -m playwright install chromium"
+                ) from None
+            raise RuntimeError(
+                "Browser failed to initialize. Verify the project virtual environment and Chromium installation."
+            ) from None
         # Protect the initial navigation and any redirects during login too;
         # the crawler engine is created only after this part of the flow.
         install_document_scope_guard(
@@ -538,8 +547,14 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
     try:
         try:
             playwright, browser, context, page = start_persistent_browser()
-        except (PlaywrightError, PlaywrightTimeoutError, Exception) as init_err:
-            raise DiscoveryUnavailableError(f"Browser failed to initialize: {init_err}") from init_err
+        except (PlaywrightError, PlaywrightTimeoutError, OSError) as init_err:
+            if "executable doesn't exist" in str(init_err).lower():
+                raise DiscoveryUnavailableError(
+                    r"Browser runtime is unavailable. Run .venv\Scripts\python.exe -m playwright install chromium"
+                ) from None
+            raise DiscoveryUnavailableError(
+                "Browser failed to initialize. Verify the project virtual environment and Chromium installation."
+            ) from None
 
         install_document_scope_guard(page, url)
         if username and password:
