@@ -132,7 +132,40 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
         from api.db.repository import DBRepository
         runs = DBRepository.list_runs(base_url=base_url, is_archived=is_archived, skip=skip, limit=limit)
         if runs:
-            return runs
+            # The relational store keeps the run index, while the atomic
+            # RunContext file is the source of truth for live checkpoint
+            # progress.  Merge terminal module/route state back into the DB
+            # rows so Saved Runs cannot show a completed scan as pending.
+            merged: list[dict[str, Any]] = []
+            for row in runs:
+                run_id = row.get("run_id")
+                ctx = get_run_context(run_id) if run_id else None
+                if ctx:
+                    graph = ctx.route_graph if isinstance(ctx.route_graph, dict) else {}
+                    graph_nodes = graph.get("nodes")
+                    route_count = (
+                        len(graph_nodes)
+                        if isinstance(graph_nodes, list)
+                        else len(graph)
+                    )
+                    row = {
+                        **row,
+                        "status": ctx.status,
+                        "selected_modules": list(ctx.selected_modules),
+                        "completed_modules": list(ctx.completed_modules),
+                        "pending_modules": list(ctx.pending_modules),
+                        "progress_percentage": (
+                            100.0
+                            if ctx.status in {"scanned", "executed"}
+                            else row.get("progress_percentage", 0.0)
+                        ),
+                        "route_count": (
+                            route_count if graph else row.get("route_count", 0)
+                        ),
+                        "updated_at": ctx.updated_at or row.get("updated_at"),
+                    }
+                merged.append(row)
+            return merged
     except Exception as exc:
         logger.debug("[DB] list_runs fallback: %s", exc)
 

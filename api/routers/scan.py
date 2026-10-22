@@ -1392,28 +1392,37 @@ async def create_run_endpoint(request: CreateRunRequest) -> dict[str, Any]:
 async def get_run_endpoint(run_id: str) -> dict[str, Any]:
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
+    run_ctx = get_run_context(run_id)
+    if run_ctx:
+        graph = run_ctx.route_graph if isinstance(run_ctx.route_graph, dict) else {}
+        graph_nodes = graph.get("nodes")
+        route_count = len(graph_nodes) if isinstance(graph_nodes, list) else len(graph)
+        return {
+            "run_id": run_ctx.run_id,
+            "application_url": run_ctx.target_origin,
+            "allowed_scope": run_ctx.allowed_path_namespace,
+            "status": run_ctx.status,
+            "auth_status": run_ctx.auth_status,
+            "username": run_ctx.username,
+            "progress_percentage": 100.0 if run_ctx.status in {"scanned", "executed"} else 50.0,
+            "selected_modules": list(run_ctx.selected_modules),
+            "completed_modules": list(run_ctx.completed_modules),
+            "pending_modules": list(run_ctx.pending_modules),
+            "discovered_modules": run_ctx.discovered_modules,
+            "routes": (
+                [{"path": n} for n in graph_nodes]
+                if isinstance(graph_nodes, list)
+                else [{"path": path, **(node if isinstance(node, dict) else {})} for path, node in graph.items()]
+            ),
+            "route_count": route_count,
+            "execution_summary": run_ctx.execution_summary or {},
+            "created_at": run_ctx.created_at,
+            "updated_at": run_ctx.updated_at,
+        }
     run_data = DBRepository.get_run(run_id)
     if run_data:
         return run_data
-    run_ctx = get_run_context(run_id)
-    if not run_ctx:
-        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
-    return {
-        "run_id": run_ctx.run_id,
-        "application_url": run_ctx.target_origin,
-        "allowed_scope": run_ctx.allowed_path_namespace,
-        "status": run_ctx.status,
-        "auth_status": run_ctx.auth_status,
-        "username": run_ctx.username,
-        "progress_percentage": 100.0 if run_ctx.status in {"scanned", "executed"} else 50.0,
-        "selected_modules": run_ctx.selected_modules,
-        "discovered_modules": run_ctx.discovered_modules,
-        "routes": [{"path": n} for n in run_ctx.route_graph.get("nodes", [])],
-        "route_count": len(run_ctx.route_graph.get("nodes", [])),
-        "execution_summary": run_ctx.execution_summary or {},
-        "created_at": run_ctx.created_at,
-        "updated_at": run_ctx.updated_at,
-    }
+    raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
 
 
 @router.post("/runs/{run_id}/resume", summary="Resume an interrupted or paused scan run")
