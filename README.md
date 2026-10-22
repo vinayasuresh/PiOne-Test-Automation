@@ -337,10 +337,11 @@ Cleanup does not delete saved runs automatically. This preserves checkpoints and
 
 ## 7. Security & Safety Controls
 
-An optional **Security Scan** panel is now available in **Analyze** after a crawl.
+An authorized **VAPT Assessment** panel is available in **Analyze** after a crawl.
+Choose functional-only, security-review-only, VAPT-only, or the combined flow.
 It performs bounded anonymous HTTP checks with optional low-impact CORS/reflection
 probes, saves run-owned findings, and exports JSON/Markdown/Excel. This is an initial
-security review feature, not full ZAP or OWASP Top 10 coverage. See
+bounded VAPT feature, not full ZAP or OWASP Top 10 coverage. See
 [security review scope, usage and limitations](docs/SECURITY_REVIEW.md).
 
 - **SSRF Protection (`security_guard.py`)**: Rejects localhost, loopback, private RFC 1918 addresses, and link-local cloud metadata addresses.

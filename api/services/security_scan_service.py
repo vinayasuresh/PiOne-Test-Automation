@@ -26,11 +26,13 @@ from api.services.run_context_service import get_run_context, save_run_context
 from automation_framework.utils.redactor import redact_text
 
 MAX_BODY = 256 * 1024
-RULES = ["headers", "cookies", "mixed_content", "disclosure"]
+RULES = ["headers", "cookies", "mixed_content", "disclosure", "api_inventory", "auth_boundary", "error_disclosure"]
 ACTIVE_RULES = ["cors_probe", "reflection_canary"]
 UNTESTED = ["SQL injection", "executable XSS", "SSRF", "IDOR/access control",
             "business logic", "JWT forgery", "authentication/session invalidation",
             "dependency CVEs", "DOM-only and authenticated endpoints"]
+VAPT_NOT_TESTED = UNTESTED + ["credential attacks and brute force", "destructive or state-changing requests",
+                              "denial-of-service and rate-limit stress", "authenticated browser JavaScript flows"]
 _LOCK = threading.RLock()
 _JOBS: dict[str, dict] = {}
 _RISKY = re.compile(r"logout|logoff|signout|delete|remove|reset|checkout|purchase|payment|unsubscribe|terminate|destroy", re.I)
@@ -204,6 +206,37 @@ def analyze_response(url, response, enabled):
     return findings, parser
 
 
+def _enrich_finding(item, run_id, module="Web"):
+    """Normalize a safe observation to the consolidated VAPT report shape."""
+    rule = str(item.get("rule", "review"))
+    title = str(item.get("title", rule))
+    stable = hashlib.sha256(f"{run_id}|{rule}|{item.get('url','')}|{title}".encode()).hexdigest()[:12]
+    status = item.get("status") or ("Confirmed" if item.get("verification", "").startswith("confirmed") else "Observation")
+    item.update({
+        "finding_id": f"VAPT-{stable.upper()}",
+        "source_finding_id": rule,
+        "test_case_id": f"VAPT-{rule.upper()}",
+        "consolidated_test_id": f"VAPT-{rule.upper()}",
+        "category": item.get("category") or item.get("owasp", "A05:2021"),
+        "description": item.get("description") or title,
+        "cvss": item.get("cvss", "N/A"),
+        "cve": item.get("cve", "N/A"),
+        "owasp_mapping": item.get("owasp_mapping") or item.get("owasp", "A05:2021"),
+        "affected_components": item.get("affected_components") or item.get("url", ""),
+        "test_scenario": item.get("test_scenario") or f"Safe {rule} check against the selected same-origin endpoint.",
+        "expected_result": item.get("expected_result") or "The endpoint applies the expected security control.",
+        "actual_result": item.get("actual_result") or item.get("evidence", ""),
+        "business_impact": item.get("business_impact") or item.get("impact", ""),
+        "status": status,
+        "source_file": "PiOne Testmate",
+        "source_sheet": "VAPT Assessment",
+        "platform": "Web",
+        "module": module,
+        "modules": [module],
+    })
+    return item
+
+
 def _persist(run_id, report):
     ctx = get_run_context(run_id)
     if ctx is None:
@@ -239,7 +272,7 @@ def clear_reports():
                 save_run_context(ctx)
 
 
-def start(run_id, checks, max_requests=20, max_seconds=120):
+def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="review"):
     with _LOCK:
         if _JOBS:
             raise ValueError("A security review is already active; stop it or wait for completion")
@@ -254,15 +287,26 @@ def start(run_id, checks, max_requests=20, max_seconds=120):
                     queue.append(url)
             except ValueError:
                 continue
+        # The crawler's observed fetch/XHR inventory is useful VAPT coverage,
+        # but it is still constrained to the selected origin and namespace.
+        for api_response in ctx.scan_results.get("api_responses", [])[:300]:
+            try:
+                url = scoped_url(api_response.get("url", ""), ctx.target_origin, ctx.allowed_path_namespace)
+                if url not in queue:
+                    queue.append(url)
+            except (ValueError, TypeError):
+                continue
         if not queue:
             raise ValueError("No eligible in-scope routes were captured")
         report = {"run_id": run_id, "review_id": uuid4().hex, "status": "running", "started_at": now(),
-                  "target": safe_url(ctx.target_origin), "checks": list(checks), "requests": 0,
+                  "target": safe_url(ctx.target_origin), "assessment_mode": assessment_mode, "checks": list(checks), "requests": 0,
                   "max_requests": max_requests, "max_seconds": max_seconds, "endpoints": [], "findings": [],
                   "warnings": ["Anonymous HTTP review; browser authentication and JavaScript execution are not used.",
                                "Query values are omitted from collection; forms are inventoried but never submitted.",
                                "Zero findings does not establish application security."],
-                  "not_tested": UNTESTED, "completed_pages": 0, "pending_pages": len(queue)}
+                  "not_tested": VAPT_NOT_TESTED if assessment_mode == "vapt" else UNTESTED,
+                  "completed_pages": 0, "pending_pages": len(queue),
+                  "summary": {"total": 0, "confirmed": 0, "observations": 0, "by_severity": {}, "by_owasp": {}}}
         job = {"report": report, "queue": queue, "seen": set(queue), "base": ctx.target_origin,
                "namespace": ctx.allowed_path_namespace, "paused": False, "stop": False}
         _JOBS[run_id] = job
@@ -312,6 +356,7 @@ def _worker(run_id, job):
             key = (item["rule"], item["title"], item["url"])
             if key not in findings_seen:
                 findings_seen.add(key)
+                item = _enrich_finding(item, run_id)
                 item["id"] = hashlib.sha256(repr(key).encode()).hexdigest()[:16]
                 item["run_id"] = run_id
                 report["findings"].append(item)
@@ -332,10 +377,28 @@ def _worker(run_id, job):
                 continue
             with _LOCK:
                 report["endpoints"].append({"url": safe_url(url), "method": "GET", "status": response["status"]})
+                report["endpoints"][-1]["source"] = "route_or_api_inventory"
             if response["status"] in {429, 503}:
                 report["warnings"].append("Target requested backoff or is unavailable; review stopped.")
                 raise InterruptedError()
             items, parser = analyze_response(url, response, report["checks"])
+            if "error_disclosure" in report["checks"] and response["status"] >= 400 and re.search(r"traceback|stack trace|exception|debug toolbar|sql syntax", response["body"], re.I):
+                items.append({"rule": "error_disclosure", "title": "Verbose error details exposed", "url": safe_url(url), "method": "GET",
+                              "severity": "medium", "confidence": "medium", "owasp": "A05:2021", "cwe": "CWE-209",
+                              "verification": "observation; exploitability not established", "evidence": "Error response contained a stack/exception diagnostic marker; body withheld.",
+                              "impact": "Detailed errors can disclose implementation and data-handling details.",
+                              "remediation": "Return generic production errors and keep diagnostics server-side.", "timestamp": now()})
+            if "auth_boundary" in report["checks"] and response["status"] in {200, 201, 204}:
+                # This is deliberately an observation: the crawler's route graph
+                # may contain authenticated and public pages, so no claim is made
+                # without an explicit authenticated-vs-anonymous comparison.
+                items.append({"rule": "auth_boundary", "title": "Route authorization boundary requires review", "url": safe_url(url), "method": "GET",
+                              "severity": "info", "confidence": "low", "owasp": "A01:2021", "cwe": "CWE-862",
+                              "verification": "observation; authenticated-vs-anonymous access comparison not established", "evidence": "An in-scope route returned a successful response to the bounded anonymous request.",
+                              "impact": "If this route is intended to require authentication, missing authorization could expose functionality or data.",
+                              "remediation": "Verify authorization requirements for this route with an approved test account and enforce server-side access checks.", "timestamp": now(), "status": "Observation"})
+            if "api_inventory" in report["checks"]:
+                report["endpoints"][-1]["api_candidate"] = "/api/" in url or "/graphql" in url.lower() or "application/json" in dict(response["headers"]).get("Content-Type", "")
             with _LOCK:
                 report["endpoints"][-1]["forms_observed"] = parser.forms
                 record(items)
@@ -383,6 +446,11 @@ def _worker(run_id, job):
                 job["queue"].pop(0)
                 report["completed_pages"] += 1
                 report["pending_pages"] = len(job["queue"])
+                report["summary"]["total"] = len(report["findings"])
+                report["summary"]["confirmed"] = sum(1 for x in report["findings"] if x.get("status") == "Confirmed")
+                report["summary"]["observations"] = sum(1 for x in report["findings"] if x.get("status") != "Confirmed")
+                report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
+                report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
                 _persist(run_id, report)
         report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
     except InterruptedError:

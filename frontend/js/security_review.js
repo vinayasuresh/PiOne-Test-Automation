@@ -13,14 +13,15 @@
   }
   function applyMode() {
     const mode = document.getElementById('assessment-mode')?.value || 'both';
-    const securityOnly = mode === 'security_only';
+    const securityOnly = mode === 'security_only' || mode === 'vapt_only';
+    const vaptOnly = mode === 'vapt_only';
     const functionalOnly = mode === 'functional_only';
     const help = document.getElementById('assessment-mode-help');
     const proceed = document.getElementById('btn-analyze-proceed');
     const start = el('start');
     if (help) {
       help.textContent = securityOnly
-        ? 'Security review is enabled. Test planning and execution remain skipped for this run.'
+        ? (vaptOnly ? 'VAPT assessment is enabled. Safe, bounded security checks run after the crawl; functional test planning and execution remain skipped.' : 'Security review is enabled. Test planning and execution remain skipped for this run.')
         : functionalOnly
           ? 'Security review is disabled. Continue with the normal test-planning and execution flow.'
           : 'Run the normal test-planning/execution flow and start the security review separately when ready.';
@@ -73,10 +74,10 @@
       const details = document.createElement('details');
       details.className = 'bg-white border rounded p-2';
       const summary = document.createElement('summary');
-      summary.textContent = `${f.severity.toUpperCase()} · ${f.title} · ${f.owasp}`;
+      summary.textContent = `${f.severity.toUpperCase()} · ${f.status || 'Observation'} · ${f.title} · ${f.owasp_mapping || f.owasp}`;
       details.append(summary);
-      for (const key of ['url', 'confidence', 'verification', 'evidence', 'impact', 'remediation']) {
-        const p = document.createElement('p'); p.textContent = `${key}: ${f[key]}`; details.append(p);
+      for (const key of ['finding_id', 'category', 'url', 'confidence', 'verification', 'evidence', 'business_impact', 'remediation']) {
+        const p = document.createElement('p'); p.textContent = `${key}: ${f[key] || f.impact || ''}`; details.append(p);
       }
       el('findings').append(details);
     }
@@ -113,7 +114,8 @@
       busy = true; el('start').disabled = true;
       let started = false;
       try {
-        await request('/start', {authorized: el('authorized').checked, active_opt_in: el('active').checked, checks});
+        const selectedMode = document.getElementById('assessment-mode')?.value || 'both';
+        await request('/start', {assessment_mode: selectedMode === 'vapt_only' ? 'vapt' : 'review', authorized: el('authorized').checked, active_opt_in: el('active').checked, checks});
         started = true;
       } catch (e) { el('status').textContent = e.message; }
       finally { busy = false; el('start').disabled = started; }
