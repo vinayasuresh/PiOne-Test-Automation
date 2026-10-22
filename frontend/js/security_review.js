@@ -1,17 +1,43 @@
 /* Scoped review UI. Target response content is always rendered as text. */
 (() => {
-  let timer, displayedRun, busy = false;
+  let timer, displayedRun, busy = false, currentStatus = 'not_started';
   const el = id => document.getElementById(`security-${id}`);
   const active = status => ['running', 'paused', 'stopping'].includes(status);
   function clear() {
+    currentStatus = 'not_started';
     clearTimeout(timer);
     el('findings').replaceChildren();
     el('status').textContent = 'Not started for this run.';
     ['pause', 'resume', 'stop', 'json', 'markdown', 'excel'].forEach(x => el(x).disabled = true);
     el('start').disabled = false;
   }
+  function applyMode() {
+    const mode = document.getElementById('assessment-mode')?.value || 'both';
+    const securityOnly = mode === 'security_only';
+    const functionalOnly = mode === 'functional_only';
+    const help = document.getElementById('assessment-mode-help');
+    const proceed = document.getElementById('btn-analyze-proceed');
+    const start = el('start');
+    if (help) {
+      help.textContent = securityOnly
+        ? 'Security review is enabled. Test planning and execution remain skipped for this run.'
+        : functionalOnly
+          ? 'Security review is disabled. Continue with the normal test-planning and execution flow.'
+          : 'Run the normal test-planning/execution flow and start the security review separately when ready.';
+    }
+    if (start) {
+      start.disabled = functionalOnly || busy || active(currentStatus);
+      start.title = functionalOnly ? 'Select Security review only or both to enable this scan.' : '';
+    }
+    if (proceed) {
+      proceed.disabled = securityOnly;
+      proceed.classList.toggle('opacity-50', securityOnly);
+      proceed.title = securityOnly ? 'Security-review-only mode selected.' : '';
+    }
+  }
   function render(data) {
     const status = data.status;
+    currentStatus = status;
     el('start').disabled = active(status) || busy;
     el('pause').disabled = status !== 'running';
     el('resume').disabled = status !== 'paused';
@@ -61,7 +87,11 @@
     const response = await fetch(`${API_BASE}/runs/${encodeURIComponent(run)}/security${action}`, body ? {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
     } : {});
-    const data = await response.json();
+    let data;
+    try { data = await response.json(); } catch (_) { data = {}; }
+    if (response.status === 404) {
+      throw new Error('Security scan backend is not loaded. Restart the project server and hard-refresh the browser.');
+    }
     if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Security request failed.');
     if (run === state.runId) render(data);
     return data;
@@ -75,6 +105,8 @@
     if (!document.getElementById('panel-5').classList.contains('hidden')) timer = setTimeout(refresh, 2000);
   }
   document.addEventListener('DOMContentLoaded', () => {
+    const mode = document.getElementById('assessment-mode');
+    if (mode) mode.onchange = applyMode;
     el('start').onclick = async () => {
       const checks = [...document.querySelectorAll('[name="security-check"]:checked')].map(x => x.value);
       if (el('active').checked) checks.push('cors_probe', 'reflection_canary');
@@ -107,7 +139,9 @@
       if (panel.classList.contains('hidden')) { clearTimeout(timer); return; }
       if (displayedRun !== state.runId) {
         displayedRun = state.runId; clear(); el('authorized').checked = false; el('active').checked = false;
+        if (mode) mode.value = 'both';
       }
+      applyMode();
       refresh();
     }).observe(document.getElementById('panel-5'), {attributes: true, attributeFilter: ['class']});
   });
