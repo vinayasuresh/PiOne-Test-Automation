@@ -1602,7 +1602,15 @@ async def download_screenshot(run_id: str, filename: str):
     if not (resolved.name.startswith(run_id) or (exec_dir.exists() and resolved.is_relative_to(exec_dir.resolve()))):
         raise HTTPException(status_code=403, detail="Access denied: Screenshot does not belong to this run")
 
-    return FileResponse(str(resolved), media_type="image/png", filename=filename)
+    # This endpoint is used as the report modal's <img src>.  FileResponse's
+    # default `attachment` disposition makes browsers download the PNG instead
+    # of rendering it inline.
+    return FileResponse(
+        str(resolved),
+        media_type="image/png",
+        filename=filename,
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ===========================================================================
