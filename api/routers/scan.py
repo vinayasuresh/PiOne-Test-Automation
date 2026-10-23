@@ -111,6 +111,65 @@ from api.services.scan_control_service import (
 
 router = APIRouter()
 
+# Remote browsers (for example, a colleague using LocalTunnel) must not hold
+# one HTTP request open for the full Playwright crawl.  The tunnel can expire
+# that request even though the backend scan is still healthy.  Jobs are kept
+# only as a lightweight in-process guard; durable progress remains in
+# RunContext/checkpoints and the existing telemetry channel.
+_BACKGROUND_SCAN_TASKS: set[asyncio.Task] = set()
+
+
+async def _run_scan_in_background(request: ScanRequest) -> None:
+    try:
+        await scan(request)
+    except Exception as exc:
+        # The crawler service normally persists terminal/auth-required state.
+        # If validation/browser setup fails before the crawler owns the run,
+        # persist a terminal state so the remote client does not poll forever.
+        try:
+            run_id = request.run_id or request.resume_run_id or request.scan_id
+            if run_id:
+                run_ctx = get_run_context(run_id)
+                if not run_ctx:
+                    run_ctx = create_run_context(
+                        target_origin=request.url,
+                        allowed_path_namespace="/",
+                        run_id=run_id,
+                        auth_session_id=request.auth_session_id,
+                        username=request.username,
+                        display_name=request.session_name,
+                    )
+                if run_ctx.status == "running":
+                    run_ctx.status = "failed"
+                    run_ctx.error_message = f"{type(exc).__name__}: {exc}"
+                    save_run_context(run_ctx)
+        except Exception:
+            logger.debug("Unable to persist background scan failure", exc_info=True)
+        # Prevent an unhandled task exception from being logged as an
+        # application failure after the client has already received 202.
+        logger.debug("Background scan task ended for %s: %s", request.run_id or request.scan_id, exc)
+
+
+def _forget_background_task(task: asyncio.Task) -> None:
+    _BACKGROUND_SCAN_TASKS.discard(task)
+
+
+@router.post("/scan/start", summary="Start a scan without holding the HTTP request open")
+async def start_scan_async(request: ScanRequest) -> dict[str, Any]:
+    """Launch the existing scan flow and return immediately.
+
+    This endpoint is specifically for remote/tunnel clients.  The original
+    ``POST /scan`` remains available for local callers and keeps its existing
+    response contract.
+    """
+    run_id = request.run_id or request.resume_run_id or request.scan_id or uuid4().hex
+    request.run_id = run_id
+    request.scan_id = request.scan_id or run_id
+    task = asyncio.create_task(_run_scan_in_background(request))
+    _BACKGROUND_SCAN_TASKS.add(task)
+    task.add_done_callback(_forget_background_task)
+    return {"run_id": run_id, "scan_id": request.scan_id, "status": "started"}
+
 
 @router.post(
     "/discover-modules",

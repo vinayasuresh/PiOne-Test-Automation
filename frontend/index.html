@@ -2425,7 +2425,11 @@
 
       try {
         const isInteractive = document.getElementById("interactive-input").checked;
-        const res = await fetch(`${API_BASE}/scan`, {
+        // Start asynchronously so a remote browser/tunnel never has to keep
+        // one HTTP request open for the full Playwright crawl.  Progress and
+        // the final scan response are recovered from the existing run-state
+        // endpoint and telemetry stream.
+        const res = await fetch(`${API_BASE}/scan/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2445,40 +2449,39 @@
           })
         });
 
-        if (res.status === 401) {
+        const startData = await readApiResponse(res, "Scan start");
+        if (!res.ok) throw new Error(formatApiError(startData, "Scan start failed"));
+        state.runId = startData.run_id || state.runId;
+        state.sessionName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || "Test Session";
+        updateRunUI();
+
+        // The crawler continues server-side.  Poll only the lightweight
+        // persisted state; the WebSocket still supplies live telemetry.
+        let terminalState = null;
+        for (let attempt = 0; attempt < 900; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const stateRes = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`, { cache: "no-store" });
+          if (!stateRes.ok) continue;
+          const runCtx = await stateRes.json();
+          reconcile_terminal_snapshot(state, runCtx);
+          const runStatus = String(runCtx.status || "").toLowerCase();
+          if (["scanned", "partial_scanned", "paused", "failed"].includes(runStatus) && (runCtx.scan_results || ["partial_scanned", "paused", "failed"].includes(runStatus))) {
+            terminalState = runCtx;
+            break;
+          }
+        }
+        if (!terminalState) throw new Error("Scan is still running. Reopen this session to continue monitoring progress.");
+        if (terminalState.auth_status === "expired" || /authentication expired/i.test(terminalState.error_message || "")) {
           state.scanStatus = "FAILED";
           updateTerminalControls("failed", "Authentication expired. Refresh the session, then retry the crawl.");
           triggerSessionExpired();
           return;
         }
-
-        const raw = await res.text();
-        let data;
-        try {
-          data = JSON.parse(raw);
-        } catch (_) {
-          // Some local Ollama proxies return concatenated/NDJSON objects.
-          // Decode the first complete object so a valid health result is not
-          // hidden behind an "Extra data" JSON parser error.
-          const match = raw.match(/\{[\s\S]*?\}(?=\s*\{|\s*$)/);
-          if (!match) {
-            const gatewayMessage = raw.trim() || `HTTP ${res.status}`;
-            throw new Error(res.status === 502
-              ? `The local app tunnel/backend returned 502 Bad Gateway. Restart the FastAPI server and localtunnel, then retry.`
-              : `Scan service returned a non-JSON response (${res.status}): ${gatewayMessage.slice(0, 180)}`);
-          }
-          data = JSON.parse(match[0]);
-        }
-        if (!res.ok) throw new Error(formatApiError(data, "Scan failed"));
-
-        state.scanData = data;
-        state.runId = data.run_id || state.runId;
-        state.sessionName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || "Test Session";
-        updateRunUI();
+        state.scanData = terminalState.scan_results || state.scanData;
         renderAttachedScanContext();
 
         if (state.durationTimer) clearInterval(state.durationTimer);
-        const completedNormally = data.status === "success";
+        const completedNormally = terminalState.status === "scanned";
         document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full ${completedNormally ? "bg-emerald-500" : "bg-amber-500"}"></span> ${completedNormally ? "Completed" : "Partial / Stopped"}`;
         document.getElementById("live-scan-status-pill").className = completedNormally
           ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
