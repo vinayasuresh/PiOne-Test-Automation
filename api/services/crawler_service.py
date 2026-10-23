@@ -214,7 +214,11 @@ def run_scan(
             ),
         )
         if resume_run_id and not engine.checkpoint_loaded:
-            raise ValueError("The requested checkpoint is missing, unreadable, or belongs to another app path")
+            # An auth failure can happen during the preflight, before the
+            # first checkpoint is written.  After the user refreshes the
+            # session, retry from the selected landing module instead of
+            # turning a recoverable auth refresh into a permanent failure.
+            logger.info("[API] No resumable checkpoint for %s; starting a fresh authenticated crawl", resume_run_id)
 
         if interactive_mode:
             logger.info(
@@ -329,6 +333,28 @@ def run_scan(
                 completed.append(current_module_id)
 
             run_ctx.selected_modules = selected
+            # Preserve a module catalogue even when the target's navigation
+            # detector returns an empty shell.  Generate Tests and Saved Runs
+            # use this catalogue when restoring a completed crawl.
+            if not run_ctx.discovered_modules:
+                derived_modules = []
+                seen_module_ids = set()
+                for route_url, route_doc in (crawl_results.get("page_intelligence", {}) or {}).items():
+                    module_id = str((route_doc or {}).get("module_id") or f"route:{route_url}")
+                    if module_id in seen_module_ids:
+                        continue
+                    seen_module_ids.add(module_id)
+                    derived_modules.append({
+                        "id": module_id,
+                        "module_id": module_id,
+                        "label": (route_doc or {}).get("menu_name") or str(route_url).rstrip("/").rsplit("/", 1)[-1] or "Landing page",
+                        "route": str(route_url),
+                        "source": "crawl_result",
+                        "hierarchy_level": 0,
+                        "parent_module": None,
+                        "confidence": 0.8,
+                    })
+                run_ctx.discovered_modules = derived_modules
             mod_progress = calculate_module_progress({
                 "selected_modules": run_ctx.selected_modules,
                 "completed_modules": completed,
@@ -428,6 +454,46 @@ def run_scan(
                               "routes": route_count, "duration_seconds": round(duration, 2)})
         return scan_resp
 
+    except AuthenticationExpiredError as exc:
+        # Authentication expiry is recoverable.  Keep the checkpoint and the
+        # collected crawl state, mark the run as paused/auth-required, and
+        # publish a terminal event that tells the UI to refresh credentials.
+        # The next /scan request resumes this same run from its checkpoint.
+        partial = _collect_partial(engine)
+        if engine is not None:
+            _safe_export(partial, actual_run_id)
+            try:
+                engine._save_checkpoint()
+            except Exception:
+                logger.debug("Unable to save auth-expired crawler checkpoint", exc_info=True)
+        try:
+            run_ctx = get_run_context(actual_run_id)
+            if run_ctx:
+                run_ctx.status = "paused"
+                run_ctx.auth_status = "expired"
+                run_ctx.error_message = f"{type(exc).__name__}: {exc}"
+                run_ctx.scan_results = build_scan_response(
+                    partial,
+                    time.monotonic() - start_time,
+                    status="partial_success",
+                    message="Authentication expired; refresh the session and retry to continue from the checkpoint.",
+                    auth_session_id=run_ctx.auth_session_id or auth_session_id,
+                    run_id=actual_run_id,
+                ).model_dump(mode="json")
+                save_run_context(run_ctx)
+        except Exception:
+            logger.debug("Unable to persist auth-required run state", exc_info=True)
+        if scan_id:
+            publish(scan_id, {
+                "type": "scan_failed",
+                "scan_id": scan_id,
+                "run_id": actual_run_id,
+                "failure_category": "AUTHENTICATION_EXPIRED",
+                "error": str(exc),
+                "resumable": True,
+                "status": "paused",
+            })
+        raise
     except Exception as exc:
         try:
             run_ctx = get_run_context(actual_run_id)

@@ -368,6 +368,66 @@ class DBRepository:
     # -----------------------------------------------------------------------
 
     @staticmethod
+    def save_test_cases(run_id: str, test_cases: list[dict[str, Any]], name: str = "Generated Test Plan") -> dict[str, Any]:
+        """Persist the generated plan so History and Regression can reuse it.
+
+        The former API called this method but it did not exist, so plans were
+        only kept in the in-memory run context and suites displayed 0/0 cases.
+        """
+        def _op(session: Session) -> dict[str, Any]:
+            # Re-generating a plan updates the current cases instead of
+            # creating duplicate testcase IDs that make suites ambiguous.
+            plan = (
+                session.query(TestPlan)
+                .filter(TestPlan.run_id == run_id, TestPlan.is_baseline == False)
+                .order_by(desc(TestPlan.created_at))
+                .first()
+            )
+            if not plan:
+                plan = TestPlan(run_id=run_id, name=name, version="1.0", is_baseline=False)
+                session.add(plan)
+                session.flush()
+            else:
+                plan.name = name
+
+            unique_cases: dict[str, dict[str, Any]] = {}
+            for tc in test_cases or []:
+                payload = tc if isinstance(tc, dict) else {}
+                tc_key = str(payload.get("tc_id") or payload.get("id") or "").strip()
+                if tc_key and tc_key not in unique_cases:
+                    unique_cases[tc_key] = payload
+
+            existing = {
+                case.tc_id: case
+                for case in session.query(TestCaseModel).filter(TestCaseModel.plan_id == plan.id).all()
+            }
+            for tc_id, payload in unique_cases.items():
+                report_fields = {key: payload.get(key) for key in (
+                    "screen", "feature", "testcase", "steps_to_execute", "test_status",
+                    "actual_result", "severity", "bug_status", "notes_reason",
+                    "bug_sheet_current_version", "tested_version", "test_type", "source_references",
+                ) if key in payload}
+                values = dict(
+                    run_id=run_id,
+                    tc_id=tc_id,
+                    title=str(payload.get("title") or payload.get("testcase") or "Generated testcase"),
+                    module=str(payload.get("module") or payload.get("screen") or "General"),
+                    route=str(payload.get("route") or "/"), tags=payload.get("tags") or [],
+                    priority=str(payload.get("priority") or "Medium"), prerequisites=payload.get("prerequisites") or [],
+                    locators={"_report": report_fields, **(payload.get("locators") or {})},
+                    steps=payload.get("steps") or [], safety_classification=str(payload.get("safety_classification") or "safe_action"),
+                )
+                case = existing.get(tc_id)
+                if case:
+                    for key, value in values.items():
+                        setattr(case, key, value)
+                else:
+                    session.add(TestCaseModel(plan_id=plan.id, **values))
+            session.flush()
+            return {"plan_id": plan.id, "run_id": run_id, "name": name, "case_count": len(unique_cases)}
+        return execute_with_retry(_op)
+
+    @staticmethod
     def create_regression_suite(
         name: str,
         base_url: str,
@@ -394,7 +454,9 @@ class DBRepository:
             # Link test cases if provided
             if test_case_ids:
                 for tc_id in test_case_ids:
-                    case = session.query(TestCaseModel).filter(TestCaseModel.id == tc_id).first()
+                    case = session.query(TestCaseModel).filter(
+                        (TestCaseModel.id == tc_id) | (TestCaseModel.tc_id == tc_id)
+                    ).first()
                     if case:
                         session.add(RegressionSuiteCase(suite_id=suite.id, test_case_id=case.id, is_enabled=True, tags=case.tags or []))
 
@@ -421,6 +483,32 @@ class DBRepository:
                     "safety_classification": tc.safety_classification,
                     "latest_result": tc.latest_result,
                     "is_enabled": sc.is_enabled,
+                    "steps_count": len(tc.steps or []),
+                })
+
+        # Repair/read-through suites created before automatic case linking was
+        # added.  Their baseline run still identifies the intended plan, so
+        # expose those cases instead of showing a misleading 0 / 0 suite.
+        if not cases and suite.baseline_run_id:
+            seen_tc_ids: set[str] = set()
+            fallback_cases = session.query(TestCaseModel).filter(
+                TestCaseModel.run_id == suite.baseline_run_id
+            ).order_by(desc(TestCaseModel.created_at)).all()
+            for tc in fallback_cases:
+                if tc.tc_id in seen_tc_ids:
+                    continue
+                seen_tc_ids.add(tc.tc_id)
+                cases.append({
+                    "id": tc.id,
+                    "tc_id": tc.tc_id,
+                    "title": tc.title,
+                    "module": tc.module,
+                    "route": tc.route,
+                    "tags": tc.tags or [],
+                    "priority": tc.priority,
+                    "safety_classification": tc.safety_classification,
+                    "latest_result": tc.latest_result,
+                    "is_enabled": True,
                     "steps_count": len(tc.steps or []),
                 })
 
@@ -452,6 +540,14 @@ class DBRepository:
             for s in suites:
                 total_cases = session.query(func.count(RegressionSuiteCase.id)).filter(RegressionSuiteCase.suite_id == s.id).scalar() or 0
                 enabled_cases = session.query(func.count(RegressionSuiteCase.id)).filter(RegressionSuiteCase.suite_id == s.id, RegressionSuiteCase.is_enabled == True).scalar() or 0
+                if total_cases == 0 and s.baseline_run_id:
+                    # Read through legacy suites whose case links were not
+                    # created, while keeping the suite itself unchanged.
+                    case_rows = session.query(TestCaseModel.tc_id).filter(
+                        TestCaseModel.run_id == s.baseline_run_id
+                    ).all()
+                    unique_ids = {row[0] for row in case_rows if row[0]}
+                    total_cases = enabled_cases = len(unique_ids)
                 results.append({
                     "suite_id": s.id,
                     "name": s.name,

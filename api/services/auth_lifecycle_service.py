@@ -58,20 +58,19 @@ def check_auth_session_validity(
     try:
         data = json.loads(session_file.read_text(encoding="utf-8"))
         cookies = data.get("cookies", [])
-        if not cookies:
-            return False, "Authentication expired: No active session cookies found."
         now = time.time()
-        valid_cookies = [c for c in cookies if c.get("expires", -1) == -1 or c.get("expires", 0) > now]
-        if not valid_cookies:
-            return False, "Authentication expired: All session cookies have expired."
-        # Modern SPAs commonly keep the access token in origin localStorage
-        # rather than a target-domain cookie.  A refreshed session can
-        # therefore have a valid JWT and only a refresh-token cookie.  Trust
-        # the token's unexpired timestamp for the preflight check; the actual
-        # crawl still verifies the authenticated page before scanning.
+        # SPAs such as CAT commonly keep the access token in localStorage and
+        # have no durable auth cookie at all.  Check that token before
+        # rejecting a cookie-less storage state; otherwise every deep crawl
+        # is incorrectly reported as expired immediately after discovery.
         token_reason = _unexpired_access_token_reason(data, now)
         if token_reason:
             return True, token_reason
+        if not cookies:
+            return False, "Authentication expired: No active session cookies or access token found."
+        valid_cookies = [c for c in cookies if c.get("expires", -1) == -1 or c.get("expires", 0) > now]
+        if not valid_cookies:
+            return False, "Authentication expired: All session cookies and access tokens have expired."
     except Exception as exc:
         return False, f"Invalid storage state file: {exc}"
 

@@ -62,11 +62,13 @@ def create_run_context(
     username: str | None = None,
     auth_session_id: str | None = None,
     url: str | None = None,
+    display_name: str | None = None,
 ) -> RunContext:
     origin = target_origin or url or ""
     rid = validate_run_id_safe(run_id) if run_id else generate_run_id()
     ctx = RunContext(
         run_id=rid,
+        display_name=(display_name or "").strip()[:120] or None,
         scan_id=rid,
         target_origin=origin,
         allowed_path_namespace=allowed_path_namespace,
@@ -150,6 +152,7 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
                     )
                     row = {
                         **row,
+                        "display_name": ctx.display_name or row.get("display_name") or run_id,
                         "status": ctx.status,
                         "selected_modules": list(ctx.selected_modules),
                         "completed_modules": list(ctx.completed_modules),

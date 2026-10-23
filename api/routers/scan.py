@@ -484,6 +484,7 @@ async def scan(request: ScanRequest) -> ScanResponse:
                     allowed_path_namespace="/",
                     run_id=mock_run_id,
                     auth_session_id=request.auth_session_id or f"mock_auth_{uuid4().hex[:8]}",
+                    display_name=request.session_name,
                 )
             run_ctx.scan_results = mock_resp.model_dump()
             run_ctx.selected_modules = request.selected_module_ids or ["mod_inventory", "mod_cart", "mod_checkout"]
@@ -530,6 +531,7 @@ async def scan(request: ScanRequest) -> ScanResponse:
             run_id=effective_run_id,
             auth_session_id=effective_auth_session_id,
             username=request.username,
+            display_name=request.session_name,
         )
         run_ctx.scan_id = scan_id
         if effective_auth_session_id:
@@ -665,17 +667,34 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
                     target_label=s.get("target_label", ""),
                     selector=s.get("selector") or {},
                     expected_result=s.get("expected_result", ""),
+                    value=s.get("value", ""),
+                    element_identity=s.get("element_identity", ""),
+                    safety_classification=s.get("safety_classification", ""),
                 )
                 for s in rc.get("steps", [])
             ]
+            ordinal = len(test_cases) + 1
+            proposed_id = str(rc.get("tc_id") or "").strip() or f"TC_{ordinal:03d}"
+            used_ids = {case.tc_id for case in test_cases}
+            if proposed_id in used_ids:
+                proposed_id = f"TC_{ordinal:03d}"
             test_cases.append(TestCase(
-                tc_id=rc.get("tc_id", ""),
+                tc_id=proposed_id,
                 title=rc.get("title", ""),
                 module=rc.get("module", ""),
                 route=rc.get("route", ""),
                 purpose=rc.get("purpose", ""),
                 requirement_references=rc.get("requirement_references", []),
                 steps=steps,
+                screen=rc.get("screen") or rc.get("module", ""),
+                feature=rc.get("feature") or rc.get("module", ""),
+                testcase=rc.get("testcase") or rc.get("title", ""),
+                steps_to_execute=rc.get("steps_to_execute", ""),
+                severity=rc.get("severity", "Medium"),
+                test_type=rc.get("test_type", "positive"),
+                source_references=rc.get("source_references", []),
+                notes_reason=rc.get("notes_reason", ""),
+                tested_version=rc.get("tested_version", ""),
             ))
         except Exception:
             continue
@@ -688,9 +707,21 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         scan=request.scan,
         description=combined_prompt,
         feature_focus=request.feature_focus or "",
+        test_cases=test_cases,
     )
 
     metadata = plan_result.get("planning_metadata", {})
+    metadata["scan_context_attached"] = True
+    metadata["scan_routes"] = len(request.scan.routes)
+    metadata["scan_targets"] = sum(len(r.automation_targets or []) for r in request.scan.routes)
+    metadata["uploaded_sources"] = context.get("source_files", [])
+    metadata["normalized_requirements"] = len(requirements_list)
+    metadata["normalized_testcases"] = len(testcases_list)
+    metadata["testcase_template"] = [
+        "Testcase Id", "Screen", "Feature", "Testcase", "Steps to Execute",
+        "Expected Result", "Test Status", "Actual Result", "Severity", "BUG Status",
+        "Notes / Reason", "Bug sheet Current Version", "Tested Version",
+    ]
     run_id = request.run_id or request.scan.run_id
     if run_id:
         try:
@@ -802,6 +833,29 @@ async def execute_test(request: ExecuteTestRequest) -> ExecuteTestResponse:
             effective_session_id,
             run_id,
         )
+        # Persist the ordinary execution exactly like selective/regression
+        # execution.  Without this, the first run only existed in browser
+        # memory and disappeared from Saved Runs, suites, and report reloads.
+        if run_id:
+            try:
+                from api.db.repository import DBRepository
+                exec_id = artifacts.get("execution_id", uuid4().hex)
+                DBRepository.record_execution(
+                    execution_id=exec_id,
+                    run_id=run_id,
+                    status="completed",
+                    rows=[r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows],
+                    summary=summary.model_dump(),
+                )
+                run_ctx = get_run_context(run_id)
+                if run_ctx:
+                    run_ctx.execution_results = [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows]
+                    run_ctx.execution_summary = summary.model_dump()
+                    run_ctx.artifact_paths.update(artifacts)
+                    run_ctx.status = "executed"
+                    save_run_context(run_ctx)
+            except Exception as persist_exc:
+                logger.warning("[API] Execution completed but persistence failed for %s: %s", run_id, persist_exc)
         return ExecuteTestResponse(run_id=run_id, rows=rows, summary=summary, artifacts=artifacts)
     except AuthenticationExpiredError as exc:
         logger.warning(f"[API] Execution blocked by expired auth: {exc}")
@@ -840,6 +894,15 @@ async def regression_run(request: RegressionRunRequest) -> RegressionRunResponse
 
     effective_session_id = run_ctx.auth_session_id if run_ctx else None
 
+    # Snapshot the prior execution before execute_test_cases updates the run
+    # context. Otherwise the replay compares the new result to itself and
+    # always reports zero baseline changes.
+    previous_results: dict[str, str] = {}
+    if run_ctx and run_ctx.execution_results:
+        for r in run_ctx.execution_results:
+            key = f"{r.get('TC_ID')}_{r.get('Step_ID')}"
+            previous_results[key] = r.get("Status", "")
+
     try:
         rows, summary, artifacts = await asyncio.to_thread(
             execute_test_cases,
@@ -858,13 +921,27 @@ async def regression_run(request: RegressionRunRequest) -> RegressionRunResponse
 
     artifacts["regression_of"] = execution_id
 
-    # Compute regression diff
-    previous_results: dict[str, str] = {}
-    if run_ctx and run_ctx.execution_results:
-        for r in run_ctx.execution_results:
-            key = f"{r.get('TC_ID')}_{r.get('Step_ID')}"
-            previous_results[key] = r.get("Status", "")
+    if run_id:
+        try:
+            from api.db.repository import DBRepository
+            replay_id = artifacts.get("execution_id", uuid4().hex)
+            DBRepository.record_execution(
+                execution_id=replay_id,
+                run_id=run_id,
+                status="completed",
+                rows=[r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows],
+                summary=summary.model_dump(),
+            )
+            if run_ctx:
+                run_ctx.execution_results = [r.model_dump() if hasattr(r, "model_dump") else dict(r) for r in rows]
+                run_ctx.execution_summary = summary.model_dump()
+                run_ctx.artifact_paths.update(artifacts)
+                run_ctx.status = "executed"
+                save_run_context(run_ctx)
+        except Exception as persist_exc:
+            logger.warning("[API] Regression completed but persistence failed for %s: %s", run_id, persist_exc)
 
+    # Compute regression diff
     current_results: dict[str, str] = {}
     for r in rows:
         key = f"{r.TC_ID}_{r.Step_ID}"
@@ -916,6 +993,7 @@ def _build_pytest_script(
     scan: ScanResponse,
     description: str,
     feature_focus: str,
+    test_cases: list[TestCase] | None = None,
 ) -> str:
     lines = [
         '"""Generated from UI scan intelligence."""',
@@ -923,7 +1001,7 @@ def _build_pytest_script(
         "from urllib.parse import urljoin",
         "",
         "",
-        "def test_discovered_routes_have_automation_targets(page):",
+        "def test_generated_grounded_regression_cases(page):",
         f"    base_url = {base_url!r}",
     ]
     if description:
@@ -958,17 +1036,45 @@ def _build_pytest_script(
             + ","
         )
 
-    lines.extend(
-        [
-            "    ]",
-            "",
-            "    assert discovered_routes, 'No routes were discovered during scan'",
+    lines.extend(["    ]", "", "    assert discovered_routes, 'No routes were discovered during scan'"])
+    cases = test_cases or []
+    if cases:
+        for case in cases:
+            lines.append(f"\n    # {case.tc_id}: {case.testcase or case.title} [{case.test_type}]")
+            for step in case.steps:
+                route = step.route or case.route
+                selector = (step.selector or {}).get("value", "")
+                strategy = (step.selector or {}).get("strategy", "")
+                locator_expr = f"page.locator({selector!r})"
+                if strategy == "role" or selector.startswith("role="):
+                    role_match = re.match(r"role=([^\[]+)(?:\[name=(.*)\])?", selector)
+                    if role_match:
+                        role_name = role_match.group(1).strip()
+                        name = (role_match.group(2) or "").strip("\\\"'")
+                        locator_expr = f"page.get_by_role({role_name!r}, name={name!r})" if name else f"page.get_by_role({role_name!r})"
+                elif strategy == "text":
+                    locator_expr = f"page.get_by_text({selector!r})"
+                elif selector.startswith("xpath="):
+                    locator_expr = f"page.locator({selector!r})"
+                if step.action == "navigate":
+                    lines.append(f"    page.goto(urljoin(base_url.rstrip('/') + '/', {route!r}.lstrip('/'))) ")
+                elif step.action == "assert_url":
+                    lines.append(f"    assert {route!r} in page.url")
+                elif step.action == "assert_visible" and selector:
+                    lines.append(f"    assert {locator_expr}.first.is_visible()")
+                elif step.action == "click" and selector:
+                    lines.append(f"    {locator_expr}.first.click()")
+                elif step.action == "type" and selector:
+                    lines.append(f"    {locator_expr}.first.fill({(step.value or 'test')!r})")
+                elif step.action == "select" and selector:
+                    lines.append(f"    {locator_expr}.first.select_option({(step.value or 'lohi')!r})")
+    else:
+        lines.extend([
             "    for route in discovered_routes:",
             "        page.goto(urljoin(base_url.rstrip('/') + '/', route['path'].lstrip('/')))",
             "        assert page.url",
             "        assert route['targets'] > 0, f\"No automation targets found for {route['path']}\"",
-        ]
-    )
+        ])
     return "\n".join(lines) + "\n"
 
 
@@ -1176,6 +1282,8 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
     yaml_path = REPORT_PATH / f"{base_stem}.yaml"
     md_path = REPORT_PATH / f"{base_stem}_summary.md"
     excel_path = REPORT_PATH / f"{base_stem}.xlsx"
+    if not excel_path.is_file() and (REPORT_PATH / run_id / "execution_results.xlsx").is_file():
+        excel_path = REPORT_PATH / run_id / "execution_results.xlsx"
     chk_path = REPORT_PATH / f"checkpoint_{run_id}.json"
 
     exec_dir = REPORT_PATH / run_id
@@ -1229,6 +1337,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         raise HTTPException(status_code=403, detail="Access denied: Forbidden artifact access")
 
     run_ctx = get_run_context(run_id)
+    display_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", (run_ctx.display_name if run_ctx else "") or run_id).strip("._-")[:80] or run_id
     is_in_progress = bool(run_ctx and run_ctx.status in {"running", "paused", "executing"})
     base_stem = f"{run_id}_crawl_results"
 
@@ -1248,29 +1357,34 @@ async def download_artifact(run_id: str, artifact_type: str):
 
     if artifact_type == "json":
         target_file = REPORT_PATH / f"{base_stem}.json"
-        filename = f"{base_stem}.json"
+        filename = f"{display_stem}_crawl_results.json"
     elif artifact_type == "yaml":
         target_file = REPORT_PATH / f"{base_stem}.yaml"
-        filename = f"{base_stem}.yaml"
+        filename = f"{display_stem}_crawl_results.yaml"
     elif artifact_type == "markdown":
         target_file = REPORT_PATH / f"{base_stem}_summary.md"
-        filename = f"{base_stem}_summary.md"
+        filename = f"{display_stem}_crawl_results_summary.md"
     elif artifact_type == "excel":
         target_file = REPORT_PATH / f"{base_stem}.xlsx"
-        filename = f"{base_stem}.xlsx"
+        filename = f"{display_stem}_crawl_results.xlsx"
+        if not target_file.is_file():
+            execution_excel = REPORT_PATH / run_id / "execution_results.xlsx"
+            if execution_excel.is_file():
+                target_file = execution_excel
+                filename = f"{display_stem}_execution_results.xlsx"
     elif artifact_type == "checkpoint":
         target_file = REPORT_PATH / f"checkpoint_{run_id}.json"
-        filename = f"checkpoint_{run_id}.json"
+        filename = f"{display_stem}_checkpoint.json"
     elif artifact_type == "execution_results":
         exec_dir = REPORT_PATH / run_id
         if exec_dir.exists() and (exec_dir / "execution_results.json").is_file():
             target_file = exec_dir / "execution_results.json"
-            filename = f"{run_id}_execution_results.json"
+            filename = f"{display_stem}_execution_results.json"
         elif run_ctx and run_ctx.artifact_paths and "json" in run_ctx.artifact_paths:
             candidate = Path(run_ctx.artifact_paths["json"])
             if candidate.is_file():
                 target_file = candidate
-                filename = f"{run_id}_execution_results.json"
+                filename = f"{display_stem}_execution_results.json"
         if not target_file and run_ctx and run_ctx.execution_results:
             safe_results = redact_sensitive_data(run_ctx.execution_results)
             safe_summary = redact_sensitive_data(run_ctx.execution_summary or {})
@@ -1278,7 +1392,7 @@ async def download_artifact(run_id: str, artifact_type: str):
             return Response(
                 content=content,
                 media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="{run_id}_execution_results.json"'},
+                headers={"Content-Disposition": f'attachment; filename="{display_stem}_execution_results.json"'},
             )
     elif artifact_type == "screenshots":
         exec_dir = REPORT_PATH / run_id
@@ -1317,11 +1431,11 @@ async def download_artifact(run_id: str, artifact_type: str):
         return Response(
             content=buf.getvalue(),
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{run_id}_screenshots.zip"'},
+            headers={"Content-Disposition": f'attachment; filename="{display_stem}_screenshots.zip"'},
         )
     elif artifact_type == "log":
         target_file = LOG_PATH / f"{run_id}.log"
-        filename = f"{run_id}_failure.log"
+        filename = f"{display_stem}_failure.log"
 
     if target_file and target_file.is_file():
         resolved = target_file.resolve()
@@ -1440,6 +1554,7 @@ async def get_run_endpoint(run_id: str) -> dict[str, Any]:
         route_count = len(graph_nodes) if isinstance(graph_nodes, list) else len(graph)
         return {
             "run_id": run_ctx.run_id,
+            "display_name": run_ctx.display_name or run_ctx.run_id,
             "application_url": run_ctx.target_origin,
             "allowed_scope": run_ctx.allowed_path_namespace,
             "status": run_ctx.status,
@@ -1611,13 +1726,29 @@ async def delete_run_endpoint(run_id: str) -> dict[str, Any]:
 
 @router.post("/regression/suites", summary="Create a named regression suite")
 async def create_regression_suite_endpoint(request: CreateRegressionSuiteRequest) -> dict[str, Any]:
+    case_ids = list(request.test_case_ids or [])
+    if request.baseline_run_id and not case_ids:
+        # A baseline run is the user's selection of test cases. Populate the
+        # suite automatically instead of creating an empty 0/0 suite.
+        from api.db.models import TestCaseModel
+        from api.db.session import get_db_session
+        with get_db_session() as session:
+            # A run may have older generated-plan rows from before the plan
+            # was made idempotent. Select one current case per stable tc_id.
+            seen_ids: set[str] = set()
+            for case in session.query(TestCaseModel).filter(
+                TestCaseModel.run_id == request.baseline_run_id
+            ).order_by(TestCaseModel.created_at.desc()).all():
+                if case.tc_id not in seen_ids:
+                    case_ids.append(case.id)
+                    seen_ids.add(case.tc_id)
     return DBRepository.create_regression_suite(
         name=request.name,
         base_url=request.base_url,
         environment=request.environment,
         description=request.description,
         baseline_run_id=request.baseline_run_id,
-        test_case_ids=request.test_case_ids,
+        test_case_ids=case_ids,
         filter_tags=request.filter_tags,
         filter_modules=request.filter_modules,
     )
@@ -1774,11 +1905,6 @@ async def execute_selected_regression(request: ExecuteSelectedRegressionRequest)
         candidate_cases = [
             tc if isinstance(tc, TestCase) else TestCase(**tc)
             for tc in run_ctx.generated_test_plan
-        ]
-    elif run_ctx and run_ctx.raw_test_plan:
-        candidate_cases = [
-            tc if isinstance(tc, TestCase) else TestCase(**tc)
-            for tc in run_ctx.raw_test_plan
         ]
     else:
         from api.db.models import TestCaseModel

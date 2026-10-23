@@ -28,7 +28,7 @@ from uuid import uuid4
 from automation_framework.utils.logger import logger
 
 
-PROMPT_VERSION = "2.0-enterprise"
+PROMPT_VERSION = "3.0-grounded-regression-template"
 MAX_RESPONSE_BYTES = 512 * 1024  # 512 KB
 DEFAULT_TIMEOUT_SECONDS = 30
 
@@ -209,7 +209,7 @@ def _extract_json_payload(raw_text: str) -> dict[str, Any]:
         text = "\n".join(lines).strip()
 
     try:
-        data = json.loads(text)
+        data = _decode_json_documents(text)
         if isinstance(data, dict):
             return data
         raise ValueError("JSON root is not an object")
@@ -223,6 +223,43 @@ def _extract_json_payload(raw_text: str) -> dict[str, Any]:
             except Exception:
                 pass
         raise ProviderInvalidJsonError(f"Could not parse valid JSON from model response: {exc}") from exc
+
+
+def _decode_json_documents(raw_text: str) -> Any:
+    """Decode one JSON document or newline/concatenated JSON documents.
+
+    Ollama normally returns one object when ``stream`` is false, but local
+    proxies and older Ollama builds can still emit NDJSON. Merge common
+    response fields instead of surfacing ``Extra data`` to the UI.
+    """
+    text = (raw_text or "").strip()
+    if not text:
+        raise ValueError("Empty JSON response")
+    decoder = json.JSONDecoder()
+    documents: list[Any] = []
+    offset = 0
+    while offset < len(text):
+        while offset < len(text) and text[offset].isspace():
+            offset += 1
+        if offset >= len(text):
+            break
+        value, end = decoder.raw_decode(text, offset)
+        documents.append(value)
+        offset = end
+    if len(documents) == 1:
+        return documents[0]
+    if not all(isinstance(item, dict) for item in documents):
+        return documents[-1]
+    merged = dict(documents[0])
+    for item in documents[1:]:
+        for key, value in item.items():
+            if key == "models" and isinstance(merged.get(key), list) and isinstance(value, list):
+                merged[key] = merged[key] + value
+            elif key == "response" and isinstance(merged.get(key), str) and isinstance(value, str):
+                merged[key] += value
+            else:
+                merged[key] = value
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +474,11 @@ def _build_planning_prompt(
                 {
                     "label": t.get("label"),
                     "type": t.get("type"),
+                    "role": t.get("element_role"),
+                    "category": t.get("category"),
+                    "action_type": t.get("action_type"),
+                    "element_identity": t.get("element_identity") or t.get("id"),
+                    "xpath": t.get("element_xpath") or t.get("xpath"),
                     "selector": t.get("selector"),
                 }
                 for t in r.get("automation_targets", [])[:10]
@@ -447,14 +489,16 @@ def _build_planning_prompt(
 
     safe_user_prompt = redact_secrets_text(user_prompt)
 
-    return f"""You are an enterprise UI Automation Intelligence test planner.
+    return f"""You are a senior business analyst and Playwright test engineer. Build a regression-ready test catalogue from the supplied scan evidence and user artifacts.
 You MUST output strictly valid JSON with no markdown formatting.
 Rules:
 1. ONLY reference routes and selectors that exist in the provided SCANNED_UI.
 2. Never invent non-existent locators or URLs.
-3. Every test step must have step_id, action (navigate | assert_visible), route, target_label, selector, expected_result.
-4. Only safe actions (navigate, assert_visible) are allowed. Never click, submit, delete, or mutate controls.
-5. If a requirement cannot be fulfilled by discovered UI, report it in "coverage_gaps".
+3. Use discovered labels, roles, stable selectors, xpaths and routes as the automation contract. A selector must be copied exactly from SCANNED_UI.
+4. Produce distinct positive, negative-safe, boundary/edge, usability and regression cases when the evidence supports them. Do not create a generic route-smoke case as the only result.
+5. Safe navigation, visibility assertions, clicks on non-destructive controls, sorting, filtering, typing harmless canary values, cart-count assertions and details navigation are allowed. Never submit payment, delete data, logout, brute-force, or invent credentials.
+6. Each testcase ID must be unique in this response. Preserve an uploaded testcase ID only when it is unique; otherwise create a new ID.
+7. If a requirement or requested flow cannot be fulfilled by discovered UI, report it in coverage_gaps instead of hallucinating a control.
 
 SCANNED_UI:
 {json.dumps(compact_routes, ensure_ascii=False)}
@@ -477,13 +521,23 @@ OUTPUT_SCHEMA:
       "module": "string",
       "route": "string",
       "purpose": "string",
+      "screen": "string",
+      "feature": "string",
+      "testcase": "string",
+      "test_type": "positive | negative | edge | regression",
+      "severity": "Critical | High | Medium | Low",
+      "steps_to_execute": "numbered human-readable steps",
+      "expected_result": "string",
+      "source_references": ["file or requirement id"],
       "requirement_references": ["REQ_001"],
       "steps": [
         {{
           "step_id": "TC_001_S01",
-          "action": "navigate",
+          "action": "navigate | assert_visible | click | select | type | assert_url | assert_cart_count",
           "route": "string",
-          "expected_result": "string"
+          "expected_result": "string",
+          "value": "",
+          "element_identity": ""
         }},
         {{
           "step_id": "TC_001_S02",
@@ -770,6 +824,13 @@ class DeterministicAdapter(BaseLLMAdapter):
                 "module": module,
                 "route": route_path,
                 "purpose": route_data.get("purpose", ""),
+                "screen": module,
+                "feature": route_data.get("purpose", "") or module,
+                "testcase": f"Verify discovered controls and safe interactions on {module}",
+                "test_type": "positive",
+                "severity": "Medium",
+                "steps_to_execute": "\n".join(f"{n}. {step.get('action')} {step.get('target_label') or step.get('route', '')}" for n, step in enumerate(steps, 1)),
+                "source_references": [f"scan:{route_path}"],
                 "requirement_references": refs,
                 "steps": steps,
             })
@@ -777,6 +838,24 @@ class DeterministicAdapter(BaseLLMAdapter):
         notes = [f"Deterministic planner generated {len(cases)} test cases across {len(routes_raw)} routes."]
         if user_prompt:
             notes.append(f"Prompt evaluated: {user_prompt[:80]}")
+
+        # When the user asks for broad coverage, add grounded variants rather
+        # than pretending one route smoke test represents a complete suite.
+        coverage_words = user_prompt.lower()
+        if cases and any(word in coverage_words for word in ("negative", "edge", "boundary", "positive")):
+            variants = []
+            for base in cases:
+                for suffix, kind, severity in (("NEG", "negative", "Medium"), ("EDGE", "edge", "Low")):
+                    clone = dict(base)
+                    clone["tc_id"] = f"{base['tc_id']}_{suffix}"
+                    clone["title"] = f"{base['title']} - {kind.title()} coverage"
+                    clone["testcase"] = f"{base.get('testcase', base['title'])} ({kind} case)"
+                    clone["test_type"] = kind
+                    clone["severity"] = severity
+                    clone["source_references"] = list(base.get("source_references", [])) + [f"planner:{kind}"]
+                    variants.append(clone)
+            cases.extend(variants)
+            notes.append(f"Added {len(variants)} grounded positive/negative/edge variants from the scenario request.")
 
         return {
             "provider": "deterministic",
@@ -838,7 +917,7 @@ class OllamaAdapter(BaseLLMAdapter):
         try:
             req = Request(f"{self.base_url}/api/tags", method="GET")
             with urlopen(req, timeout=5) as res:
-                data = json.loads(res.read().decode("utf-8"))
+                data = _decode_json_documents(res.read().decode("utf-8"))
                 models = [m.get("name") for m in data.get("models", [])]
                 health = {
                     "ok": True,
@@ -928,7 +1007,7 @@ class OllamaAdapter(BaseLLMAdapter):
         req = Request(f"{self.base_url}/api/generate", data=json.dumps(body).encode("utf-8"),
                       headers={"Content-Type": "application/json"}, method="POST")
         with urlopen(req, timeout=self.timeout) as res:
-            return json.loads(res.read().decode("utf-8")).get("response", "")
+            return _decode_json_documents(res.read().decode("utf-8")).get("response", "")
 
     def identify_coverage_gaps(
         self,

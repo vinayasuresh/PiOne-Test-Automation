@@ -12,7 +12,7 @@ from automation_framework.config.settings import PROJECT_ROOT
 
 _CONTEXT_DIR = PROJECT_ROOT / "scans" / "test_context"
 _MAX_TEXT_CHARS = 500_000
-_ALLOWED_SUFFIXES = {".txt", ".md", ".json", ".yaml", ".yml", ".csv"}
+_ALLOWED_SUFFIXES = {".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".xlsx", ".xls"}
 
 
 def _clean_text(value: str | None, field: str) -> str:
@@ -78,14 +78,35 @@ def context_summary(payload: dict) -> dict:
         "testcase_characters": len(payload.get("testcases", "")),
         "user_prompt_characters": len(payload.get("user_prompt", "")),
         "source_files": list(payload.get("source_files", [])),
+        "normalized_items": sum(1 for value in (payload.get("requirements", ""), payload.get("testcases", "")) if value.strip()),
     }
 
 
 def decode_upload(content: bytes, filename: str | None) -> tuple[str, str]:
-    """Decode a supported text upload; binaries are intentionally rejected."""
+    """Decode a supported text or spreadsheet upload into bounded text.
+
+    Spreadsheet rows are converted to TSV so the same normalizer and LLM
+    grounding path is used for Excel, Markdown, CSV, YAML and JSON inputs.
+    """
     safe_name = _safe_filename(filename)
     if len(content) > _MAX_TEXT_CHARS * 4:
         raise ValueError("Uploaded context file is too large")
+    suffix = Path(safe_name).suffix.lower()
+    if suffix in {".xlsx", ".xls"}:
+        try:
+            import io
+            import openpyxl
+            workbook = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+            sections: list[str] = []
+            for worksheet in workbook.worksheets:
+                sections.append(f"[SHEET: {worksheet.title}]")
+                for row in worksheet.iter_rows(values_only=True):
+                    values = ["" if value is None else str(value).strip() for value in row]
+                    if any(values):
+                        sections.append("\t".join(values))
+            return "\n".join(sections)[:_MAX_TEXT_CHARS], safe_name
+        except Exception as exc:
+            raise ValueError("Excel context file could not be read") from exc
     try:
         return content.decode("utf-8-sig"), safe_name
     except UnicodeDecodeError as exc:

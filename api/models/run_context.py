@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 class RunContext(BaseModel):
     run_id: str
+    display_name: Optional[str] = None
     scan_id: Optional[str] = None
     target_origin: str
     allowed_path_namespace: str = "/"

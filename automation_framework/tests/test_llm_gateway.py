@@ -52,6 +52,7 @@ from api.services.llm_provider_gateway import (
     HostedAdapter,
     LLMProviderGateway,
     OllamaAdapter,
+    _decode_json_documents,
     redact_secrets_text,
     sanitize_context,
     validate_plan_grounding,
@@ -362,6 +363,20 @@ def test_ollama_success_mocked_http(sample_scan_context):
     assert result["warnings"] == []
     assert len(result["test_cases"]) == 1
     assert result["test_cases"][0]["steps"][1]["target_label"] == "Submit"
+
+
+def test_ollama_connection_accepts_concatenated_json_documents():
+    """Local Ollama/proxy NDJSON must not surface JSON Extra-data errors."""
+    payload = '{"models":[{"name":"llama3.1:8b"}]}\n{"models":[{"name":"llama3.2"}]}'
+    with patch(
+        "api.services.llm_provider_gateway.urlopen",
+        return_value=MockHTTPResponse(payload),
+    ):
+        result = OllamaAdapter(model="llama3.1:8b").health_check()
+
+    assert result["ok"] is True
+    assert result["models"] == ["llama3.1:8b", "llama3.2"]
+    assert _decode_json_documents('{"ok":true}{"detail":"ignored"}') == {"ok": True, "detail": "ignored"}
 
 
 # ---------------------------------------------------------------------------

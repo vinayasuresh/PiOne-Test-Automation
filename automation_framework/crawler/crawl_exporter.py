@@ -104,6 +104,7 @@ def _normalize_route(route_doc: dict[str, Any]) -> dict[str, Any]:
 
 def _flatten_elements(page_intelligence: dict[str, Any]) -> list[dict[str, Any]]:
     elements: list[dict[str, Any]] = []
+    seen_keys: set[str] = set()
     for route_url, route_doc in page_intelligence.items():
         menu_name = route_doc.get("menu_name", "")
         for target in route_doc.get("automation_targets", []):
@@ -115,6 +116,19 @@ def _flatten_elements(page_intelligence: dict[str, Any]) -> list[dict[str, Any]]
             label = target.get("label") or target.get("text", "")
             role = target.get("element_role") or target.get("role") or target.get("type", "")
             xpath = target.get("element_xpath") or target.get("xpath", "")
+            # DOM indexes and telemetry sequence numbers are unstable. Use the
+            # route, stable selector, role, label, and interaction type as the
+            # export identity so repeated probes cannot create duplicate targets.
+            stable_key = "|".join((
+                str(route_url).strip().lower(),
+                str(xpath).strip(),
+                str(role).strip().lower(),
+                " ".join(str(label).split()).strip().lower(),
+                str(target.get("interaction_type") or target.get("action_type") or "").strip().lower(),
+            ))
+            if stable_key in seen_keys:
+                continue
+            seen_keys.add(stable_key)
             category = target.get("category", "")
             hierarchy_path = target.get("hierarchy_path") or (f"{menu_name} > {category}" if menu_name and category else (menu_name or category or "default"))
             module_id = target.get("module_id") or f"route:{route_url}"
@@ -197,6 +211,19 @@ def _export_excel(crawl_results: dict[str, Any], elements: list[dict[str, Any]],
             if isinstance(tc, dict):
                 test_case_rows.append({
                     "tc_id": tc.get("tc_id", ""),
+                    "Testcase Id": tc.get("tc_id", ""),
+                    "Screen": tc.get("screen") or tc.get("module", ""),
+                    "Feature": tc.get("feature") or tc.get("module", ""),
+                    "Testcase": tc.get("testcase") or tc.get("title", ""),
+                    "Steps to Execute": tc.get("steps_to_execute") or "\n".join(str(s.get("action", "")) for s in tc.get("steps", []) if isinstance(s, dict)),
+                    "Expected Result": "\n".join(str(s.get("expected_result", "")) for s in tc.get("steps", []) if isinstance(s, dict)),
+                    "Test Status": tc.get("test_status") or tc.get("latest_result", "Not Executed"),
+                    "Actual Result": tc.get("actual_result", ""),
+                    "Severity": tc.get("severity", "Medium"),
+                    "BUG Status": tc.get("bug_status", "Not Raised"),
+                    "Notes / Reason": tc.get("notes_reason", ""),
+                    "Bug sheet Current Version": tc.get("bug_sheet_current_version", "1"),
+                    "Tested Version": tc.get("tested_version", ""),
                     "title": tc.get("title", ""),
                     "module": tc.get("module", ""),
                     "route": tc.get("route", ""),

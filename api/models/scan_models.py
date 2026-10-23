@@ -16,6 +16,7 @@ from api.utils.security_guard import validate_target_url
 
 class ScanRequest(BaseModel):
     url: str
+    session_name: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
     mock: bool = False
@@ -240,6 +241,7 @@ class GenerateTestRequest(BaseModel):
     model: Optional[str] = None
     user_prompt: Optional[str] = None
     run_id: Optional[str] = None
+    session_name: Optional[str] = None
 
     @field_validator("base_url")
     @classmethod
@@ -263,6 +265,7 @@ class TestContextResponse(BaseModel):
     testcase_characters: int = 0
     user_prompt_characters: int = 0
     source_files: list[str] = []
+    normalized_items: int = 0
 
 
 class LLMProviderInfo(BaseModel):
@@ -320,6 +323,20 @@ class TestCase(BaseModel):
     latest_result: str = "Untested"
     last_execution_time: Optional[str] = None
     baseline_version: str = "1.0"
+    # Report-friendly fields.  The legacy fields above remain the execution contract.
+    screen: str = ""
+    feature: str = ""
+    testcase: str = ""
+    steps_to_execute: str = ""
+    test_status: str = "Not Executed"
+    actual_result: str = ""
+    severity: str = "Medium"
+    bug_status: str = "Not Raised"
+    notes_reason: str = ""
+    bug_sheet_current_version: str = "1"
+    tested_version: str = ""
+    test_type: str = "positive"
+    source_references: list[str] = []
 
 
 class ExecuteTestRequest(BaseModel):

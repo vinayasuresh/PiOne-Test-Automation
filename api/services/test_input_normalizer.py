@@ -73,6 +73,33 @@ class TestInputNormalizer:
     def normalize_text(content: str, source_name: str = "upload.txt") -> list[NormalizedInputItem]:
         items: list[NormalizedInputItem] = []
         lines = content.splitlines()
+
+        # Excel/CSV uploads are decoded to TSV. Preserve the user's testcase
+        # columns instead of treating every cell as an unrelated paragraph.
+        for header_index, raw_header in enumerate(lines[:20]):
+            delimiter = "\t" if "\t" in raw_header else ("," if "," in raw_header else "")
+            if not delimiter:
+                continue
+            headers = [h.strip().casefold() for h in raw_header.split(delimiter)]
+            if not any("testcase id" in h or h in {"tc id", "tc_id"} for h in headers):
+                continue
+            for row_index, raw_row in enumerate(lines[header_index + 1:], start=1):
+                values = raw_row.split(delimiter)
+                if not any(v.strip() for v in values):
+                    continue
+                record = {headers[i]: values[i].strip() for i in range(min(len(headers), len(values)))}
+                item_id = record.get("testcase id") or record.get("tc id") or record.get("tc_id") or f"TC_{row_index:03d}"
+                title = record.get("testcase") or record.get("title") or record.get("feature") or item_id
+                desc = " | ".join(v for v in (
+                    record.get("screen", ""), record.get("feature", ""), record.get("testcase", ""),
+                    record.get("steps to execute", ""), record.get("expected result", ""),
+                ) if v)
+                items.append(NormalizedInputItem(
+                    item_id=item_id, title=title, description=desc or title,
+                    item_type="testcase", source_reference=source_name,
+                    source_line=header_index + row_index + 1, uncertainty=False,
+                ))
+            return items
         
         current_id = ""
         current_title = ""

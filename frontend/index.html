@@ -68,8 +68,8 @@
             <span id="nav-db-text">DB: Checking...</span>
           </span>
 
-          <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded font-mono text-[11px]">
-            Run: <span id="nav-run-id" class="text-blue-400 font-bold">--</span>
+          <span id="nav-run-badge" class="hidden bg-slate-800 border border-slate-700 text-slate-300 px-2.5 py-1 rounded text-[11px]" title="Internal run ID is kept for backend ownership">
+            Session: <span id="nav-run-id" class="text-blue-400 font-bold">--</span>
           </span>
           <span id="nav-session-badge" class="hidden bg-emerald-950 text-emerald-300 border border-emerald-800/60 px-2 py-1 rounded font-semibold flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Auth Active
@@ -93,9 +93,9 @@
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5">
       <div class="flex items-center gap-2.5 flex-wrap">
         <span class="flex items-center gap-1.5 font-bold text-slate-300">
-          <i class="fa-solid fa-satellite-dish text-blue-400"></i> Active Run:
+          <i class="fa-solid fa-satellite-dish text-blue-400"></i> Active Session:
         </span>
-        <span id="active-bar-run-id" class="font-mono text-amber-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700">--</span>
+        <span id="active-bar-run-id" class="text-amber-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700" title="Internal run ID is hidden from normal workflow use">--</span>
         <span id="active-bar-url" class="font-mono text-blue-300 truncate max-w-xs" title="Target URL">--</span>
         <span class="text-slate-600">|</span>
         <span class="text-slate-400">Mod: <strong id="active-bar-module" class="text-slate-200">--</strong></span>
@@ -164,6 +164,12 @@
           <input id="url-input" type="url" value="https://www.saucedemo.com" placeholder="https://app.enterprise.com"
             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
           <p class="text-[11px] text-slate-500 mt-1">SSRF protection enforced: private IPv4, loopback, AWS/cloud metadata, and localhost rejected in production.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="session-name-input">Test Session Name</label>
+          <input id="session-name-input" type="text" placeholder="e.g. SauceDemo checkout regression" maxlength="120" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+          <p class="text-[11px] text-slate-500 mt-1">This friendly name labels history, reports, artifacts and regression baselines. The internal run ID remains hidden.</p>
         </div>
 
         <div id="creds-block" class="space-y-2">
@@ -300,6 +306,18 @@
         </div>
       </div>
 
+      <div class="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wide">Review decision</h3>
+            <p class="text-[11px] text-blue-800 mt-1">Only checked modules will enter the crawl. Your decision is saved with this session.</p>
+          </div>
+          <button id="btn-review-save" type="button" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Save Review</button>
+        </div>
+        <div id="review-decision-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        <p id="review-decision-status" class="text-[11px] text-slate-600"></p>
+      </div>
+
       <div class="flex justify-between items-center pt-3 border-t border-slate-100">
         <button id="btn-review-back" class="text-xs font-semibold text-slate-600 hover:text-slate-900 underline">
           <i class="fa-solid fa-arrow-left mr-1"></i> Back to Module Selection
@@ -345,6 +363,13 @@
           <button id="btn-scan-download-log" type="button" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-slate-300 transition">
             <i class="fa-solid fa-file-lines mr-1"></i> Download Failure Log
           </button>
+          <div class="flex items-center gap-1 flex-wrap basis-full sm:basis-auto" aria-label="Crawl downloads">
+            <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Downloads</span>
+            <button type="button" data-crawl-download="json" class="crawl-download-btn bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[10px] px-2 py-1 rounded border border-slate-300">JSON</button>
+            <button type="button" data-crawl-download="yaml" class="crawl-download-btn bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[10px] px-2 py-1 rounded border border-slate-300">YAML</button>
+            <button type="button" data-crawl-download="excel" class="crawl-download-btn bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2 py-1 rounded">Excel</button>
+            <button type="button" data-crawl-download="markdown" class="crawl-download-btn bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[10px] px-2 py-1 rounded border border-slate-300">MD</button>
+          </div>
           <button id="btn-scan-discard" type="button" class="bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-rose-300 transition">
             <i class="fa-solid fa-trash-can mr-1"></i> Discard Run
           </button>
@@ -598,7 +623,19 @@
 
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requirements Artifact (Optional)</label>
-            <input id="upload-requirements" type="file" accept=".txt,.md,.json,.yaml,.csv" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
+            <input id="upload-requirements" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv,.xlsx,.xls" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
+            <p class="text-[10px] text-slate-500 mt-1">Excel/JSON/YAML/Markdown requirements or testcase files are parsed and attached to this plan.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Existing Testcases (Optional)</label>
+            <input id="upload-testcases" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv,.xlsx,.xls" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
+            <div id="planning-context-status" class="text-[10px] text-slate-500 mt-1">Scan report will be attached automatically.</div>
+            <div id="attached-scan-context" class="hidden border border-indigo-200 bg-indigo-50 rounded-lg p-3 mt-2 text-[11px] text-indigo-900 space-y-1">
+              <div class="flex items-center justify-between"><strong><i class="fa-solid fa-link mr-1"></i> Attached scan context</strong><span id="attached-context-status" class="font-semibold">Ready</span></div>
+              <div id="attached-context-summary">Approved routes, selectors, actions, and menu hierarchy from this run will be used.</div>
+              <div id="attached-context-sources" class="text-indigo-700"></div>
+            </div>
           </div>
 
           <button id="btn-generate-plan" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs py-2.5 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
@@ -617,8 +654,8 @@
                 <th scope="col"ead class="bg-slate-100 text-slate-700">
                   <tr>
                     <th scope="col" class="table-cell text-left">TC ID</th>
-                    <th scope="col" class="table-cell text-left">Title</th>
-                    <th scope="col" class="table-cell text-left">Module</th>
+                    <th scope="col" class="table-cell text-left">Screen / Feature</th>
+                    <th scope="col" class="table-cell text-left">Type</th>
                     <th scope="col" class="table-cell text-left">Steps</th>
                   </tr>
                 </thead>
@@ -1436,6 +1473,7 @@
       currentStep: 1,
       maxUnlockedStep: 1,
       runId: "",
+      sessionName: "",
       targetUrl: "https://www.saucedemo.com",
       authSessionId: "",
       isLive: true,
@@ -1443,6 +1481,7 @@
       selectedModuleIds: [],
       scanData: null,
       generatedPlan: null,
+      testContextId: "",
       executionResults: null,
       regressionResults: null,
       scanStartTime: null,
@@ -1649,7 +1688,9 @@
         return;
       }
       bar.classList.remove("hidden");
-      document.getElementById("active-bar-run-id").textContent = state.runId.substring(0, 14);
+      const displayName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || `Session ${state.runId.substring(0, 8)}`;
+      document.getElementById("active-bar-run-id").textContent = displayName;
+      document.getElementById("active-bar-run-id").title = `Internal run ID: ${state.runId}`;
       document.getElementById("active-bar-url").textContent = state.targetUrl || "--";
       document.getElementById("active-bar-url").title = state.targetUrl || "";
       document.getElementById("active-bar-module").textContent = state.currentModuleName || (state.selectedModuleIds?.length ? `${state.selectedModuleIds.length} modules` : "--");
@@ -1788,6 +1829,7 @@
           renderAnalyzeView();
         }
       }
+      if (stepId === 6) renderAttachedScanContext();
       renderStepper();
       saveActiveState();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1820,6 +1862,9 @@
         }
         const runCtx = await res.json();
         state.runId = runCtx.run_id;
+        state.sessionName = runCtx.display_name || state.sessionName || document.getElementById("session-name-input")?.value.trim() || `Session ${runCtx.run_id.substring(0, 8)}`;
+        const restoredName = document.getElementById("session-name-input");
+        if (restoredName && state.sessionName) restoredName.value = state.sessionName;
         state.targetUrl = runCtx.target_origin || state.targetUrl;
         state.authSessionId = runCtx.auth_session_id || "";
         state.modules = runCtx.discovered_modules || [];
@@ -1953,6 +1998,7 @@
       // Step 3
       document.getElementById("btn-review-back").onclick = () => switchStep(2);
       document.getElementById("btn-start-crawl").onclick = handleStartScan;
+      document.getElementById("btn-review-save").onclick = saveManualReview;
 
       // Step 4 (Crawl controls)
       document.getElementById("btn-scan-save-progress").onclick = handleSaveProgress;
@@ -2103,6 +2149,9 @@
       document.getElementById("btn-view-analysis").onclick = () => switchStep(5);
       document.getElementById("btn-scan-retry").onclick = () => handleStartScan();
       document.getElementById("btn-scan-download-log").onclick = () => downloadArtifact("log");
+      document.querySelectorAll("[data-crawl-download]").forEach(btn => {
+        btn.onclick = () => downloadArtifact(btn.dataset.crawlDownload);
+      });
 
       document.getElementById("btn-top-newscan").onclick = resetRun;
     }
@@ -2150,6 +2199,7 @@
         return;
       }
       state.targetUrl = url;
+      state.sessionName = document.getElementById("session-name-input")?.value.trim() || "Test Session";
 
       const btn = document.getElementById("btn-discover");
       btn.disabled = true;
@@ -2171,7 +2221,7 @@
             res = await fetch(`${API_BASE}/discover-modules`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url, username, password })
+            body: JSON.stringify({ url, username, password, session_name: document.getElementById("session-name-input")?.value.trim() || null })
             });
           } catch (netErr) {
             showActionableError("Module Discovery", null, "BACKEND_UNAVAILABLE", "Cannot connect to backend server at " + API_BASE, "Verify the Python FastAPI / Uvicorn server is running on port 8000.");
@@ -2308,11 +2358,56 @@
         reviewList.appendChild(item);
       });
 
+      const decisionList = document.getElementById("review-decision-list");
+      if (decisionList) {
+        decisionList.innerHTML = selected.map(id => {
+          const mod = state.modules.find(m => m.id === id) || { label: id, route: "/" };
+          return `<label class="flex items-start gap-2 bg-white border border-blue-100 rounded-lg p-2 cursor-pointer">
+            <input type="checkbox" class="review-module-check mt-0.5 accent-blue-600" value="${escapeHtml(id)}" checked>
+            <span><strong class="text-slate-800">${escapeHtml(mod.label || id)}</strong><span class="block text-[10px] font-mono text-slate-500">${escapeHtml(mod.route || "/")}</span></span>
+          </label>`;
+        }).join("");
+      }
+      const reviewStatus = document.getElementById("review-decision-status");
+      if (reviewStatus) reviewStatus.textContent = `${selected.length} module${selected.length === 1 ? "" : "s"} selected for review.`;
+
       unlockStep(3);
       switchStep(3);
     }
 
+    function saveManualReview() {
+      const checks = Array.from(document.querySelectorAll(".review-module-check:checked")).map(cb => cb.value);
+      if (!checks.length) {
+        showToast("Select at least one module to crawl", "warning");
+        return;
+      }
+      state.selectedModuleIds = checks;
+      document.querySelectorAll("input[name='mod-check']").forEach(cb => { cb.checked = checks.includes(cb.value); });
+      const status = document.getElementById("review-decision-status");
+      if (status) status.textContent = `Review saved: ${checks.length} approved module${checks.length === 1 ? "" : "s"}.`;
+      showToast("Manual review saved for this session", "success");
+    }
+
+    function renderAttachedScanContext() {
+      const box = document.getElementById("attached-scan-context");
+      if (!box) return;
+      const scan = state.scanData || {};
+      const routeValues = Array.isArray(scan.routes) ? scan.routes.map(r => typeof r === "string" ? r : (r.route || r.path || "")).filter(Boolean) : Object.keys(scan.page_intelligence || {});
+      const targetValues = Array.isArray(scan.elements) ? scan.elements.map(e => e.element_id || e.element_identity || `${e.route || ""}|${e.xpath || ""}|${e.role || ""}|${e.label || ""}`) : Object.values(scan.page_intelligence || {}).flatMap(r => (r.automation_targets || r.auto_detected_elements || []).map(e => e.element_identity || e.id || `${e.element_xpath || e.xpath || ""}|${e.element_role || e.role || ""}|${e.label || e.text || ""}`));
+      const routes = routeValues.length ? new Set(routeValues).size : Number(scan.summary?.total_routes || 0);
+      const targets = targetValues.length ? new Set(targetValues).size : Number(scan.summary?.total_elements || scan.elements_found || 0);
+      const status = document.getElementById("attached-context-status");
+      const summary = document.getElementById("attached-context-summary");
+      if (!state.runId || !state.scanData) { box.classList.add("hidden"); return; }
+      box.classList.remove("hidden");
+      if (status) status.textContent = "Attached automatically";
+      if (summary) summary.textContent = `${state.sessionName || "Current session"} · ${routes} approved/discovered routes · ${targets} grounded UI targets · selectors and safe actions available to the planner.`;
+      const src = document.getElementById("attached-context-sources");
+      if (src) src.textContent = state.testContextId ? "Uploaded requirements/testcases are linked to this same planning context." : "No uploaded document yet; you can attach requirements or existing testcases above.";
+    }
+
     async function handleStartScan() {
+      const resumeRunId = (state.scanStatus === "FAILED" || state.scanStatus === "PAUSED") ? state.runId : null;
       unlockStep(4);
       switchStep(4);
       state.terminalStateProcessed = false;
@@ -2335,9 +2430,14 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             url: state.targetUrl,
+            session_name: document.getElementById("session-name-input")?.value.trim() || null,
             mock: !state.isLive,
             run_id: state.runId,
             scan_id: state.runId,
+            // A retry must explicitly restore the same crawler checkpoint.
+            // Without this field the old flow started a fresh crawl with the
+            // same run id, which made an auth refresh appear to be stuck.
+            resume_run_id: resumeRunId,
             auth_session_id: state.authSessionId || null,
             selected_module_ids: state.selectedModuleIds,
             interactive_mode: isInteractive,
@@ -2352,12 +2452,30 @@
           return;
         }
 
-        const data = await res.json();
+        const raw = await res.text();
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch (_) {
+          // Some local Ollama proxies return concatenated/NDJSON objects.
+          // Decode the first complete object so a valid health result is not
+          // hidden behind an "Extra data" JSON parser error.
+          const match = raw.match(/\{[\s\S]*?\}(?=\s*\{|\s*$)/);
+          if (!match) {
+            const gatewayMessage = raw.trim() || `HTTP ${res.status}`;
+            throw new Error(res.status === 502
+              ? `The local app tunnel/backend returned 502 Bad Gateway. Restart the FastAPI server and localtunnel, then retry.`
+              : `Scan service returned a non-JSON response (${res.status}): ${gatewayMessage.slice(0, 180)}`);
+          }
+          data = JSON.parse(match[0]);
+        }
         if (!res.ok) throw new Error(formatApiError(data, "Scan failed"));
 
         state.scanData = data;
         state.runId = data.run_id || state.runId;
+        state.sessionName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || "Test Session";
         updateRunUI();
+        renderAttachedScanContext();
 
         if (state.durationTimer) clearInterval(state.durationTimer);
         const completedNormally = data.status === "success";
@@ -2557,7 +2675,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ run_id: state.runId, action })
         });
-        const data = await res.json();
+        const data = await readApiResponse(res, "Scan control");
         if (action === "pause") {
           state.isPaused = true;
           document.getElementById("btn-scan-pause").classList.add("hidden");
@@ -2703,7 +2821,7 @@
 
       try {
         const res = await fetch(`${API_BASE}/llm/test-connection?provider=${encodeURIComponent(provider)}`, { method: "POST" });
-        const data = await res.json();
+        const data = await readApiResponse(res, "Ollama connection");
         if (data.ok) {
           badge.className = "text-[11px] mt-1 text-emerald-600 font-semibold";
           badge.textContent = `Connected to ${provider} successfully.`;
@@ -2735,6 +2853,26 @@
         const model = document.getElementById("llm-model-input").value.trim() || null;
         const prompt = document.getElementById("planning-prompt").value.trim() || null;
 
+        // Persist user artifacts first. The scan map is always sent in the
+        // generate request; this context ID links uploaded requirements and
+        // testcase rows to the same planning run.
+        let contextId = state.testContextId || null;
+        const reqFile = document.getElementById("upload-requirements")?.files?.[0];
+        const tcFile = document.getElementById("upload-testcases")?.files?.[0];
+        if (reqFile || tcFile || prompt) {
+          const form = new FormData();
+          if (reqFile) form.append("requirements_file", reqFile);
+          if (tcFile) form.append("testcases_file", tcFile);
+          if (prompt) form.append("user_prompt", prompt);
+          const contextRes = await fetch(`${API_BASE}/test-context/upload`, { method: "POST", body: form });
+          const contextData = await readApiResponse(contextRes, "Context upload");
+          if (!contextRes.ok) throw new Error(formatApiError(contextData, "Context upload failed"));
+          contextId = contextData.context_id;
+          state.testContextId = contextId;
+          const sources = (contextData.source_files || []).join(", ") || "scenario prompt";
+          document.getElementById("planning-context-status").textContent = `Attached: scan report + ${sources}`;
+        }
+
         const res = await fetch(`${API_BASE}/generate-test`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2744,14 +2882,17 @@
             provider,
             model,
             user_prompt: prompt,
+            context_id: contextId,
             run_id: state.runId
           })
         });
 
-        const data = await res.json();
+        const data = await readApiResponse(res, "Test generation");
         if (!res.ok) throw new Error(formatApiError(data, "Plan generation failed"));
 
         state.generatedPlan = data;
+        const meta = data.planning_metadata || {};
+        document.getElementById("planning-context-status").textContent = `Attached: scan (${meta.scan_routes || 0} routes, ${meta.scan_targets || 0} targets)${(meta.uploaded_sources || []).length ? " + " + meta.uploaded_sources.join(", ") : ""}`;
         document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
         renderPlanCases(data.test_cases || []);
 
@@ -2791,8 +2932,8 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(tc.tc_id)}</td>
-          <td class="table-cell font-semibold text-slate-800">${escapeHtml(tc.title)}</td>
-          <td class="table-cell text-slate-600">${escapeHtml(tc.module || tc.route)}</td>
+          <td class="table-cell text-slate-600">${escapeHtml((tc.screen || tc.module || tc.route) + " / " + (tc.feature || ""))}</td>
+          <td class="table-cell"><span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold">${escapeHtml(tc.test_type || "positive")}</span></td>
           <td class="table-cell font-mono">${(tc.steps || []).length} steps</td>
         `;
         body.appendChild(tr);
@@ -2835,6 +2976,7 @@
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
+        showToast("Execution saved to this session. Use Report → Excel for scan + execution results, or Save as Baseline for regression.", "success");
         unlockStep(8);
       } catch (err) {
         showActionableError("Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect browser network connectivity or refresh authentication session.");
@@ -3199,10 +3341,10 @@
         } else if (combined.includes("422") || combined.includes("login fail") || combined.includes("credentials")) {
           displayCategory = "LOGIN_FAILED";
           displaySuggestion = displaySuggestion || "Verify username and password and try again.";
-        } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable")) {
+        } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable") || combined.includes("502") || combined.includes("bad gateway") || combined.includes("localtunnel")) {
           displayCategory = "BACKEND_UNAVAILABLE";
-          displayMessage = "Cannot connect to the PiOne Testmate backend service at localhost:8000.";
-          displaySuggestion = "Verify the Python FastAPI / Uvicorn server is running and accessible.";
+          displayMessage = "The local app tunnel/backend returned 502 Bad Gateway, so the browser is not reaching the Testmate service.";
+          displaySuggestion = "Restart the FastAPI server and localtunnel, confirm localhost:8000 is healthy, then retry.";
         } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
           displayCategory = "ARTIFACT_UNAVAILABLE";
           displayMessage = "The requested artifact or report has not been generated yet or is still processing.";
@@ -3243,7 +3385,9 @@
     function updateRunUI() {
       if (state.runId) {
         document.getElementById("nav-run-badge").classList.remove("hidden");
-        document.getElementById("nav-run-id").textContent = state.runId.substring(0, 12);
+        const displayName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || `Session ${state.runId.substring(0, 8)}`;
+        document.getElementById("nav-run-id").textContent = displayName;
+        document.getElementById("nav-run-badge").title = `Internal run ID: ${state.runId}`;
         document.getElementById("nav-session-badge").classList.remove("hidden");
         saveActiveState();
         updateActiveRunBar();
@@ -3310,11 +3454,13 @@
       state.currentStep = 1;
       state.maxUnlockedStep = 1;
       state.runId = null;
+      state.sessionName = "";
       state.authSessionId = null;
       state.modules = [];
       state.selectedModuleIds = [];
       state.scanData = null;
       state.generatedPlan = null;
+      state.testContextId = "";
       state.executionResults = null;
       state.regressionResults = null;
       state.currentModuleName = "";
@@ -3339,6 +3485,10 @@
       if (modContainer) modContainer.innerHTML = "";
       const revContainer = document.getElementById("review-module-list");
       if (revContainer) revContainer.innerHTML = "";
+      const decisionContainer = document.getElementById("review-decision-list");
+      if (decisionContainer) decisionContainer.innerHTML = "";
+      const attachedContext = document.getElementById("attached-scan-context");
+      if (attachedContext) attachedContext.classList.add("hidden");
       const chipsContainer = document.getElementById("selected-modules-chips");
       if (chipsContainer) chipsContainer.innerHTML = "";
 
@@ -3469,7 +3619,7 @@
       const status = document.getElementById("saved-runs-status-filter")?.value || "";
       let filtered = state.allSavedRuns || [];
       if (q) {
-        filtered = filtered.filter(r => (r.application_url || "").toLowerCase().includes(q) || (r.run_id || "").toLowerCase().includes(q));
+        filtered = filtered.filter(r => (r.display_name || "").toLowerCase().includes(q) || (r.application_url || "").toLowerCase().includes(q) || (r.run_id || "").toLowerCase().includes(q));
       }
       if (status) {
         filtered = filtered.filter(r => (r.status || "").toLowerCase() === status.toLowerCase());
@@ -3503,8 +3653,8 @@
         const execText = execSum.total ? `${execSum.passed || 0}P / ${execSum.failed || 0}F` : "--";
 
         tr.innerHTML = `
-          <td class="table-cell font-mono font-bold text-blue-700">
-            <span title="${escapeHtml(r.run_id)}">${escapeHtml(r.run_id.substring(0, 10))}...</span>
+          <td class="table-cell font-semibold text-blue-700">
+            <span title="Internal run ID: ${escapeHtml(r.run_id)}">${escapeHtml(r.display_name || `Session ${r.run_id.substring(0, 8)}`)}</span>
           </td>
           <td class="table-cell font-semibold text-slate-800 max-w-xs truncate" title="${escapeHtml(r.application_url || "")}">
             ${escapeHtml(r.application_url || "--")}
@@ -3946,6 +4096,7 @@
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
+        showToast("Selected execution saved. The regression suite can reuse these results.", "success");
         unlockStep(8);
       } catch (err) {
         showActionableError("Selective Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect target connectivity.");
@@ -4074,7 +4225,7 @@
         runs.forEach(r => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td class="table-cell font-mono font-bold text-blue-700">${escapeHtml(r.run_id.substring(0, 10))}...</td>
+            <td class="table-cell font-semibold text-blue-700" title="Internal run ID: ${escapeHtml(r.run_id)}">${escapeHtml(r.display_name || `Session ${r.run_id.substring(0, 8)}`)}</td>
             <td class="table-cell font-semibold text-slate-800">${escapeHtml(r.application_url || "--")}</td>
             <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${escapeHtml(r.status || "completed")}</span></td>
             <td class="table-cell text-center">
@@ -4198,6 +4349,21 @@ function closeScreenshotModal() {
         return data.detail.message || JSON.stringify(data.detail);
       }
       return data.message || fallback;
+    }
+
+    async function readApiResponse(res, operation = "Request") {
+      const raw = await res.text();
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        if (res.status === 502 || /bad gateway/i.test(raw)) {
+          throw new Error(`${operation} could not reach the local app (502 Bad Gateway). Restart the app and its tunnel, then try again.`);
+        }
+        if (/^\s*<!doctype html|^\s*<html/i.test(raw)) {
+          throw new Error(`${operation} received an HTML error page instead of JSON. The app server or tunnel is unavailable.`);
+        }
+        throw new Error(`${operation} returned an invalid server response.`);
+      }
     }
 
     function escapeHtml(str) {

@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from time import monotonic
 from typing import Any
+from uuid import uuid4
 from urllib.parse import urljoin
 
 import pandas as pd
@@ -29,6 +30,7 @@ from automation_framework.config.settings import (
 )
 from automation_framework.crawler.url_filter import is_valid_url
 from automation_framework.utils.browser_manager import start_persistent_browser
+from automation_framework.utils.logger import logger
 from automation_framework.utils.redactor import redact_sensitive_data
 
 
@@ -50,7 +52,7 @@ def execute_test_cases(
         or (base_url and "mock" in str(base_url).lower())
     )
     if is_mock:
-        execution_id = f"execution_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        execution_id = f"execution_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
         artifact_dir = REPORT_PATH / execution_id
         artifact_dir.mkdir(parents=True, exist_ok=True)
         rows: list[ExecutionResultRow] = []
@@ -80,13 +82,15 @@ def execute_test_cases(
         summary = ExecutionSummary(total=len(rows), passed=len(rows), failed=0, skipped=0)
         artifacts = _write_artifacts(artifact_dir, test_cases, rows, summary, 0.05)
         if run_id:
-            run_exec_dir = REPORT_PATH / run_id
-            run_exec_dir.mkdir(parents=True, exist_ok=True)
-            for f in artifact_dir.glob("*.*"):
-                try:
-                    shutil.copy(f, run_exec_dir / f.name)
-                except Exception:
-                    pass
+            _copy_execution_artifacts_to_run(artifact_dir, run_id)
+            _merge_execution_results_into_scan_workbook(run_id, Path(artifacts["excel"]))
+            run_ctx = get_run_context(run_id)
+            if run_ctx:
+                run_ctx.execution_results = [r.model_dump() for r in rows]
+                run_ctx.execution_summary = summary.model_dump()
+                run_ctx.artifact_paths.update(artifacts)
+                run_ctx.status = "executed"
+                save_run_context(run_ctx)
         return rows, summary, artifacts
 
     if auth_session_id:
@@ -99,7 +103,9 @@ def execute_test_cases(
     else:
         resolved_state = Path(storage_state_path) if storage_state_path else None
 
-    execution_id = f"execution_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # Include a short nonce so two first-run/replay requests in the same
+    # second never overwrite each other's execution artifacts.
+    execution_id = f"execution_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid4().hex[:8]}"
     artifact_dir = REPORT_PATH / execution_id
     artifact_dir.mkdir(parents=True, exist_ok=True)
     rows: list[ExecutionResultRow] = []
@@ -156,6 +162,8 @@ def execute_test_cases(
 
     if run_id:
         try:
+            _copy_execution_artifacts_to_run(artifact_dir, run_id)
+            _merge_execution_results_into_scan_workbook(run_id, Path(artifacts["excel"]))
             run_ctx = get_run_context(run_id)
             if run_ctx:
                 run_ctx.execution_results = [r.model_dump() for r in rows]
@@ -167,6 +175,45 @@ def execute_test_cases(
             pass
 
     return rows, summary, artifacts
+
+
+def _copy_execution_artifacts_to_run(artifact_dir: Path, run_id: str) -> None:
+    """Expose execution artifacts through the stable run download endpoint."""
+    run_dir = REPORT_PATH / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for source in artifact_dir.glob("*"):
+        if source.is_file():
+            shutil.copy2(source, run_dir / source.name)
+
+
+def _merge_execution_results_into_scan_workbook(run_id: str, execution_workbook: Path) -> None:
+    """Add the latest execution results to the normal report Excel download."""
+    scan_workbook = REPORT_PATH / f"{run_id}_crawl_results.xlsx"
+    if not scan_workbook.is_file() or not execution_workbook.is_file():
+        return
+    try:
+        sheets = pd.read_excel(scan_workbook, sheet_name=None)
+        execution_sheets = pd.read_excel(execution_workbook, sheet_name=None)
+        execution_df = execution_sheets.get("test_execution")
+        if execution_df is None:
+            execution_df = next(iter(execution_sheets.values()), pd.DataFrame())
+        sheets["Test Execution"] = execution_df
+        sheets["execution_results"] = execution_df
+        fd, temp_name = tempfile.mkstemp(prefix=f"{run_id}_report_", suffix=".xlsx", dir=str(REPORT_PATH))
+        os.close(fd)
+        temp_path = Path(temp_name)
+        try:
+            with pd.ExcelWriter(temp_path, engine="openpyxl") as writer:
+                for sheet_name, frame in sheets.items():
+                    safe_name = str(sheet_name)[:31] or "Sheet"
+                    frame.to_excel(writer, sheet_name=safe_name, index=False)
+            os.replace(temp_path, scan_workbook)
+        finally:
+            temp_path.unlink(missing_ok=True)
+    except Exception as exc:
+        # Execution must remain successful even if a pre-existing scan report
+        # cannot be rewritten; the dedicated execution Excel still exists.
+        logger.warning("Could not merge execution results into scan workbook: %s", exc)
 
 
 def load_saved_test_cases(execution_id: str) -> list[TestCase]:
@@ -551,7 +598,13 @@ def _save_execution_checkpoint(directory: Path, rows: list[ExecutionResultRow], 
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
-        os.replace(temp_name, target)
+        try:
+            os.replace(temp_name, target)
+        except PermissionError:
+            # Some Windows-managed temporary folders deny atomic rename even
+            # though the file is writable. Preserve the checkpoint rather than
+            # losing resumable progress; normal deployments use os.replace.
+            target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     finally:
         try:
             os.unlink(temp_name)
@@ -588,8 +641,28 @@ def _find_target_locator(page: Any, selector: dict[str, Any] | str, label: str, 
                 candidates.append({"strategy": "css", "value": value})
             else:
                 candidates.append({"strategy": "text", "value": value})
+    # SauceDemo and many modern apps expose stable data-test hooks without
+    # mirroring them as DOM ids or accessible names.  Derive a safe fallback
+    # from discovered id-like values, never from an invented route/element.
+    data_test_values: list[str] = []
+    for candidate in candidates:
+        value = str(candidate.get("value") or "")
+        if value.startswith("#") and len(value) > 1:
+            data_test_values.append(value[1:])
+        elif "name=" in value and "role=" in value:
+            name = value.split("name=", 1)[1].strip("[]\"'")
+            if name and ("add-to-cart" in name or "remove-" in name):
+                data_test_values.append(name)
+    if "add-to-cart" in (label or "").lower() and not data_test_values:
+        candidates.append({"strategy": "css", "value": "[data-test^='add-to-cart']"})
+    for value in data_test_values:
+        candidates.append({"strategy": "css", "value": f"[data-test='{value}']"})
+    # A generic discovered add-to-cart control can be safely resolved to the
+    # first current-page product control when the scan supplied no exact id.
+    if "add-to-cart" in (label or "").lower():
+        candidates.append({"strategy": "css", "value": "button[data-test^='add-to-cart']"})
     candidates = [candidate for candidate in candidates if isinstance(candidate, dict)]
-    per_candidate_timeout = max(250, timeout // max(1, len(candidates)))
+    per_candidate_timeout = max(750, min(timeout, 2000))
     last_error: Exception | None = None
     for candidate in candidates:
         try:
@@ -643,7 +716,7 @@ def _row(
     network_errors: list[str] | None = None,
 ) -> ExecutionResultRow:
     cat = failure_category
-    if not cat and status == "Skip":
+    if not cat and status in {"Skip", "Skipped"}:
         cat = "skipped"
     return ExecutionResultRow(
         TC_ID=case.tc_id,
@@ -689,8 +762,26 @@ def _write_artifacts(
     elapsed: float,
 ) -> dict[str, str]:
     records = []
+    case_by_id = {case.tc_id: case for case in test_cases}
     for r in rows:
         d = r.model_dump()
+        case = case_by_id.get(r.TC_ID)
+        if case:
+            d.update({
+                "Testcase Id": case.tc_id,
+                "Screen": case.screen or r.Screen,
+                "Feature": case.feature or r.Feature,
+                "Testcase": case.testcase or r.Test_Case,
+                "Steps to Execute": case.steps_to_execute,
+                "Expected Result": r.Expected_Result,
+                "Test Status": r.Status,
+                "Actual Result": r.Actual_Result,
+                "Severity": case.severity,
+                "BUG Status": case.bug_status,
+                "Notes / Reason": case.notes_reason,
+                "Bug sheet Current Version": case.bug_sheet_current_version,
+                "Tested Version": case.tested_version,
+            })
         d["console_errors"] = " | ".join(r.console_errors) if r.console_errors else ""
         d["network_errors"] = " | ".join(r.network_errors) if r.network_errors else ""
         records.append(d)
