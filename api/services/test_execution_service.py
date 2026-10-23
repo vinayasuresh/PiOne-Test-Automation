@@ -123,6 +123,31 @@ def execute_test_cases(
         page.on("requestfailed", lambda req: network_buffer.append(f"{req.method} {req.url} - {req.failure}") if req.failure else None)
 
         for test_case in test_cases:
+            # A closed target must not poison every remaining selected test.
+            # Recreate the isolated Playwright session between cases and keep
+            # the original saved authentication state.
+            if _browser_session_is_closed(page, context, browser):
+                logger.warning(
+                    "Execution browser closed before %s; starting a fresh isolated session",
+                    test_case.tc_id,
+                )
+                try:
+                    context.close()
+                except Exception:
+                    pass
+                try:
+                    browser.close()
+                except Exception:
+                    pass
+                try:
+                    playwright.stop()
+                except Exception:
+                    pass
+                playwright, browser, context, page = start_persistent_browser(resolved_state)
+                page.set_default_timeout(ELEMENT_TIMEOUT)
+                page.set_default_navigation_timeout(ROUTE_LOAD_TIMEOUT)
+                page.on("console", lambda msg: console_buffer.append(f"[{msg.type}] {msg.text}") if msg.type in {"error", "warning"} else None)
+                page.on("requestfailed", lambda req: network_buffer.append(f"{req.method} {req.url} - {req.failure}") if req.failure else None)
             case_rows = _execute_case(
                     page,
                     base_url,
@@ -568,6 +593,18 @@ def _is_transient_execution_error(exc: Exception) -> bool:
     return any(token in message for token in (
         "detached", "stale element", "target closed", "net::err", "temporarily unavailable",
     ))
+
+
+def _browser_session_is_closed(page: Any, context: Any, browser: Any) -> bool:
+    """Best-effort closed-session check compatible with Playwright test doubles."""
+    for resource in (page, context, browser):
+        try:
+            is_closed = getattr(resource, "is_closed", None)
+            if callable(is_closed) and is_closed():
+                return True
+        except Exception:
+            return True
+    return False
 
 
 def _failure_category(exc: Exception) -> str:

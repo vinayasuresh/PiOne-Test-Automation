@@ -127,6 +127,80 @@ _BACKGROUND_EXECUTION_JOBS: dict[str, dict[str, Any]] = {}
 _BACKGROUND_SCAN_TASKS: set[asyncio.Task] = set()
 
 
+def _persist_execution_job_state(
+    run_id: str | None,
+    job_id: str,
+    status: str,
+    *,
+    selected_count: int | None = None,
+    error: str | None = None,
+    result: dict[str, Any] | None = None,
+) -> None:
+    """Keep an execution job recoverable after an app reload."""
+    if not run_id:
+        return
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        return
+    metadata: dict[str, Any] = {
+        "job_id": job_id,
+        "status": status,
+        "selected_count": selected_count,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if error:
+        metadata["error"] = redact_sensitive_data(str(error))
+    if result:
+        metadata["execution_id"] = result.get("execution_id")
+    run_ctx.artifact_paths["async_execution_job"] = metadata
+    if status == "running":
+        run_ctx.status = "executing"
+    save_run_context(run_ctx)
+
+
+def _recover_execution_job(job_id: str) -> dict[str, Any] | None:
+    """Recover a terminal selected-execution job from durable run state."""
+    context_dir = Path(REPORT_PATH) / "run_contexts"
+    for path in context_dir.glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            artifacts = payload.get("artifact_paths") or {}
+            metadata = artifacts.get("async_execution_job") or {}
+            if metadata.get("job_id") != job_id:
+                continue
+            if metadata.get("status") == "failed":
+                return {
+                    "status": "failed",
+                    "error": metadata.get("error") or "Execution failed before completion.",
+                    "http_status": 500,
+                }
+            rows = payload.get("execution_results")
+            if metadata.get("status") == "completed" or (payload.get("status") == "executed" and rows is not None):
+                summary = payload.get("execution_summary") or {}
+                return {
+                    "status": "completed",
+                    "result": {
+                        "status": "success",
+                        "run_id": payload.get("run_id"),
+                        "execution_id": artifacts.get("execution_id"),
+                        "selected_test_count": metadata.get("selected_count") or 0,
+                        "executed_test_count": len({row.get("TC_ID") for row in rows if row.get("TC_ID")}),
+                        "total_steps": len(rows),
+                        "summary": summary,
+                        "rows": rows,
+                        "artifacts": artifacts,
+                    },
+                }
+            return {
+                "status": "failed",
+                "error": "Execution monitoring was interrupted by an app restart before results were saved. Retry the selected tests.",
+                "http_status": 503,
+            }
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    return None
+
+
 async def _run_scan_in_background(request: ScanRequest) -> None:
     try:
         await scan(request)
@@ -2180,12 +2254,17 @@ async def _run_selected_execution_job(job_id: str, request: ExecuteSelectedRegre
             "status": "completed",
             "result": jsonable_encoder(result),
         }
+        _persist_execution_job_state(
+            request.run_id, job_id, "completed",
+            selected_count=len(request.selected_test_case_ids), result=result,
+        )
     except HTTPException as exc:
         _BACKGROUND_EXECUTION_JOBS[job_id] = {
             "status": "failed",
             "error": exc.detail,
             "http_status": exc.status_code,
         }
+        _persist_execution_job_state(request.run_id, job_id, "failed", error=str(exc.detail))
     except Exception as exc:
         logger.exception("Background selective execution failed for %s", job_id)
         _BACKGROUND_EXECUTION_JOBS[job_id] = {
@@ -2193,12 +2272,16 @@ async def _run_selected_execution_job(job_id: str, request: ExecuteSelectedRegre
             "error": f"{type(exc).__name__}: {exc}",
             "http_status": 500,
         }
+        _persist_execution_job_state(request.run_id, job_id, "failed", error=f"{type(exc).__name__}: {exc}")
 
 
 @router.post("/regression/execute-selected/start", summary="Start selected execution without holding the HTTP request open")
 async def start_selected_execution_async(request: ExecuteSelectedRegressionRequest) -> dict[str, str]:
     job_id = uuid4().hex
     _BACKGROUND_EXECUTION_JOBS[job_id] = {"status": "running"}
+    _persist_execution_job_state(
+        request.run_id, job_id, "running", selected_count=len(request.selected_test_case_ids),
+    )
     task = asyncio.create_task(_run_selected_execution_job(job_id, request))
     task.add_done_callback(lambda _: None)
     return {"job_id": job_id, "status": "started"}
@@ -2210,6 +2293,9 @@ async def get_selected_execution_status(job_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid execution job ID")
     job = _BACKGROUND_EXECUTION_JOBS.get(job_id)
     if not job:
+        recovered = _recover_execution_job(job_id)
+        if recovered:
+            return recovered
         raise HTTPException(status_code=404, detail="Execution job not found")
     return job
 

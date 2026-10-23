@@ -2978,11 +2978,30 @@
       const startData = await readApiResponse(startRes, `${label} start`);
       if (!startRes.ok) throw new Error(formatApiError(startData, `${label} start failed`));
 
+      let consecutiveStatusFailures = 0;
       for (let attempt = 0; attempt < 900; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        const statusRes = await fetch(`${statusUrl}/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
-        if (!statusRes.ok) continue;
-        const job = await statusRes.json();
+        let statusRes;
+        let job;
+        try {
+          statusRes = await fetch(`${statusUrl}/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
+          job = await readApiResponse(statusRes, `${label} status`);
+        } catch (err) {
+          consecutiveStatusFailures += 1;
+          if (consecutiveStatusFailures < 5) continue;
+          throw new Error(`${label} status could not be read after ${consecutiveStatusFailures} attempts: ${err.message}`);
+        }
+
+        if (!statusRes.ok) {
+          consecutiveStatusFailures += 1;
+          if (statusRes.status === 401) triggerSessionExpired();
+          // A short tunnel/server interruption can be recovered, but a lost
+          // async job must never leave the UI spinning for fifteen minutes.
+          if (statusRes.status >= 500 && consecutiveStatusFailures < 5) continue;
+          throw new Error(formatApiError(job, `${label} status is unavailable`));
+        }
+
+        consecutiveStatusFailures = 0;
         if (job.status === "completed") return job.result;
         if (job.status === "failed") {
           if (Number(job.http_status) === 401) {
