@@ -2876,22 +2876,38 @@
           document.getElementById("planning-context-status").textContent = `Attached: scan report + ${sources}`;
         }
 
-        const res = await fetch(`${API_BASE}/generate-test`, {
+        const generationPayload = {
+          base_url: state.targetUrl,
+          scan: state.scanData,
+          provider,
+          model,
+          user_prompt: prompt,
+          context_id: contextId,
+          run_id: state.runId
+        };
+        const startRes = await fetch(`${API_BASE}/generate-test/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base_url: state.targetUrl,
-            scan: state.scanData,
-            provider,
-            model,
-            user_prompt: prompt,
-            context_id: contextId,
-            run_id: state.runId
-          })
+          body: JSON.stringify(generationPayload)
         });
+        const startData = await readApiResponse(startRes, "Test generation start");
+        if (!startRes.ok) throw new Error(formatApiError(startData, "Plan generation start failed"));
 
-        const data = await readApiResponse(res, "Test generation");
-        if (!res.ok) throw new Error(formatApiError(data, "Plan generation failed"));
+        let data = null;
+        for (let attempt = 0; attempt < 900; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const statusRes = await fetch(`${API_BASE}/generate-test/status/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
+          if (!statusRes.ok) continue;
+          const job = await statusRes.json();
+          if (job.status === "completed") {
+            data = job.result;
+            break;
+          }
+          if (job.status === "failed") {
+            throw new Error(typeof job.error === "string" ? job.error : formatApiError(job.error, "Plan generation failed"));
+          }
+        }
+        if (!data) throw new Error("Test generation is still running. Reopen this session to continue monitoring it.");
 
         state.generatedPlan = data;
         const meta = data.planning_metadata || {};

@@ -111,6 +111,12 @@ from api.services.scan_control_service import (
 
 router = APIRouter()
 
+# Long-running provider calls (especially local Ollama models) must not keep
+# a tunnel request open until the model finishes or times out.  Results are
+# kept in-process briefly; the generated plan itself is still persisted by
+# the existing generation flow.
+_BACKGROUND_PLAN_JOBS: dict[str, dict[str, Any]] = {}
+
 # Remote browsers (for example, a colleague using LocalTunnel) must not hold
 # one HTTP request open for the full Playwright crawl.  The tunnel can expire
 # that request even though the backend scan is still healthy.  Jobs are kept
@@ -817,6 +823,44 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         fallback_used=plan_result.get("fallback_used", metadata.get("fallback_used", False)),
         warnings=plan_result.get("warnings", []),
     )
+
+
+async def _run_generate_test_job(job_id: str, request: GenerateTestRequest) -> None:
+    try:
+        result = await generate_test(request)
+        _BACKGROUND_PLAN_JOBS[job_id] = {"status": "completed", "result": result.model_dump(mode="json")}
+    except HTTPException as exc:
+        _BACKGROUND_PLAN_JOBS[job_id] = {
+            "status": "failed",
+            "error": exc.detail,
+            "http_status": exc.status_code,
+        }
+    except Exception as exc:
+        logger.exception("Background test generation failed for %s", job_id)
+        _BACKGROUND_PLAN_JOBS[job_id] = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "http_status": 500,
+        }
+
+
+@router.post("/generate-test/start", summary="Start test generation without holding the HTTP request open")
+async def start_generate_test_async(request: GenerateTestRequest) -> dict[str, str]:
+    job_id = uuid4().hex
+    _BACKGROUND_PLAN_JOBS[job_id] = {"status": "running"}
+    task = asyncio.create_task(_run_generate_test_job(job_id, request))
+    task.add_done_callback(lambda _: None)
+    return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/generate-test/status/{job_id}", summary="Get asynchronous test generation status")
+async def get_generate_test_status(job_id: str) -> dict[str, Any]:
+    if not _RUN_ID_REGEX.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid generation job ID")
+    job = _BACKGROUND_PLAN_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Generation job not found")
+    return job
 
 
 
