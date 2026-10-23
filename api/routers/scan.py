@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from automation_framework.crawler.auth_exceptions import (
     AuthenticationExpiredError,
@@ -116,6 +117,7 @@ router = APIRouter()
 # kept in-process briefly; the generated plan itself is still persisted by
 # the existing generation flow.
 _BACKGROUND_PLAN_JOBS: dict[str, dict[str, Any]] = {}
+_BACKGROUND_EXECUTION_JOBS: dict[str, dict[str, Any]] = {}
 
 # Remote browsers (for example, a colleague using LocalTunnel) must not hold
 # one HTTP request open for the full Playwright crawl.  The tunnel can expire
@@ -968,6 +970,47 @@ async def execute_test(request: ExecuteTestRequest) -> ExecuteTestResponse:
         ) from exc
 
 
+async def _run_execute_test_job(job_id: str, request: ExecuteTestRequest) -> None:
+    try:
+        result = await execute_test(request)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "completed",
+            "result": jsonable_encoder(result),
+        }
+    except HTTPException as exc:
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": exc.detail,
+            "http_status": exc.status_code,
+        }
+    except Exception as exc:
+        logger.exception("Background execution failed for %s", job_id)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "http_status": 500,
+        }
+
+
+@router.post("/execute-test/start", summary="Start test execution without holding the HTTP request open")
+async def start_execute_test_async(request: ExecuteTestRequest) -> dict[str, str]:
+    job_id = uuid4().hex
+    _BACKGROUND_EXECUTION_JOBS[job_id] = {"status": "running"}
+    task = asyncio.create_task(_run_execute_test_job(job_id, request))
+    task.add_done_callback(lambda _: None)
+    return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/execute-test/status/{job_id}", summary="Get asynchronous test execution status")
+async def get_execute_test_status(job_id: str) -> dict[str, Any]:
+    if not _RUN_ID_REGEX.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid execution job ID")
+    job = _BACKGROUND_EXECUTION_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Execution job not found")
+    return job
+
+
 @router.post("/regression-run", response_model=RegressionRunResponse, summary="Rerun a saved controlled test plan")
 async def regression_run(request: RegressionRunRequest) -> RegressionRunResponse:
     execution_id = request.execution_id
@@ -1268,6 +1311,7 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                     "parking_lot_actions": len(chk_data.get("parking_lot_actions", [])),
                     "retry_count": int((latest_event or {}).get("retry_count", 0) or 0),
                     "last_event_sequence": int((latest_event or {}).get("last_event_sequence", 0) or 0),
+                    "latest_telemetry": latest_event or {},
                     "checkpoint_version": int((latest_checkpoint or {}).get("version", 0) or 0),
                     "scan_results": {
                         "page_intelligence": chk_data.get("page_intelligence", {}),
@@ -1296,6 +1340,10 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
     effective_event = latest_event if use_latest_event else {}
 
     data["scan_id"] = data.get("scan_id") or run_id
+    # HTTP clients can consume this snapshot when WebSocket upgrade/forwarding
+    # is unavailable through a tunnel.  Keep the existing state contract and
+    # expose only the latest already-published event as a polling fallback.
+    data["latest_telemetry"] = effective_event or latest_event or {}
     data["current_module"] = effective_event.get("current_module", data.get("current_module"))
     data["current_route"] = effective_event.get("current_route", data.get("current_route"))
     data["route_progress"] = calculate_route_progress({
@@ -2123,6 +2171,47 @@ async def execute_selected_regression(request: ExecuteSelectedRegressionRequest)
         "rows": rows,
         "artifacts": artifacts,
     }
+
+
+async def _run_selected_execution_job(job_id: str, request: ExecuteSelectedRegressionRequest) -> None:
+    try:
+        result = await execute_selected_regression(request)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "completed",
+            "result": jsonable_encoder(result),
+        }
+    except HTTPException as exc:
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": exc.detail,
+            "http_status": exc.status_code,
+        }
+    except Exception as exc:
+        logger.exception("Background selective execution failed for %s", job_id)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "http_status": 500,
+        }
+
+
+@router.post("/regression/execute-selected/start", summary="Start selected execution without holding the HTTP request open")
+async def start_selected_execution_async(request: ExecuteSelectedRegressionRequest) -> dict[str, str]:
+    job_id = uuid4().hex
+    _BACKGROUND_EXECUTION_JOBS[job_id] = {"status": "running"}
+    task = asyncio.create_task(_run_selected_execution_job(job_id, request))
+    task.add_done_callback(lambda _: None)
+    return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/regression/execute-selected/status/{job_id}", summary="Get selected execution status")
+async def get_selected_execution_status(job_id: str) -> dict[str, Any]:
+    if not _RUN_ID_REGEX.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid execution job ID")
+    job = _BACKGROUND_EXECUTION_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Execution job not found")
+    return job
 
 
 # --- Baseline Endpoints ---

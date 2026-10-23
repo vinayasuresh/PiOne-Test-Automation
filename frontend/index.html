@@ -2463,6 +2463,10 @@
           const stateRes = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`, { cache: "no-store" });
           if (!stateRes.ok) continue;
           const runCtx = await stateRes.json();
+          const polledTelemetry = runCtx.latest_telemetry;
+          if (polledTelemetry && Number(polledTelemetry.last_event_sequence || 0) > Number(state.lastEventSequence || 0)) {
+            handleTelemetryEvent(polledTelemetry);
+          }
           reconcile_terminal_snapshot(state, runCtx);
           const runStatus = String(runCtx.status || "").toLowerCase();
           if (["scanned", "partial_scanned", "paused", "failed"].includes(runStatus) && (runCtx.scan_results || ["partial_scanned", "paused", "failed"].includes(runStatus))) {
@@ -2722,6 +2726,10 @@
             if (r.ok) {
               const runCtx = await r.json();
               if (runCtx && runCtx.run_id === state.runId) {
+                const polledTelemetry = runCtx.latest_telemetry;
+                if (polledTelemetry && Number(polledTelemetry.last_event_sequence || 0) > Number(state.lastEventSequence || 0)) {
+                  handleTelemetryEvent(polledTelemetry);
+                }
                 const seq = Number(runCtx.last_event_sequence || 0);
                 if (seq && seq < Number(state.lastEventSequence || 0)) {
                   return;
@@ -2961,6 +2969,31 @@
       renderExecutionSelectionTable(testCases);
     }
 
+    async function runAsyncJob(startUrl, statusUrl, payload, label) {
+      const startRes = await fetch(startUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const startData = await readApiResponse(startRes, `${label} start`);
+      if (!startRes.ok) throw new Error(formatApiError(startData, `${label} start failed`));
+
+      for (let attempt = 0; attempt < 900; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const statusRes = await fetch(`${statusUrl}/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
+        if (!statusRes.ok) continue;
+        const job = await statusRes.json();
+        if (job.status === "completed") return job.result;
+        if (job.status === "failed") {
+          if (Number(job.http_status) === 401) {
+            triggerSessionExpired();
+          }
+          throw new Error(typeof job.error === "string" ? job.error : formatApiError(job.error, `${label} failed`));
+        }
+      }
+      throw new Error(`${label} is still running. Reopen this session to continue monitoring it.`);
+    }
+
     async function handleRunExecution() {
       if (!state.generatedPlan) {
         showActionableError("Execution", state.runId, "PREREQUISITE_MISSING", "Generate test plan before running execution.", "Complete test planning in step 6 first.");
@@ -2971,10 +3004,10 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Steps...`;
 
       try {
-        const res = await fetch(`${API_BASE}/execute-test`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const data = await runAsyncJob(
+          `${API_BASE}/execute-test/start`,
+          `${API_BASE}/execute-test/status`,
+          {
             base_url: state.targetUrl,
             scan: state.scanData,
             script: state.generatedPlan.script,
@@ -2982,16 +3015,9 @@
             auth_session_id: state.authSessionId,
             run_id: state.runId,
             allow_mutating_actions: false
-          })
-        });
-
-        if (res.status === 401) {
-          triggerSessionExpired();
-          return;
-        }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(formatApiError(data, "Execution failed"));
+          },
+          "Execution"
+        );
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
@@ -4092,26 +4118,19 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Selected (${state.selectedExecutionTestIds.length})...`;
 
       try {
-        const res = await fetch(`${API_BASE}/regression/execute-selected`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const data = await runAsyncJob(
+          `${API_BASE}/regression/execute-selected/start`,
+          `${API_BASE}/regression/execute-selected/status`,
+          {
             run_id: state.runId,
             base_url: state.targetUrl,
             selected_test_case_ids: state.selectedExecutionTestIds,
             confirmed: true,
             auth_session_id: state.authSessionId,
             allow_mutating_actions: false
-          })
-        });
-
-        if (res.status === 401) {
-          triggerSessionExpired();
-          return;
-        }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(formatApiError(data, "Selective execution failed"));
+          },
+          "Selective execution"
+        );
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
