@@ -37,6 +37,22 @@ VAPT_NOT_TESTED = UNTESTED + ["credential attacks and brute force", "destructive
 _LOCK = threading.RLock()
 _JOBS: dict[str, dict] = {}
 _RISKY = re.compile(r"logout|logoff|signout|delete|remove|reset|checkout|purchase|payment|unsubscribe|terminate|destroy", re.I)
+_STATIC_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".mp4", ".mp3", ".webm", ".avi", ".pdf", ".zip"
+}
+
+
+def _sync_summary(report):
+    findings = report.get("findings", [])
+    report["summary"] = {
+        "total": len(findings),
+        "confirmed": sum(1 for x in findings if x.get("status") == "Confirmed"),
+        "observations": sum(1 for x in findings if x.get("status") != "Confirmed"),
+        "by_severity": {sev: sum(1 for x in findings if x.get("severity") == sev) for sev in sorted({x.get("severity") for x in findings if x.get("severity")})},
+        "by_owasp": {cat: sum(1 for x in findings if x.get("owasp_mapping") == cat) for cat in sorted({x.get("owasp_mapping") for x in findings if x.get("owasp_mapping")})},
+    }
 
 
 def now():
@@ -326,6 +342,102 @@ def clear_reports():
                 save_run_context(ctx)
 
 
+def _is_mock_run(run_id: str, ctx) -> bool:
+    session_id = getattr(ctx, "auth_session_id", None)
+    return str(run_id).startswith("mock_") or (bool(session_id) and str(session_id).startswith("mock_"))
+
+
+def _start_mock_review(run_id, ctx, checks, max_requests, max_seconds, assessment_mode):
+    target = safe_url(ctx.target_origin or "https://demo.testmate.local")
+    report = {
+        "run_id": run_id,
+        "review_id": uuid4().hex,
+        "status": "completed",
+        "started_at": now(),
+        "finished_at": now(),
+        "target": target,
+        "assessment_mode": assessment_mode,
+        "auth_session_used": False,
+        "checks": list(checks),
+        "requests": 5,
+        "max_requests": max_requests,
+        "max_seconds": max_seconds,
+        "endpoints": [
+            {"url": f"{target}/dashboard", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 1},
+            {"url": f"{target}/users", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 1},
+            {"url": f"{target}/reports", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+            {"url": f"{target}/settings", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+            {"url": f"{target}/analytics", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+        ],
+        "findings": [],
+        "warnings": [
+            "Deterministic Mock Demo assessment; no network traffic dispatched.",
+            "Query values are omitted from collection; forms are inventoried but never submitted.",
+            "Zero findings does not establish application security."
+        ],
+        "not_tested": VAPT_NOT_TESTED if assessment_mode == "vapt" else UNTESTED,
+        "completed_pages": 5,
+        "pending_pages": 0,
+        "valid_pages_assessed": 5,
+        "invalid_routes_skipped": 0,
+        "scanner_error_category": None,
+        "summary": {}
+    }
+    mock_findings = []
+    if "headers" in checks:
+        mock_findings.extend([
+            {"rule": "headers", "title": "HSTS header missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A02:2021", "cwe": "CWE-319",
+             "verification": "observation; exploitability not established", "evidence": "HTTPS response omitted Strict-Transport-Security.",
+             "impact": "May weaken browser transport security protections; assess application context.",
+             "remediation": "Enable HSTS after verifying HTTPS coverage.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "content-security-policy missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-16",
+             "verification": "observation; exploitability not established", "evidence": "HTML response omitted content-security-policy.",
+             "impact": "May weaken browser script execution boundaries; assess application context.",
+             "remediation": "Deploy a restrictive Content-Security-Policy after testing required sources.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "x-content-type-options missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-16",
+             "verification": "observation; exploitability not established", "evidence": "HTML response omitted x-content-type-options.",
+             "impact": "MIME-type sniffing may occur on legacy clients.",
+             "remediation": "Set X-Content-Type-Options to nosniff.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "Framing protection missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-1021",
+             "verification": "observation; exploitability not established", "evidence": "No enforced frame-ancestors directive or valid X-Frame-Options.",
+             "impact": "Page may be embedded in an iframe on third-party sites.",
+             "remediation": "Set CSP frame-ancestors to the intended embedding origins.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+        ])
+    if "cookies" in checks:
+        mock_findings.append(
+            {"rule": "cookies", "title": "Cookie attributes require review", "url": f"{target}/users", "method": "GET",
+             "severity": "medium", "confidence": "medium", "owasp": "A07:2021", "cwe": "CWE-614",
+             "verification": "observation; exploitability not established", "evidence": "A Set-Cookie header omitted: httponly, samesite. Value withheld.",
+             "impact": "Session cookie may be accessed via client-side scripts.",
+             "remediation": "Use Secure, HttpOnly and an appropriate SameSite value for session cookies.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()}
+        )
+    if "auth_boundary" in checks:
+        mock_findings.append(
+            {"rule": "auth_boundary", "title": "Route authorization boundary requires review", "url": f"{target}/settings", "method": "GET",
+             "severity": "info", "confidence": "low", "owasp": "A01:2021", "cwe": "CWE-862",
+             "verification": "observation; authenticated-vs-anonymous access comparison not established", "evidence": "An in-scope route returned a successful response to the bounded anonymous request.",
+             "impact": "If this route is intended to require authentication, missing authorization could expose functionality or data.",
+             "remediation": "Verify authorization requirements for this route with an approved test account and enforce server-side access checks.", "timestamp": now(), "status": "Observation"}
+        )
+    for item in mock_findings:
+        enriched = _enrich_finding(item, run_id)
+        enriched["id"] = hashlib.sha256(repr((enriched["rule"], enriched["title"], enriched["url"])).encode()).hexdigest()[:16]
+        enriched["run_id"] = run_id
+        report["findings"].append(enriched)
+
+    report["summary"]["total"] = len(report["findings"])
+    report["summary"]["confirmed"] = sum(1 for x in report["findings"] if x.get("status") == "Confirmed")
+    report["summary"]["observations"] = sum(1 for x in report["findings"] if x.get("status") != "Confirmed")
+    report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
+    report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
+    _persist(run_id, report)
+    return copy.deepcopy(report)
+
+
 def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="review"):
     with _LOCK:
         if _JOBS:
@@ -333,6 +445,10 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
         ctx = get_run_context(run_id)
         if not ctx or not ctx.scan_results or ctx.status not in {"scanned", "partial_scanned", "executed"}:
             raise ValueError("Complete or save the crawl before security review")
+
+        if _is_mock_run(run_id, ctx):
+            return _start_mock_review(run_id, ctx, checks, max_requests, max_seconds, assessment_mode)
+
         queue = []
         for route in ctx.scan_results.get("routes", [])[:300]:
             try:
@@ -352,7 +468,13 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
                 continue
         if not queue:
             raise ValueError("No eligible in-scope routes were captured")
-        session_headers, authenticated = _session_headers(ctx)
+        if assessment_mode == "vapt":
+            session_headers, authenticated = _session_headers(ctx)
+        else:
+            try:
+                session_headers, authenticated = _session_headers(ctx)
+            except ValueError:
+                session_headers, authenticated = {}, False
         report = {"run_id": run_id, "review_id": uuid4().hex, "status": "running", "started_at": now(),
                   "target": safe_url(ctx.target_origin), "assessment_mode": assessment_mode, "auth_session_used": authenticated, "checks": list(checks), "requests": 0,
                   "max_requests": max_requests, "max_seconds": max_seconds, "endpoints": [], "findings": [],
@@ -480,6 +602,9 @@ def _worker(run_id, job):
                         candidate = scoped_url(link, url, job["namespace"])
                         if origin(candidate) != origin(job["base"]):
                             continue
+                        cand_path = candidate.lower().split("?")[0]
+                        if any(cand_path.endswith(ext) for ext in _STATIC_EXTENSIONS):
+                            continue
                         if candidate not in job["seen"]:
                             job["seen"].add(candidate)
                             job["queue"].append(candidate)
@@ -514,17 +639,24 @@ def _worker(run_id, job):
                 job["queue"].pop(0)
                 report["completed_pages"] += 1
                 report["pending_pages"] = len(job["queue"])
-                report["summary"]["total"] = len(report["findings"])
-                report["summary"]["confirmed"] = sum(1 for x in report["findings"] if x.get("status") == "Confirmed")
-                report["summary"]["observations"] = sum(1 for x in report["findings"] if x.get("status") != "Confirmed")
-                report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
-                report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
+                _sync_summary(report)
                 _persist(run_id, report)
+            if not job["queue"] and report["valid_pages_assessed"] == 0 and report["requests"] < report["max_requests"]:
+                try:
+                    root_candidate = scoped_url("/", job["base"], job["namespace"])
+                    if root_candidate not in job["seen"]:
+                        job["seen"].add(root_candidate)
+                        job["queue"].append(root_candidate)
+                        with _LOCK:
+                            report["pending_pages"] = len(job["queue"])
+                except ValueError:
+                    pass
         if report.get("auth_session_used") and report["completed_pages"] and report["valid_pages_assessed"] == 0:
             report["warnings"].append("The stored authenticated session did not unlock any captured route; refresh authentication and repeat the crawl before trusting this assessment.")
         if report["completed_pages"] and report["valid_pages_assessed"] == 0:
             report["warnings"].append("No valid target page or API response was assessed; this run cannot establish security coverage.")
             report["status"] = "route_validation_failed"
+            report["scanner_error_category"] = "ROUTE_VALIDATION_FAILED"
         else:
             report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
     except InterruptedError:
@@ -538,6 +670,7 @@ def _worker(run_id, job):
         with _LOCK:
             report["finished_at"] = now()
             report["pending_pages"] = len(job["queue"])
+            _sync_summary(report)
             try:
                 _persist(run_id, report)
             finally:
