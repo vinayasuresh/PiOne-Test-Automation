@@ -229,6 +229,41 @@ _ELEMENT_DATA_SCRIPT = """
         return '';
     }
 
+    function businessContext(el) {
+        /*
+           Preserve the relationship between a control and the business item
+           it belongs to.  A flat list of six identical "Add to cart" buttons
+           is not useful QA evidence; the product/card/row context is.
+           The heuristic is intentionally passive and only reads DOM data.
+        */
+        const entityAttrs = ['data-product-id', 'data-product', 'data-sku', 'data-item-id', 'data-id', 'data-testid'];
+        let c = el.parentElement;
+        while (c && c !== document.body) {
+            const tag = c.tagName.toLowerCase();
+            const cls = String(c.className || '').toLowerCase();
+            const hasEntityAttr = entityAttrs.some(attr => c.getAttribute(attr));
+            const looksLikeEntity = hasEntityAttr || tag === 'article' || tag === 'li' || tag === 'tr' ||
+                /(^|[ _-])(inventory[_-]?item|product|cart[_-]?item|line[_-]?item|card|tile)([ _-]|$)/.test(cls);
+            if (looksLikeEntity) {
+                const keyAttr = entityAttrs.find(attr => c.getAttribute(attr));
+                const titleNode = c.querySelector(
+                    '[data-test*="title"], [data-testid*="title"], [data-testid*="name"], h1, h2, h3, h4, h5, h6, [class*="item_name"], [class*="product_name"], [class*="title"], [class*="name"]'
+                );
+                const entityName = (titleNode?.innerText || c.getAttribute('aria-label') || c.getAttribute('title') || '').trim().slice(0, 120);
+                const entityKey = (keyAttr && c.getAttribute(keyAttr)) || c.id || entityName || generatedSelector(c);
+                return {
+                    entity_type: tag === 'tr' ? 'row' : (cls.includes('cart') ? 'cart_item' : 'item'),
+                    entity_name: entityName,
+                    entity_key: entityKey,
+                    container_selector: generatedSelector(c),
+                    container_xpath: xpathFor(c),
+                };
+            }
+            c = c.parentElement;
+        }
+        return {};
+    }
+
     function getEventListenerCount(el) {
         try {
             if (typeof getEventListeners === 'function') {
@@ -412,6 +447,7 @@ _ELEMENT_DATA_SCRIPT = """
             firstRowCols,
             controlCount,
             containerKey: getContainerKey(el),
+            businessContext: businessContext(el),
         };
     });
 }
@@ -1077,6 +1113,7 @@ def _build_target_from_data(
             "width": data.get("width", 0),
             "height": data.get("height", 0),
         },
+        "business_context": data.get("businessContext") or {},
         "is_validation_target": target_category in VALIDATION_CATEGORIES,
     }
 

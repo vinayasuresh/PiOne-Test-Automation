@@ -171,6 +171,9 @@ class RouteResult(BaseModel):
     components: ComponentGroups
     interactions: list[Interaction] = []
     automation_targets: list[dict[str, Any]] = []
+    # The complete target registry is returned for traceability.  This count
+    # remains useful to clients that deliberately page or filter the list.
+    total_automation_targets: int = 0
     route_status: str = "WORKING"
     route_score: int = 0
     dom_stable: bool = True
@@ -187,6 +190,7 @@ class ScanSummary(BaseModel):
     total_inputs:  int
     total_dropdowns: int = 0
     total_tables:  int
+    total_automation_targets: int = 0
     working_routes: int = 0
     partial_routes: int = 0
     non_working_routes: int = 0

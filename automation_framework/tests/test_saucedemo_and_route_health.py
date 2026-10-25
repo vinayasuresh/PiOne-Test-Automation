@@ -33,6 +33,7 @@ from api.services.llm_provider_gateway import (
     validate_plan_grounding,
 )
 from api.services.test_execution_service import execute_test_cases
+from api.services.mock_service import get_mock_response
 from api.services.test_planning_service import build_test_cases
 from api.utils.response_builder import build_scan_response
 from automation_framework.crawler.action_classifier import (
@@ -172,14 +173,28 @@ def test_route_health_classification_and_aggregation():
     assert resp.summary.working_routes == 1
     assert resp.summary.partial_routes == 1
     assert resp.summary.non_working_routes == 1
+    assert resp.summary.total_automation_targets == 2
 
     routes_by_path = {r.path: r for r in resp.routes}
     assert routes_by_path["/inventory.html"].route_status == "WORKING"
     assert routes_by_path["/inventory.html"].dom_stable is True
     assert routes_by_path["/inventory.html"].page_load_success is True
+    assert routes_by_path["/inventory.html"].total_automation_targets == 1
 
     assert routes_by_path["/cart.html"].route_status == "PARTIAL"
     assert routes_by_path["/error.html"].route_status in {"NON-WORKING", "NON_WORKING"}
+
+
+def test_mock_demo_preserves_registry_evidence_shape():
+    """Demo mode must exercise the same evidence UI/export contract as live scans."""
+    response = get_mock_response("https://demo.testmate.local")
+
+    assert response.summary.total_automation_targets > 0
+    assert all(route.total_automation_targets == len(route.automation_targets) for route in response.routes)
+    first_target = response.routes[0].automation_targets[0]
+    assert first_target["selector"]["primary"]["strategy"] == "testid"
+    assert first_target["element_xpath"].startswith("//*[@data-testid=")
+    assert first_target["discovery_mechanism"] == "mock_fixture"
 
 
 # ---------------------------------------------------------------------------

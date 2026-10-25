@@ -548,7 +548,7 @@
         </div>
         <div class="overflow-x-auto max-h-72">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
               <tr>
                 <th scope="col" class="table-cell text-left">Route</th>
                 <th scope="col" class="table-cell text-left">Module</th>
@@ -562,6 +562,30 @@
           </table>
         </div>
       </div>
+
+      <!-- Evidence Registry: actual crawl records, not the label-only summary. -->
+      <details class="border border-slate-200 rounded-lg overflow-hidden" open>
+        <summary class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center cursor-pointer">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-list-check text-purple-600"></i> Discovered UI Evidence by Route</span>
+          <span id="analyze-target-count-badge" class="text-slate-500 text-[11px] font-normal">0 targets</span>
+        </summary>
+        <p class="px-4 pt-3 text-[11px] text-slate-500">Each row is a real crawler record. Product/card context links controls such as Add, Remove, and Add to cart to the item they belong to.</p>
+        <div class="p-4 overflow-auto max-h-[30rem]">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <tr>
+                <th scope="col" class="table-cell text-left">Route</th>
+                <th scope="col" class="table-cell text-left">Item / Context</th>
+                <th scope="col" class="table-cell text-left">Control</th>
+                <th scope="col" class="table-cell text-left">Primary Selector</th>
+                <th scope="col" class="table-cell text-left">XPath</th>
+                <th scope="col" class="table-cell text-center">Discovery</th>
+              </tr>
+            </thead>
+            <tbody id="analyze-elements-table-body"></tbody>
+          </table>
+        </div>
+      </details>
 
       <!-- Parking Lot Review Section -->
       <div class="border border-slate-200 rounded-lg overflow-hidden">
@@ -671,7 +695,7 @@
             </div>
             <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
               <table class="min-w-full text-xs">
-                <th scope="col"ead class="bg-slate-100 text-slate-700">
+                <thead class="bg-slate-100 text-slate-700">
                   <tr>
                     <th scope="col" class="table-cell text-left">TC ID</th>
                     <th scope="col" class="table-cell text-left">Screen / Feature</th>
@@ -781,7 +805,7 @@
         <!-- Checkbox Selection Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-56 bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700">
+            <thead class="bg-slate-100 text-slate-700">
               <tr>
                 <th scope="col" class="table-cell text-center w-10">Run?</th>
                 <th scope="col" class="table-cell text-left">TC ID</th>
@@ -803,7 +827,7 @@
       <!-- Execution Results Table with Categorical Failure Column -->
       <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
         <table class="min-w-full text-xs">
-          <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+          <thead class="bg-slate-100 text-slate-700 font-semibold">
             <tr>
               <th scope="col" class="table-cell text-left">TC ID</th>
               <th scope="col" class="table-cell text-left">Step</th>
@@ -892,7 +916,7 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">Route</th>
                   <th scope="col" class="table-cell text-left">Module</th>
@@ -914,13 +938,14 @@
           </summary>
           <div class="p-4 overflow-x-auto max-h-72">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">Route</th>
-                  <th scope="col" class="table-cell text-left">Role</th>
-                  <th scope="col" class="table-cell text-left">Label</th>
+                  <th scope="col" class="table-cell text-left">Item / Context</th>
+                  <th scope="col" class="table-cell text-left">Control</th>
                   <th scope="col" class="table-cell text-left">Primary Selector</th>
-                  <th scope="col" class="table-cell text-center">Safety</th>
+                  <th scope="col" class="table-cell text-left">XPath</th>
+                  <th scope="col" class="table-cell text-center">Discovery</th>
                 </tr>
               </thead>
               <tbody id="report-elements-table-body"></tbody>
@@ -945,7 +970,7 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">TC ID</th>
                   <th scope="col" class="table-cell text-left">Step</th>
@@ -1051,7 +1076,7 @@
         <!-- Saved Runs Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Run ID</th>
                 <th scope="col" class="table-cell text-left">Application URL</th>
@@ -1100,7 +1125,7 @@
         <!-- Suites Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Suite Name</th>
                 <th scope="col" class="table-cell text-left">Target App URL</th>
@@ -1141,7 +1166,7 @@
 
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Run ID</th>
                 <th scope="col" class="table-cell text-left">Target URL</th>
@@ -1569,7 +1594,13 @@
 
     function calculate_module_progress(runContext) {
       const selected = Array.isArray(runContext?.selected_modules) ? runContext.selected_modules.filter(Boolean) : [];
-      const completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
+      let completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
+      // Some fast/mock scans persist the final scan document before emitting
+      // per-module telemetry.  A terminal run is still complete; do not show
+      // a contradictory 0/N progress indicator.
+      if (isTerminalStatus(runContext?.status) && !completed.length && selected.length) {
+        completed = [...selected];
+      }
       const pending = selected.filter(m => !completed.includes(m));
       const total = selected.length;
       const done = completed.length;
@@ -1579,9 +1610,16 @@
 
     function calculate_route_progress(runContext) {
       const rp = runContext?.route_progress || {};
-      const scanned = Number(rp.scanned || 0);
-      const pending = Number(rp.pending || 0);
-      const total = Number(rp.total || (scanned + pending) || 0);
+      let scanned = Number(rp.scanned || 0);
+      let pending = Number(rp.pending || 0);
+      let total = Number(rp.total || (scanned + pending) || 0);
+      const scanRoutes = Array.isArray(runContext?.scan_results?.routes) ? runContext.scan_results.routes : [];
+      const resultTotal = Number(runContext?.scan_results?.summary?.total_routes || scanRoutes.length || 0);
+      if (isTerminalStatus(runContext?.status) && scanned === 0 && resultTotal > 0) {
+        scanned = resultTotal;
+        pending = 0;
+        total = resultTotal;
+      }
       const percentage = total > 0 ? Math.round((scanned / total) * 100) : 0;
       return { scanned, pending, total, percentage };
     }
@@ -1650,6 +1688,8 @@
 
       const moduleProgress = calculate_module_progress(snapshot);
       const routeProgress = calculate_route_progress(snapshot);
+      const resultSummary = snapshot.scan_results?.summary || {};
+      const resultRoutes = Array.isArray(snapshot.scan_results?.routes) ? snapshot.scan_results.routes : [];
       const status = String(snapshot.status || "").toLowerCase();
       const isComplete = status === "scanned";
       const isPartial = status === "partial_scanned";
@@ -1663,18 +1703,20 @@
 
       document.getElementById("live-module-progress").textContent = `${moduleProgress.completed_count} / ${moduleProgress.total}`;
       document.getElementById("live-route-progress").textContent = `${routeProgress.scanned} scanned (${routeProgress.pending} pend)`;
-      document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || 0);
+      const observedTargets = Number(resultSummary.total_automation_targets || 0)
+        || resultRoutes.reduce((total, route) => total + routeTargetCount(route), 0);
+      document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || observedTargets || 0);
       document.getElementById("live-safe-actions").textContent = Number(snapshot.safe_actions_explored || 0);
       document.getElementById("live-parking-lot").textContent = Number(snapshot.parking_lot_actions || 0);
       document.getElementById("live-retry-count").textContent = Number(snapshot.retry_count || 0);
       document.getElementById("live-current-target").textContent = localState.currentRoute
         ? localState.currentRoute
         : (isComplete && localState.lastCompletedRoute ? `No active route (last: ${localState.lastCompletedRoute})` : "No active route");
-      if (snapshot.route_health) {
-        document.getElementById("live-health-working").textContent = `${Number(snapshot.route_health.working_count || 0)}W`;
-        document.getElementById("live-health-partial").textContent = `${Number(snapshot.route_health.partial_count || 0)}P`;
-        document.getElementById("live-health-nonworking").textContent = `${Number(snapshot.route_health.non_working_count || 0)}NW`;
-      }
+      const routeCounts = calculateRouteCounts(resultRoutes, resultSummary);
+      const health = snapshot.route_health || {};
+      document.getElementById("live-health-working").textContent = `${Number(health.working_count ?? routeCounts.working)}W`;
+      document.getElementById("live-health-partial").textContent = `${Number(health.partial_count ?? routeCounts.partial)}P`;
+      document.getElementById("live-health-nonworking").textContent = `${Number(health.non_working_count ?? routeCounts.nonWorking)}NW`;
 
       const progressBar = document.getElementById("scan-progress-bar");
       if (progressBar) {
@@ -1851,6 +1893,23 @@
         } else {
           renderAnalyzeView();
         }
+      }
+      // Returning from Analyze to Crawl Progress used to reveal the values
+      // that were painted when the panel was first opened (often 0/N), rather
+      // than the persisted terminal result. Always reconcile the canonical
+      // run snapshot when the telemetry panel becomes visible.
+      if (stepId === 4 && state.runId) {
+        fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`, { cache: "no-store" })
+          .then(r => r.ok ? r.json() : null)
+          .then(runCtx => {
+            if (!runCtx) return;
+            reconcile_terminal_snapshot(state, runCtx);
+            if (runCtx.scan_results) {
+              state.scanData = runCtx.scan_results;
+              unlockStep(5);
+            }
+          })
+          .catch(() => {});
       }
       if (stepId === 6) renderAttachedScanContext();
       renderStepper();
@@ -2780,6 +2839,71 @@
       }, 1000);
     }
 
+    function getRouteTargets(route) {
+      return Array.isArray(route?.automation_targets) ? route.automation_targets : [];
+    }
+
+    function legacyComponentCount(route) {
+      const components = route?.components || {};
+      return ["buttons", "inputs", "dropdowns", "tables", "charts", "maps"]
+        .reduce((total, key) => total + (Array.isArray(components[key]) ? components[key].length : 0), 0);
+    }
+
+    function routeTargetCount(route) {
+      return Number(route?.total_automation_targets || 0) || getRouteTargets(route).length || legacyComponentCount(route);
+    }
+
+    function totalDiscoveredTargets(routes, summary) {
+      const reported = Number(summary?.total_automation_targets || 0);
+      const legacySummary = ["total_buttons", "total_inputs", "total_dropdowns", "total_tables"]
+        .reduce((total, key) => total + Number(summary?.[key] || 0), 0);
+      return reported || routes.reduce((total, route) => total + routeTargetCount(route), 0) || legacySummary;
+    }
+
+    function targetPrimarySelector(target) {
+      const primary = target?.selector?.primary || {};
+      const value = primary.value || target?.selector || target?.generated_selector || "";
+      return value ? `${primary.strategy ? `${primary.strategy}: ` : ""}${value}` : "Unavailable";
+    }
+
+    function targetContextLabel(target) {
+      const context = target?.business_context || {};
+      if (context.entity_name) return context.entity_name;
+      if (context.entity_key) return context.entity_key;
+      return target?.menu_name || "Page-level control";
+    }
+
+    function targetDiscoveryLabel(target) {
+      const source = target?.discovery_mechanism || "passive_dom";
+      const dynamic = target?.is_dynamic ? " dynamic" : "";
+      return `${source}${dynamic}`;
+    }
+
+    function appendTargetEvidenceRows(tableBody, routes) {
+      tableBody.innerHTML = "";
+      let rendered = 0;
+      routes.forEach(route => {
+        getRouteTargets(route).forEach(target => {
+          rendered += 1;
+          const tr = document.createElement("tr");
+          const kind = target?.type || target?.category || "interactive";
+          tr.innerHTML = `
+            <td class="table-cell font-mono text-[11px] align-top">${escapeHtml(route.path || "/")}</td>
+            <td class="table-cell text-slate-700 align-top"><span class="font-semibold">${escapeHtml(targetContextLabel(target))}</span>${target?.business_context?.entity_key ? `<span class="block font-mono text-[10px] text-slate-400">${escapeHtml(target.business_context.entity_key)}</span>` : ""}</td>
+            <td class="table-cell align-top"><span class="font-semibold text-slate-800">${escapeHtml(target.label || "Unlabeled control")}</span><span class="block text-[10px] text-slate-500">${escapeHtml(kind)} / ${escapeHtml(target.interaction_type || "observe")}</span></td>
+            <td class="table-cell font-mono text-[10px] text-slate-600 break-all align-top">${escapeHtml(targetPrimarySelector(target))}</td>
+            <td class="table-cell font-mono text-[10px] text-slate-500 break-all align-top">${escapeHtml(target.element_xpath || "Unavailable")}</td>
+            <td class="table-cell text-center align-top"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">${escapeHtml(targetDiscoveryLabel(target))}</span></td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      });
+      if (!rendered) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-slate-500 py-6">No detailed target records were returned by this scan. Re-run the crawl to collect UI evidence.</td></tr>`;
+      }
+      return rendered;
+    }
+
     function renderAnalyzeView() {
       if (!state.scanData) return;
       const scanSummary = state.scanData.summary || {};
@@ -2791,7 +2915,7 @@
       container.innerHTML = "";
       const cards = [
         { label: "Total Routes", val: counts.total, color: "text-blue-600" },
-        { label: "Total Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), color: "text-purple-600" },
+        { label: "Total Elements", val: totalDiscoveredTargets(routes, scanSummary), color: "text-purple-600" },
         { label: "Working Routes", val: counts.working, color: "text-emerald-600" },
         { label: "Non-Working / Partial", val: counts.partial + counts.nonWorking, color: "text-rose-600" }
       ];
@@ -2817,11 +2941,15 @@
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
-          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+          <td class="table-cell text-center font-mono">${routeTargetCount(r)}</td>
           <td class="table-cell text-center">${r.dom_stable ? "✅ Yes" : "❌ No"}</td>
         `;
         routesBody.appendChild(tr);
       });
+
+      const evidenceBody = document.getElementById("analyze-elements-table-body");
+      const evidenceCount = appendTargetEvidenceRows(evidenceBody, routes);
+      document.getElementById("analyze-target-count-badge").textContent = `${evidenceCount} target${evidenceCount === 1 ? "" : "s"}`;
 
       // Parking Lot List
       const parkingList = document.getElementById("analyze-parking-list");
@@ -3171,7 +3299,7 @@
 
       const cards = [
         { title: "Total Routes Scanned", val: counts.total, sub: `${counts.working} Working | ${counts.partial} Partial | ${counts.nonWorking} Non-Working`, color: "text-blue-600" },
-        { title: "Elements Mapped", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), sub: "Across all targeted modules", color: "text-purple-600" },
+        { title: "Elements Mapped", val: totalDiscoveredTargets(routes, scanSummary), sub: "Complete crawler evidence across targeted modules", color: "text-purple-600" },
         { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
         { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
       ];
@@ -3201,7 +3329,7 @@
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
-          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+          <td class="table-cell text-center font-mono">${routeTargetCount(r)}</td>
         `;
         routesBody.appendChild(tr);
       });
@@ -3209,14 +3337,7 @@
       // Expandable 2: Element Registry
       const elemBody = document.getElementById("report-elements-table-body");
       elemBody.innerHTML = "";
-      routes.forEach(r => {
-        const comp = r.components || {};
-        (comp.buttons || []).forEach(b => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td class="table-cell font-mono text-[11px]">${escapeHtml(r.path)}</td><td class="table-cell font-semibold">Button</td><td class="table-cell font-bold text-slate-800">${escapeHtml(b)}</td><td class="table-cell font-mono text-[10px] text-slate-500">button:has-text("${escapeHtml(b)}")</td><td class="table-cell text-center"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">SAFE</span></td>`;
-          elemBody.appendChild(tr);
-        });
-      });
+      appendTargetEvidenceRows(elemBody, routes);
 
       // Expandable 3: Parking Lot
       const parkingContainer = document.getElementById("report-parking-container");

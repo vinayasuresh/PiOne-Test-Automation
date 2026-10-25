@@ -584,9 +584,6 @@ async def scan(request: ScanRequest) -> ScanResponse:
         # Build page_intelligence dictionary for mock export
         page_intelligence = {}
         for r in mock_resp.routes:
-            buttons = [{"label": b, "tag": "button", "role": "button", "selector": f"button:has-text('{b}')"} for b in r.components.buttons]
-            inputs = [{"label": inp, "tag": "input", "role": "textbox", "selector": f"input[name='{inp.lower()}']"} for inp in r.components.inputs]
-            dropdowns = [{"label": d, "tag": "select", "role": "combobox", "selector": f"select[name='{d.lower()}']"} for d in r.components.dropdowns]
             page_intelligence[r.path] = {
                 "route": r.path,
                 "url": f"{request.url.rstrip('/')}{r.path}",
@@ -595,9 +592,8 @@ async def scan(request: ScanRequest) -> ScanResponse:
                 "route_status": "WORKING",
                 "route_score": 100,
                 "dom_stable": True,
-                "buttons": buttons,
-                "inputs": inputs,
-                "dropdowns": dropdowns,
+                "automation_targets": r.automation_targets,
+                "auto_detected_elements": r.automation_targets,
                 "tables": r.components.tables,
                 "charts": r.components.charts,
                 "interactions": [i.model_dump() for i in r.interactions],

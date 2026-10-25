@@ -124,6 +124,36 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 | **Verification** | Run the complete unit, integration, and Playwright suite locally; browser tests require normal local socket permissions. |
 | **Live Proof** | SauceDemo, DemoQA, and The Internet are supported test targets; each run is isolated by `run_id`. |
 
+## 3.1 Product Positioning & V3 Direction
+
+PiOne Testmate is currently a strong local/product foundation for **evidence-first
+functional assurance**. Its differentiator is not generic AI test generation. It is
+the traceable chain from a real scanned route and UI element to a generated step,
+execution result, screenshot, security observation and regression decision.
+
+The V3 product concept is the **Assurance Graph**:
+
+```text
+target → session → module → route/state → element/API evidence
+       → test step → execution proof → finding/diff → verified decision
+```
+
+This deliberately keeps Playwright and safety rules authoritative while AI proposes
+plans from saved evidence. The security layer remains bounded and honest; deeper DAST
+coverage should be integrated from specialist engines such as OWASP ZAP or Burp
+Suite rather than presented as passive checks.
+
+The V3 execution blueprint, senior-demo script and copy/paste engineering prompt are
+maintained here:
+
+- [V3 phase roadmap](docs/V3_PHASE_ROADMAP.md)
+- [Senior demo brief](docs/SENIOR_DEMO_BRIEF.md)
+- [Antigravity V3 execution prompt](docs/ANTIGRAVITY_V3_EXECUTION_PROMPT.md)
+
+The current release should not claim complete OWASP Top 10 coverage, confirmed SQL
+injection/XSS detection, or enterprise multi-tenant scale. Those are explicitly
+tracked as future work and coverage gaps.
+
 ---
 
 ## 4. Prerequisites & Setup
