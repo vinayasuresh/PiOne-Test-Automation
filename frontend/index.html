@@ -158,6 +158,20 @@
         </div>
       </div>
 
+      <div class="border border-indigo-200 bg-indigo-50/70 rounded-lg p-4 space-y-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-route text-indigo-600"></i>
+          <label for="assessment-mode-first" class="text-xs font-bold text-indigo-950 uppercase tracking-wide">Assessment flow</label>
+        </div>
+        <select id="assessment-mode-first" class="w-full md:w-auto text-xs font-semibold border border-indigo-300 rounded-lg px-3 py-2.5 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400">
+          <option value="both" selected>Functional testing + Security review</option>
+          <option value="functional_only">Functional testing only</option>
+          <option value="security_only">Security review only</option>
+          <option value="vapt_only">VAPT assessment only</option>
+        </select>
+        <p id="assessment-mode-first-help" class="text-[11px] text-indigo-900">The crawl and module-review steps stay unchanged. After crawling, choose whether to continue into test planning, security review, or both.</p>
+      </div>
+
       <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
@@ -622,6 +636,12 @@
           </div>
 
           <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requested Testcases</label>
+            <input id="testcase-count" type="number" min="0" max="100" value="0" inputmode="numeric" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" />
+            <p class="text-[10px] text-slate-500 mt-1">0 = automatic grounded coverage. A positive value caps the generated catalogue; uploaded rows are retained first.</p>
+          </div>
+
+          <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requirements Artifact (Optional)</label>
             <input id="upload-requirements" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv,.xlsx,.xls" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
             <p class="text-[10px] text-slate-500 mt-1">Excel/JSON/YAML/Markdown requirements or testcase files are parsed and attached to this plan.</p>
@@ -845,6 +865,9 @@
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mr-1">Execution:</span>
             <button id="btn-dl-execution" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Execution Results
+            </button>
+            <button id="btn-dl-source-excel" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-file-excel text-emerald-600 mr-1"></i> Uploaded Excel + Results
             </button>
             <button id="btn-dl-checkpoint" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
@@ -2119,6 +2142,7 @@
       document.getElementById("btn-dl-excel").onclick = () => downloadArtifact("excel");
       document.getElementById("btn-dl-markdown").onclick = () => downloadArtifact("markdown");
       document.getElementById("btn-dl-execution").onclick = () => downloadArtifact("execution_results");
+      document.getElementById("btn-dl-source-excel").onclick = () => downloadArtifact("source_excel");
       document.getElementById("btn-dl-checkpoint").onclick = () => downloadArtifact("checkpoint");
       document.getElementById("btn-dl-screenshots").onclick = () => downloadArtifact("screenshots");
 
@@ -2863,6 +2887,7 @@
         const provider = document.getElementById("llm-provider-select").value;
         const model = document.getElementById("llm-model-input").value.trim() || null;
         const prompt = document.getElementById("planning-prompt").value.trim() || null;
+        const requestedCount = Math.max(0, Math.min(100, Number.parseInt(document.getElementById("testcase-count")?.value || "0", 10) || 0));
 
         // Persist user artifacts first. The scan map is always sent in the
         // generate request; this context ID links uploaded requirements and
@@ -2891,7 +2916,8 @@
           model,
           user_prompt: prompt,
           context_id: contextId,
-          run_id: state.runId
+          run_id: state.runId,
+          testcase_count: requestedCount
         };
         const data = await runAsyncJob(
           `${API_BASE}/generate-test/start`,
@@ -3455,7 +3481,7 @@
     }
 
     async function downloadArtifact(type) {
-      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "execution_results", "checkpoint", "screenshots", "log"];
+      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "source_excel", "execution_results", "checkpoint", "screenshots", "log"];
       if (!ALLOWED_TYPES.includes(type)) {
         showActionableError("Download Artifact", state.runId, "INVALID_ARTIFACT", `Artifact type '${type}' is not permitted.`, "Select a standard artifact type.");
         return;
@@ -3485,6 +3511,7 @@
           json: "JSON Audit Package",
           yaml: "YAML Schema Export",
           excel: "Excel Report (10 Sheets)",
+          source_excel: "Uploaded Excel + Execution Results",
           markdown: "Markdown Summary",
           execution_results: "Execution Results JSON",
           checkpoint: "Checkpoint State",
@@ -3538,6 +3565,13 @@
       if (attachedContext) attachedContext.classList.add("hidden");
       const chipsContainer = document.getElementById("selected-modules-chips");
       if (chipsContainer) chipsContainer.innerHTML = "";
+
+      // A deliberate New Scan starts with the combined default. Do not reset
+      // this during Analyze: the first-page choice must survive the crawl.
+      const firstAssessmentMode = document.getElementById("assessment-mode-first");
+      const detailAssessmentMode = document.getElementById("assessment-mode");
+      if (firstAssessmentMode) firstAssessmentMode.value = "both";
+      if (detailAssessmentMode) detailAssessmentMode.value = "both";
 
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       updateActiveRunBar();
@@ -4412,7 +4446,7 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
-  <script src="/ui/js/security_review.js"></script>
+  <script src="/ui/js/security_review.js?v=assessment-mode-sync-2"></script>
   <!-- Floating Toast Notifications -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 

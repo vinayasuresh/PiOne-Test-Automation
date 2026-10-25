@@ -1256,6 +1256,7 @@ class LLMProviderGateway:
         requirements: list[dict[str, Any]],
         testcases: list[dict[str, Any]],
         user_prompt: str,
+        requested_count: int = 0,
     ) -> dict[str, Any]:
         """Generate test plan with strict fallback to deterministic planner on any failure."""
         chosen_provider = (provider or os.getenv("LLM_PROVIDER") or "deterministic").strip().lower()
@@ -1267,6 +1268,12 @@ class LLMProviderGateway:
 
         safe_context = sanitize_context(scan_context)
         safe_prompt = redact_secrets_text(user_prompt)
+        if requested_count:
+            safe_prompt = (
+                f"{safe_prompt}\n\nPLANNING CONSTRAINT: Return no more than {requested_count} "
+                "grounded test cases. Preserve uploaded testcase rows first; do not invent "
+                "additional cases just to reach the requested count."
+            )
         safe_reqs = sanitize_context(requirements) if requirements else []
         safe_tcs = sanitize_context(testcases) if testcases else []
 
@@ -1317,6 +1324,21 @@ class LLMProviderGateway:
                 safe_context, safe_reqs, safe_tcs, safe_prompt, correlation_id=correlation_id
             )
 
+        planned_cases = result.get("test_cases", [])
+        if not isinstance(planned_cases, list):
+            planned_cases = []
+        if requested_count and len(planned_cases) > requested_count:
+            # Enforce the user-visible cap after provider validation as a
+            # final safety boundary.  Truncation never fabricates coverage.
+            uploaded_ids = {
+                str(item.get("item_id") or "").strip()
+                for item in safe_tcs
+                if isinstance(item, dict) and item.get("item_id")
+            }
+            uploaded = [case for case in planned_cases if str(case.get("tc_id") or "") in uploaded_ids]
+            remainder = [case for case in planned_cases if case not in uploaded]
+            result["test_cases"] = (uploaded + remainder)[:requested_count]
+
         active_model = model or getattr(adapter, "model", getattr(adapter, "default_model", "built-in"))
         warnings = []
         if fallback_used:
@@ -1352,6 +1374,8 @@ class LLMProviderGateway:
                 "fallback_reason": fallback_reason,
                 "error_category": error_category,
                 "plan_type": "scenario_proposal" if is_scenario_proposal else "requirement_verified_suite",
+                "requested_testcases": requested_count,
+                "actual_testcases": len(result.get("test_cases", [])),
             },
         }
         health_status = "fallback" if fallback_used else "ok"

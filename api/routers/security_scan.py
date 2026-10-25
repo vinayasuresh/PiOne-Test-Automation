@@ -64,6 +64,9 @@ def export(run_id: str, format: Literal["json", "markdown", "excel"]):
     report = service.snapshot(run_id)
     if not report:
         raise HTTPException(404, "No security findings report for this run")
+    # Older persisted reports predate the consolidated VAPT field aliases;
+    # normalize them at export time without changing the scan result.
+    service._sync_summary(report)
     if format == "json":
         body, mime, ext = json.dumps(report, indent=2), "application/json", "json"
     elif format == "excel":
@@ -88,11 +91,18 @@ def export(run_id: str, format: Literal["json", "markdown", "excel"]):
             vapt_summary.append(list(row))
         for warning in report["warnings"] + report["not_tested"]:
             summary.append(["Limitation", warning])
-        findings = wb.create_sheet("Master Findings")
-        fields = ["finding_id", "source_finding_id", "category", "title", "description", "severity", "cvss", "cve", "owasp_mapping", "affected_components", "test_scenario", "expected_result", "actual_result", "evidence", "business_impact", "remediation", "status", "source_file", "source_sheet", "platform", "module", "id", "url", "method", "confidence", "verification"]
-        findings.append(fields)
+        # The primary register uses the user's VAPT worksheet vocabulary.
+        # Keep the legacy Master Findings sheet below for existing consumers.
+        vapt_findings = wb.create_sheet("VAPT Findings")
+        vapt_fields = list(service.VAPT_EXPORT_FIELDS)
+        vapt_findings.append(vapt_fields)
         for finding in report["findings"]:
-            findings.append([str(finding.get(key, "")) for key in fields])
+            vapt_findings.append([str(finding.get(key, "")) for key in vapt_fields])
+        findings = wb.create_sheet("Master Findings")
+        legacy_fields = ["finding_id", "source_finding_id", "category", "title", "description", "severity", "cvss", "cve", "owasp_mapping", "affected_components", "test_scenario", "expected_result", "actual_result", "evidence", "business_impact", "remediation", "status", "source_file", "source_sheet", "platform", "module", "id", "url", "method", "confidence", "verification"]
+        findings.append(legacy_fields)
+        for finding in report["findings"]:
+            findings.append([str(finding.get(key, "")) for key in legacy_fields])
         endpoints = wb.create_sheet("Endpoint Inventory")
         endpoints.append(["URL", "Method", "Status", "Source"])
         for endpoint in report.get("endpoints", []):
@@ -123,6 +133,6 @@ def export(run_id: str, format: Literal["json", "markdown", "excel"]):
         lines += ["Not tested: " + ", ".join(report["not_tested"])]
         for f in report["findings"]:
             lines += ["", "## " + clean(f["title"])]
-            lines += [f"{key}: {clean(f.get(key, ''))}" for key in ("finding_id", "category", "title", "url", "severity", "cvss", "owasp_mapping", "status", "confidence", "verification", "evidence", "business_impact", "remediation")]
+            lines += [f"{key}: {clean(f.get(key, ''))}" for key in service.VAPT_EXPORT_FIELDS]
         body, mime, ext = "\n\n".join(lines), "text/markdown", "md"
     return Response(body, media_type=mime, headers={"Content-Disposition": f'attachment; filename="security_{run_id}.{ext}"', "Cache-Control": "no-store"})

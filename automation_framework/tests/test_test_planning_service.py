@@ -94,6 +94,28 @@ def test_execution_artifacts_include_replayable_plan(tmp_path):
     assert artifacts["plan"].endswith("test_plan.json")
 
 
+def test_uploaded_row_is_preserved_in_source_excel_results(tmp_path):
+    case = AutomationCase(
+        tc_id="TC_UPLOAD_001", title="Uploaded row", module="Home", route="/",
+        steps=[AutomationStep(step_id="TC_UPLOAD_001_S01", action="navigate", route="/")],
+        locators={"_uploaded_row": {"Testcase Id": "TC_UPLOAD_001", "Screen": "Home", "Testcase": "Open home"}},
+    )
+    row = ExecutionResultRow(
+        TC_ID="TC_UPLOAD_001", Screen="/", Module="Home", Feature="Home",
+        Test_Case="Uploaded row", Expected_Result="Loads", Actual_Result="Loads",
+        Status="Pass", Step_ID="TC_UPLOAD_001_S01", Action="navigate",
+    )
+
+    artifacts = _write_artifacts(tmp_path, [case], [row], ExecutionSummary(total=1, passed=1, failed=0), 0.1)
+
+    source = tmp_path / "uploaded_testcases_with_results.xlsx"
+    assert artifacts["source_excel"] == str(source)
+    assert source.exists()
+    frame = __import__("pandas").read_excel(source)
+    assert frame.loc[0, "Testcase Id"] == "TC_UPLOAD_001"
+    assert frame.loc[0, "Execution_Status"] == "Pass"
+
+
 def test_huggingface_provider_requires_server_token(monkeypatch):
     monkeypatch.delenv("HF_TOKEN", raising=False)
     providers = {provider["id"]: provider for provider in provider_catalog()}

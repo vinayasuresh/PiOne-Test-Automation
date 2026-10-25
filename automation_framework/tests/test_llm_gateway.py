@@ -205,6 +205,25 @@ def test_test_input_normalizer_json():
     assert items[0].title == "Profile view"
 
 
+def test_testcase_count_caps_grounded_plan_and_preserves_upload_metadata(sample_scan_context):
+    items = TestInputNormalizer.normalize_text(
+        "Testcase Id,Screen,Testcase\nTC_001,Home,Open home",
+        "cases.csv",
+    )
+    assert items[0].metadata["screen"] == "Home"
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic",
+        model=None,
+        scan_context=sample_scan_context,
+        requirements=[],
+        testcases=[items[0].to_dict()],
+        user_prompt="smoke",
+        requested_count=1,
+    )
+    assert len(result["test_cases"]) == 1
+    assert result["planning_metadata"]["requested_testcases"] == 1
+
+
 # ---------------------------------------------------------------------------
 # 2. Deterministic Planner Success
 # ---------------------------------------------------------------------------

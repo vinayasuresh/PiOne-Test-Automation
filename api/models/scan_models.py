@@ -242,6 +242,9 @@ class GenerateTestRequest(BaseModel):
     user_prompt: Optional[str] = None
     run_id: Optional[str] = None
     session_name: Optional[str] = None
+    # Optional planning cap.  Zero preserves the provider's automatic
+    # grounded coverage; a positive value limits the returned catalogue.
+    testcase_count: int = 0
 
     @field_validator("base_url")
     @classmethod
@@ -256,6 +259,13 @@ class GenerateTestRequest(BaseModel):
         value = value.strip()
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
             raise ValueError("context_id may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+    @field_validator("testcase_count")
+    @classmethod
+    def validate_testcase_count(cls, value: int) -> int:
+        if value < 0 or value > 100:
+            raise ValueError("testcase_count must be between 0 and 100")
         return value
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 
@@ -22,6 +22,10 @@ class NormalizedInputItem:
     source_line: int | None = None
     uncertainty: bool = False
     tags: list[str] = None  # type: ignore[assignment]
+    # Original structured row/entry.  This is retained so execution reports
+    # can be rendered back in the user's uploaded Excel shape without asking
+    # the planner to reconstruct columns from prose.
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.tags is None:
@@ -63,6 +67,7 @@ class TestInputNormalizer:
                     source_line=None,
                     uncertainty=False,
                     tags=entry.get("tags") or [],
+                    metadata={str(k): v for k, v in entry.items() if str(k).lower() not in {"password", "secret", "api_key", "token"}},
                 ))
         except Exception:
             # Fall back to text parsing if JSON is malformed
@@ -98,6 +103,7 @@ class TestInputNormalizer:
                     item_id=item_id, title=title, description=desc or title,
                     item_type="testcase", source_reference=source_name,
                     source_line=header_index + row_index + 1, uncertainty=False,
+                    metadata=record,
                 ))
             return items
         

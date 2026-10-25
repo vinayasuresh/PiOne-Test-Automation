@@ -27,6 +27,7 @@ ALLOWED_ARTIFACT_TYPES = {
     "yaml",
     "markdown",
     "excel",
+    "source_excel",
     "execution_results",
     "checkpoint",
     "screenshots",
@@ -791,6 +792,7 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
             requirements_list,
             testcases_list,
             combined_prompt,
+            request.testcase_count,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -836,12 +838,60 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
                 source_references=rc.get("source_references", []),
                 notes_reason=rc.get("notes_reason", ""),
                 tested_version=rc.get("tested_version", ""),
+                locators=rc.get("locators") or {},
             ))
         except Exception:
             continue
 
     if not test_cases:
         test_cases = build_test_cases(request.scan, context)
+
+    # Do not silently drop an uploaded testcase row when an AI response omits
+    # it. Retain the row as a safe, grounded route check and record the gap so
+    # execution/report consumers can audit exactly what happened.
+    uploaded_by_id = {
+        str(item.get("item_id") or "").strip(): item
+        for item in testcases_list
+        if str(item.get("item_id") or "").strip()
+    }
+    represented = {case.tc_id for case in test_cases}
+    upload_gaps: list[dict[str, Any]] = []
+    first_route = request.scan.routes[0].path if request.scan.routes else "/"
+    for item_id, item in uploaded_by_id.items():
+        if item_id in represented:
+            for case in test_cases:
+                if case.tc_id == item_id:
+                    case.locators = {**case.locators, "_uploaded_row": item.get("metadata") or {}}
+                    if item.get("source_reference") and item["source_reference"] not in case.source_references:
+                        case.source_references.append(item["source_reference"])
+                    break
+            continue
+        row = item.get("metadata") or {}
+        route = str(row.get("route") or row.get("url") or row.get("path") or first_route).strip() or first_route
+        fallback_step = TestStep(
+            step_id=f"{item_id}_S01",
+            action="navigate",
+            route=route,
+            expected_result="Uploaded testcase route is reachable; detailed actions require grounded scan evidence.",
+            safety_classification="safe_action",
+        )
+        test_cases.append(TestCase(
+            tc_id=item_id,
+            title=item.get("title") or item_id,
+            module=str(row.get("module") or row.get("screen") or "Uploaded testcase"),
+            route=route,
+            purpose=item.get("description") or item.get("title") or "Uploaded testcase",
+            steps=[fallback_step],
+            screen=str(row.get("screen") or "Uploaded testcase"),
+            feature=str(row.get("feature") or "Uploaded testcase"),
+            testcase=str(row.get("testcase") or item.get("title") or item_id),
+            steps_to_execute=str(row.get("steps to execute") or row.get("steps") or "Navigate to the uploaded route"),
+            source_references=[item.get("source_reference", "uploaded")],
+            locators={"_uploaded_row": row},
+            notes_reason="No grounded provider plan matched this uploaded row; retained as a safe route check.",
+        ))
+        represented.add(item_id)
+        upload_gaps.append({"item_id": item_id, "reason": "No grounded provider testcase matched the uploaded row; executed as a safe route check."})
 
     script = _build_pytest_script(
         base_url=request.base_url,
@@ -858,6 +908,9 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
     metadata["uploaded_sources"] = context.get("source_files", [])
     metadata["normalized_requirements"] = len(requirements_list)
     metadata["normalized_testcases"] = len(testcases_list)
+    metadata["requested_testcases"] = request.testcase_count
+    metadata["actual_testcases"] = len(test_cases)
+    metadata["uploaded_rows_retained"] = len(uploaded_by_id)
     metadata["testcase_template"] = [
         "Testcase Id", "Screen", "Feature", "Testcase", "Steps to Execute",
         "Expected Result", "Test Status", "Actual Result", "Severity", "BUG Status",
@@ -893,7 +946,7 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         context_id=request.context_id,
         test_cases=test_cases,
         planning_metadata=metadata,
-        coverage_gaps=plan_result.get("coverage_gaps", []),
+        coverage_gaps=plan_result.get("coverage_gaps", []) + upload_gaps,
         provider=plan_result.get("provider", metadata.get("provider", "deterministic")),
         model=plan_result.get("model", metadata.get("model", "")),
         fallback_used=plan_result.get("fallback_used", metadata.get("fallback_used", False)),
@@ -1525,6 +1578,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         "yaml": yaml_path.is_file(),
         "markdown": md_path.is_file(),
         "excel": excel_path.is_file(),
+        "source_excel": bool(run_ctx and run_ctx.artifact_paths.get("source_excel") and Path(run_ctx.artifact_paths["source_excel"]).is_file()),
         "execution_results": bool(exec_json and exec_json.is_file()) or bool(run_ctx and run_ctx.execution_results),
         "checkpoint": chk_path.is_file(),
         "screenshots": len(screenshots) > 0,
@@ -1571,6 +1625,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         "yaml": "application/x-yaml",
         "markdown": "text/markdown",
         "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "source_excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "execution_results": "application/json",
         "checkpoint": "application/json",
         "screenshots": "application/zip",
@@ -1597,6 +1652,13 @@ async def download_artifact(run_id: str, artifact_type: str):
             if execution_excel.is_file():
                 target_file = execution_excel
                 filename = f"{display_stem}_execution_results.xlsx"
+    elif artifact_type == "source_excel":
+        target_file = REPORT_PATH / run_id / "uploaded_testcases_with_results.xlsx"
+        filename = f"{display_stem}_uploaded_testcases_with_results.xlsx"
+        if run_ctx and run_ctx.artifact_paths.get("source_excel"):
+            candidate = Path(run_ctx.artifact_paths["source_excel"])
+            if candidate.is_file():
+                target_file = candidate
     elif artifact_type == "checkpoint":
         target_file = REPORT_PATH / f"checkpoint_{run_id}.json"
         filename = f"{display_stem}_checkpoint.json"

@@ -69,13 +69,18 @@ def execute_test_cases(
                 rows.append(
                     ExecutionResultRow(
                         TC_ID=tc.tc_id,
+                        Screen=tc.screen or tc.route,
+                        Module=tc.module,
+                        Feature=tc.feature or tc.purpose or tc.module,
+                        Test_Case=tc.testcase or tc.title,
+                        Expected_Result=step.expected_result,
                         Step_ID=step.step_id,
                         Action=step.action,
                         locator_used=primary_loc,
                         Actual_Result=f"Simulated execution: {step.action} on '{step.target_label or step.route}' succeeded (offline mock)",
                         Status="Pass",
                         execution_timestamp=datetime.now().isoformat(),
-                        failure_category=None,
+                        failure_category="",
                         evidence_path=None,
                     )
                 )
@@ -832,6 +837,38 @@ def _write_artifacts(
     df = pd.DataFrame(safe_records)
     df.to_excel(excel, index=False, sheet_name="test_execution")
 
+    # Preserve an uploaded testcase workbook's row-oriented shape while
+    # appending execution evidence.  The normal PiOne workbook remains the
+    # canonical export; this companion is offered when the user wants the
+    # source Excel format plus results in the same download flow.
+    source_rows: list[dict[str, Any]] = []
+    rows_by_case: dict[str, list[ExecutionResultRow]] = {}
+    for row in rows:
+        rows_by_case.setdefault(row.TC_ID, []).append(row)
+    for case in test_cases:
+        uploaded_row = (case.locators or {}).get("_uploaded_row")
+        if not isinstance(uploaded_row, dict) or not uploaded_row:
+            continue
+        case_rows = rows_by_case.get(case.tc_id, [])
+        statuses = [r.Status for r in case_rows]
+        result_row = dict(uploaded_row)
+        result_row.update({
+            "Execution_Status": "Fail" if "Fail" in statuses else ("Skipped" if statuses and all(s == "Skipped" for s in statuses) else "Pass"),
+            "Execution_Steps": len(case_rows),
+            "Execution_Failed_Steps": sum(1 for status in statuses if status == "Fail"),
+            "Execution_Skipped_Steps": sum(1 for status in statuses if status == "Skipped"),
+            "Execution_Actual_Result": " | ".join(r.Actual_Result for r in case_rows),
+            "Execution_Failure_Info": " | ".join(r.Failure_Info for r in case_rows if r.Failure_Info),
+            "PiOne_TC_ID": case.tc_id,
+        })
+        source_rows.append(result_row)
+    source_excel = None
+    if source_rows:
+        source_excel = directory / "uploaded_testcases_with_results.xlsx"
+        pd.DataFrame(redact_sensitive_data(source_rows)).to_excel(
+            source_excel, index=False, sheet_name="testcases_with_results"
+        )
+
     safe_summary = redact_sensitive_data(summary.model_dump())
     safe_rows = [redact_sensitive_data(r.model_dump()) for r in rows]
     safe_cases = [redact_sensitive_data(case.model_dump()) for case in test_cases]
@@ -863,7 +900,7 @@ def _write_artifacts(
         )),
         encoding="utf-8",
     )
-    return {
+    artifacts = {
         "execution_id": directory.name,
         "directory": str(directory),
         "excel": str(excel),
@@ -871,3 +908,6 @@ def _write_artifacts(
         "json": str(json_file),
         "plan": str(plan_file),
     }
+    if source_excel:
+        artifacts["source_excel"] = str(source_excel)
+    return artifacts
