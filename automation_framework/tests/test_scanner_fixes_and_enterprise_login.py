@@ -153,6 +153,33 @@ def test_demoqa_fallback_extraction(browser_page: Page):
         assert t.get("selector", {}).get("primary")
 
 
+def test_catalog_controls_keep_product_context(browser_page: Page):
+    """Product-card controls must remain attributable after scan flattening."""
+    browser_page.set_content("""
+    <main>
+      <article class="inventory_item" data-sku="backpack">
+        <h2 class="inventory_item_name">Sauce Labs Backpack</h2>
+        <button id="add-to-cart-backpack">Add to cart</button>
+        <button id="remove-backpack">Remove</button>
+      </article>
+      <article class="inventory_item" data-sku="bike-light">
+        <h2 class="inventory_item_name">Sauce Labs Bike Light</h2>
+        <button id="add-to-cart-bike-light">Add to cart</button>
+      </article>
+    </main>
+    """)
+
+    targets = build_ui_intelligence(browser_page, feature_name="inventory")["automation_targets"]
+    add_targets = [target for target in targets if target["label"] == "Add to cart"]
+
+    assert len(add_targets) == 2
+    contexts = {target["business_context"]["entity_key"] for target in add_targets}
+    assert contexts == {"backpack", "bike-light"}
+    assert {target["business_context"]["entity_name"] for target in add_targets} == {
+        "Sauce Labs Backpack", "Sauce Labs Bike Light"
+    }
+
+
 def test_orangehrm_delayed_hydration_login(browser_page: Page):
     """OrangeHRM renders a loading skeleton first, then hydrates inputs via Vue.js.
     _wait_for_login_form must wait up to the timeout for inputs to appear.

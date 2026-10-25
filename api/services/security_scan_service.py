@@ -34,9 +34,49 @@ UNTESTED = ["SQL injection", "executable XSS", "SSRF", "IDOR/access control",
             "dependency CVEs", "DOM-only and authenticated endpoints"]
 VAPT_NOT_TESTED = UNTESTED + ["credential attacks and brute force", "destructive or state-changing requests",
                               "denial-of-service and rate-limit stress", "authenticated browser JavaScript flows"]
+VAPT_EXPORT_FIELDS = [
+    "Finding_ID", "Title", "Severity", "CVSS", "OWASP_Category", "CWE",
+    "Affected_Component", "Evidence", "Impact", "Likelihood", "Risk_Rating",
+    "Recommendation", "Source", "Description", "Sample Prompt", "Solution Prompt",
+]
 _LOCK = threading.RLock()
 _JOBS: dict[str, dict] = {}
 _RISKY = re.compile(r"logout|logoff|signout|delete|remove|reset|checkout|purchase|payment|unsubscribe|terminate|destroy", re.I)
+_STATIC_EXTENSIONS = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    ".mp4", ".mp3", ".webm", ".avi", ".pdf", ".zip"
+}
+
+
+def _sync_summary(report):
+    findings = report.get("findings", [])
+    for finding in findings:
+        # Keep the machine-readable report backward compatible while exposing
+        # the exact VAPT register vocabulary used by exported reports.
+        finding.setdefault("Finding_ID", finding.get("finding_id", ""))
+        finding.setdefault("Title", finding.get("title", ""))
+        finding.setdefault("Severity", finding.get("severity", "info").title())
+        finding.setdefault("CVSS", finding.get("cvss", "N/A"))
+        finding.setdefault("OWASP_Category", finding.get("owasp_mapping", finding.get("owasp", "")))
+        finding.setdefault("CWE", finding.get("cwe", ""))
+        finding.setdefault("Affected_Component", finding.get("affected_components", finding.get("url", "")))
+        finding.setdefault("Evidence", finding.get("evidence", ""))
+        finding.setdefault("Impact", finding.get("business_impact", finding.get("impact", "")))
+        finding.setdefault("Likelihood", finding.get("likelihood", "Medium"))
+        finding.setdefault("Risk_Rating", finding.get("risk_rating", finding.get("severity", "Info").title()))
+        finding.setdefault("Recommendation", finding.get("remediation", ""))
+        finding.setdefault("Source", finding.get("source", "Automated HTTP security review"))
+        finding.setdefault("Description", finding.get("description", finding.get("title", "")))
+        finding.setdefault("Sample Prompt", finding.get("sample_prompt", ""))
+        finding.setdefault("Solution Prompt", finding.get("solution_prompt", finding.get("remediation", "")))
+    report["summary"] = {
+        "total": len(findings),
+        "confirmed": sum(1 for x in findings if x.get("status") == "Confirmed"),
+        "observations": sum(1 for x in findings if x.get("status") != "Confirmed"),
+        "by_severity": {sev: sum(1 for x in findings if x.get("severity") == sev) for sev in sorted({x.get("severity") for x in findings if x.get("severity")})},
+        "by_owasp": {cat: sum(1 for x in findings if x.get("owasp_mapping") == cat) for cat in sorted({x.get("owasp_mapping") for x in findings if x.get("owasp_mapping")})},
+    }
 
 
 def now():
@@ -192,12 +232,21 @@ def analyze_response(url, response, enabled):
     html = "text/html" in headers.get("content-type", "").lower()
     successful = 200 <= response["status"] < 300
 
-    def add(rule, title, evidence, remediation, severity="low", category="A05:2021", confidence="high", cwe="CWE-16"):
-        findings.append({"rule": rule, "title": title, "url": safe_url(url), "method": "GET",
+    def add(rule, title, evidence, remediation, severity="low", category="A05:2021", confidence="high", cwe="CWE-16",
+            *, cvss="N/A", likelihood="Medium", risk_rating=None, status=None, verification=None,
+            source="Automated HTTP response inspection", description=None, sample_prompt=None, solution_prompt=None):
+        clean_url = safe_url(url)
+        finding_description = description or title
+        findings.append({"rule": rule, "title": title, "url": clean_url, "method": "GET",
                          "severity": severity, "confidence": confidence, "owasp": category, "cwe": cwe,
-                         "verification": "observation; exploitability not established", "evidence": evidence,
+                         "verification": verification or "observation; exploitability not established", "evidence": evidence,
                          "impact": "May weaken browser or application protections; assess application context.",
-                         "remediation": remediation, "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()})
+                         "remediation": remediation, "cvss": cvss, "likelihood": likelihood,
+                         "risk_rating": risk_rating or severity.title(), "status": status or "Observation",
+                         "source": source, "description": finding_description,
+                         "sample_prompt": sample_prompt or f"Validate whether {title.lower()} is present at {clean_url} using response evidence only; do not expose secrets.",
+                         "solution_prompt": solution_prompt or remediation,
+                         "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()})
 
     if "headers" in enabled and successful:
         if url.startswith("https:") and "strict-transport-security" not in headers:
@@ -239,8 +288,12 @@ def analyze_response(url, response, enabled):
     if "mixed_content" in enabled and html and url.startswith("https:") and parser.mixed:
         add("mixed_content", "HTTP resource or form in HTTPS page", "An HTML resource/form attribute references HTTP.", "Serve resources and submit forms over HTTPS.", category="A02:2021", cwe="CWE-319")
     if "disclosure" in enabled and successful:
-        if re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\bghp_[A-Za-z0-9]{36}\b", body):
-            add("disclosure", "Potential credential material in response", "A credential-format pattern matched. Matched value and body withheld.", "Verify the exposure, remove it and rotate confirmed credentials; investigate use.", "high", "A02:2021", "medium", "CWE-200")
+        private_key = re.search(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----", body)
+        cloud_token = re.search(r"\bAKIA[A-Z0-9]{16}\b|\bghp_[A-Za-z0-9]{36}\b", body)
+        if private_key:
+            add("disclosure", "Exposed private key material", "A private-key PEM header was present in the response. Key contents were withheld.", "Remove the exposure, rotate the compromised keypair, purge the key from repository history, and store private keys only in a KMS/HSM.", "critical", "A02:2021", "high", "CWE-321; CWE-200", cvss="9.8", likelihood="High", risk_rating="Critical", status="Confirmed", verification="confirmed by a private-key PEM header in the response; key contents withheld", source="Automated HTTP response inspection", description="The endpoint response exposed RSA/EC/OpenSSH private-key material.", sample_prompt=f"Does {safe_url(url)} return RSA, EC, or OpenSSH private-key material without authentication?", solution_prompt="Remove the private-key endpoint, rotate the compromised keypair, purge key files from repository history, and store private keys exclusively in a KMS/HSM.")
+        elif cloud_token:
+            add("disclosure", "Potential credential material in response", "A credential-format pattern matched. Matched value and body withheld.", "Verify the exposure, remove it and rotate confirmed credentials; investigate use.", "high", "A02:2021", "medium", "CWE-200", cvss="8.1", likelihood="Medium", risk_rating="High", source="Automated HTTP response inspection", description="The response matched a known cloud or source-control token format; validity was not tested.")
         if re.search(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b", body):
             add("disclosure", "Potential JWT token in response body", "A JSON Web Token pattern matched. Token contents withheld.", "Transmit tokens via secure HTTP-only cookies or authorization headers rather than response bodies.", "medium", "A02:2021", "medium", "CWE-200")
         if re.search(r"\b(?:postgres|postgresql|mysql|mongodb|redis)://[^\s\"'<>]+", body):
@@ -288,6 +341,31 @@ def _enrich_finding(item, run_id, module="Web"):
             },
         },
     })
+    item.update({
+        "likelihood": item.get("likelihood") or ("High" if item.get("confidence") == "high" else "Medium"),
+        "risk_rating": item.get("risk_rating") or str(item.get("severity", "info")).title(),
+        "source": item.get("source") or "Automated HTTP security review",
+        "sample_prompt": item.get("sample_prompt") or f"Validate whether {title.lower()} is present at {safe_url(item.get('url', ''))} using response evidence only; do not expose secrets.",
+        "solution_prompt": item.get("solution_prompt") or item.get("remediation", ""),
+    })
+    item.update({
+        "Finding_ID": item["finding_id"],
+        "Title": item["title"],
+        "Severity": str(item.get("severity", "info")).title(),
+        "CVSS": item.get("cvss", "N/A"),
+        "OWASP_Category": item["owasp_mapping"],
+        "CWE": item.get("cwe", ""),
+        "Affected_Component": item["affected_components"],
+        "Evidence": item.get("evidence", ""),
+        "Impact": item.get("business_impact", item.get("impact", "")),
+        "Likelihood": item["likelihood"],
+        "Risk_Rating": item["risk_rating"],
+        "Recommendation": item.get("remediation", ""),
+        "Source": item["source"],
+        "Description": item["description"],
+        "Sample Prompt": item["sample_prompt"],
+        "Solution Prompt": item["solution_prompt"],
+    })
     return item
 
 
@@ -326,6 +404,102 @@ def clear_reports():
                 save_run_context(ctx)
 
 
+def _is_mock_run(run_id: str, ctx) -> bool:
+    session_id = getattr(ctx, "auth_session_id", None)
+    return str(run_id).startswith("mock_") or (bool(session_id) and str(session_id).startswith("mock_"))
+
+
+def _start_mock_review(run_id, ctx, checks, max_requests, max_seconds, assessment_mode):
+    target = safe_url(ctx.target_origin or "https://demo.testmate.local")
+    report = {
+        "run_id": run_id,
+        "review_id": uuid4().hex,
+        "status": "completed",
+        "started_at": now(),
+        "finished_at": now(),
+        "target": target,
+        "assessment_mode": assessment_mode,
+        "auth_session_used": False,
+        "checks": list(checks),
+        "requests": 5,
+        "max_requests": max_requests,
+        "max_seconds": max_seconds,
+        "endpoints": [
+            {"url": f"{target}/dashboard", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 1},
+            {"url": f"{target}/users", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 1},
+            {"url": f"{target}/reports", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+            {"url": f"{target}/settings", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+            {"url": f"{target}/analytics", "method": "GET", "status": 200, "source": "route_or_api_inventory", "api_candidate": False, "forms_observed": 0},
+        ],
+        "findings": [],
+        "warnings": [
+            "Deterministic Mock Demo assessment; no network traffic dispatched.",
+            "Query values are omitted from collection; forms are inventoried but never submitted.",
+            "Zero findings does not establish application security."
+        ],
+        "not_tested": VAPT_NOT_TESTED if assessment_mode == "vapt" else UNTESTED,
+        "completed_pages": 5,
+        "pending_pages": 0,
+        "valid_pages_assessed": 5,
+        "invalid_routes_skipped": 0,
+        "scanner_error_category": None,
+        "summary": {}
+    }
+    mock_findings = []
+    if "headers" in checks:
+        mock_findings.extend([
+            {"rule": "headers", "title": "HSTS header missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A02:2021", "cwe": "CWE-319",
+             "verification": "observation; exploitability not established", "evidence": "HTTPS response omitted Strict-Transport-Security.",
+             "impact": "May weaken browser transport security protections; assess application context.",
+             "remediation": "Enable HSTS after verifying HTTPS coverage.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "content-security-policy missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-16",
+             "verification": "observation; exploitability not established", "evidence": "HTML response omitted content-security-policy.",
+             "impact": "May weaken browser script execution boundaries; assess application context.",
+             "remediation": "Deploy a restrictive Content-Security-Policy after testing required sources.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "x-content-type-options missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-16",
+             "verification": "observation; exploitability not established", "evidence": "HTML response omitted x-content-type-options.",
+             "impact": "MIME-type sniffing may occur on legacy clients.",
+             "remediation": "Set X-Content-Type-Options to nosniff.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+            {"rule": "headers", "title": "Framing protection missing", "url": f"{target}/dashboard", "method": "GET",
+             "severity": "low", "confidence": "high", "owasp": "A05:2021", "cwe": "CWE-1021",
+             "verification": "observation; exploitability not established", "evidence": "No enforced frame-ancestors directive or valid X-Frame-Options.",
+             "impact": "Page may be embedded in an iframe on third-party sites.",
+             "remediation": "Set CSP frame-ancestors to the intended embedding origins.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()},
+        ])
+    if "cookies" in checks:
+        mock_findings.append(
+            {"rule": "cookies", "title": "Cookie attributes require review", "url": f"{target}/users", "method": "GET",
+             "severity": "medium", "confidence": "medium", "owasp": "A07:2021", "cwe": "CWE-614",
+             "verification": "observation; exploitability not established", "evidence": "A Set-Cookie header omitted: httponly, samesite. Value withheld.",
+             "impact": "Session cookie may be accessed via client-side scripts.",
+             "remediation": "Use Secure, HttpOnly and an appropriate SameSite value for session cookies.", "references": ["https://owasp.org/Top10/2021/"], "timestamp": now()}
+        )
+    if "auth_boundary" in checks:
+        mock_findings.append(
+            {"rule": "auth_boundary", "title": "Route authorization boundary requires review", "url": f"{target}/settings", "method": "GET",
+             "severity": "info", "confidence": "low", "owasp": "A01:2021", "cwe": "CWE-862",
+             "verification": "observation; authenticated-vs-anonymous access comparison not established", "evidence": "An in-scope route returned a successful response to the bounded anonymous request.",
+             "impact": "If this route is intended to require authentication, missing authorization could expose functionality or data.",
+             "remediation": "Verify authorization requirements for this route with an approved test account and enforce server-side access checks.", "timestamp": now(), "status": "Observation"}
+        )
+    for item in mock_findings:
+        enriched = _enrich_finding(item, run_id)
+        enriched["id"] = hashlib.sha256(repr((enriched["rule"], enriched["title"], enriched["url"])).encode()).hexdigest()[:16]
+        enriched["run_id"] = run_id
+        report["findings"].append(enriched)
+
+    report["summary"]["total"] = len(report["findings"])
+    report["summary"]["confirmed"] = sum(1 for x in report["findings"] if x.get("status") == "Confirmed")
+    report["summary"]["observations"] = sum(1 for x in report["findings"] if x.get("status") != "Confirmed")
+    report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
+    report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
+    _persist(run_id, report)
+    return copy.deepcopy(report)
+
+
 def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="review"):
     with _LOCK:
         if _JOBS:
@@ -333,6 +507,10 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
         ctx = get_run_context(run_id)
         if not ctx or not ctx.scan_results or ctx.status not in {"scanned", "partial_scanned", "executed"}:
             raise ValueError("Complete or save the crawl before security review")
+
+        if _is_mock_run(run_id, ctx):
+            return _start_mock_review(run_id, ctx, checks, max_requests, max_seconds, assessment_mode)
+
         queue = []
         for route in ctx.scan_results.get("routes", [])[:300]:
             try:
@@ -352,7 +530,13 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
                 continue
         if not queue:
             raise ValueError("No eligible in-scope routes were captured")
-        session_headers, authenticated = _session_headers(ctx)
+        if assessment_mode == "vapt":
+            session_headers, authenticated = _session_headers(ctx)
+        else:
+            try:
+                session_headers, authenticated = _session_headers(ctx)
+            except ValueError:
+                session_headers, authenticated = {}, False
         report = {"run_id": run_id, "review_id": uuid4().hex, "status": "running", "started_at": now(),
                   "target": safe_url(ctx.target_origin), "assessment_mode": assessment_mode, "auth_session_used": authenticated, "checks": list(checks), "requests": 0,
                   "max_requests": max_requests, "max_seconds": max_seconds, "endpoints": [], "findings": [],
@@ -364,8 +548,11 @@ def start(run_id, checks, max_requests=20, max_seconds=120, assessment_mode="rev
                   "valid_pages_assessed": 0, "invalid_routes_skipped": 0,
                   "scanner_error_category": None,
                   "summary": {"total": 0, "confirmed": 0, "observations": 0, "by_severity": {}, "by_owasp": {}}}
+        if authenticated and "auth_boundary" in checks:
+            report["warnings"].append("Authorization-boundary claims were withheld because this review used an authenticated session; an anonymous comparison is required to establish access control findings.")
         job = {"report": report, "queue": queue, "seen": set(queue), "base": ctx.target_origin,
-               "namespace": ctx.allowed_path_namespace, "headers": session_headers, "paused": False, "stop": False}
+               "namespace": ctx.allowed_path_namespace, "headers": session_headers, "authenticated": authenticated,
+               "paused": False, "stop": False}
         _JOBS[run_id] = job
         _persist(run_id, report)
         threading.Thread(target=_worker, args=(run_id, job), daemon=True, name="security-review").start()
@@ -451,7 +638,7 @@ def _worker(run_id, job):
                               "verification": "observation; exploitability not established", "evidence": "Error response contained a stack/exception diagnostic marker; body withheld.",
                               "impact": "Detailed errors can disclose implementation and data-handling details.",
                               "remediation": "Return generic production errors and keep diagnostics server-side.", "timestamp": now()})
-            if "auth_boundary" in report["checks"] and response["status"] in {200, 201, 204}:
+            if "auth_boundary" in report["checks"] and not job.get("authenticated") and response["status"] in {200, 201, 204}:
                 # This is deliberately an observation: the crawler's route graph
                 # may contain authenticated and public pages, so no claim is made
                 # without an explicit authenticated-vs-anonymous comparison.
@@ -479,6 +666,9 @@ def _worker(run_id, job):
                     try:
                         candidate = scoped_url(link, url, job["namespace"])
                         if origin(candidate) != origin(job["base"]):
+                            continue
+                        cand_path = candidate.lower().split("?")[0]
+                        if any(cand_path.endswith(ext) for ext in _STATIC_EXTENSIONS):
                             continue
                         if candidate not in job["seen"]:
                             job["seen"].add(candidate)
@@ -514,17 +704,24 @@ def _worker(run_id, job):
                 job["queue"].pop(0)
                 report["completed_pages"] += 1
                 report["pending_pages"] = len(job["queue"])
-                report["summary"]["total"] = len(report["findings"])
-                report["summary"]["confirmed"] = sum(1 for x in report["findings"] if x.get("status") == "Confirmed")
-                report["summary"]["observations"] = sum(1 for x in report["findings"] if x.get("status") != "Confirmed")
-                report["summary"]["by_severity"] = {sev: sum(1 for x in report["findings"] if x.get("severity") == sev) for sev in {x.get("severity") for x in report["findings"]}}
-                report["summary"]["by_owasp"] = {cat: sum(1 for x in report["findings"] if x.get("owasp_mapping") == cat) for cat in {x.get("owasp_mapping") for x in report["findings"]}}
+                _sync_summary(report)
                 _persist(run_id, report)
+            if not job["queue"] and report["valid_pages_assessed"] == 0 and report["requests"] < report["max_requests"]:
+                try:
+                    root_candidate = scoped_url("/", job["base"], job["namespace"])
+                    if root_candidate not in job["seen"]:
+                        job["seen"].add(root_candidate)
+                        job["queue"].append(root_candidate)
+                        with _LOCK:
+                            report["pending_pages"] = len(job["queue"])
+                except ValueError:
+                    pass
         if report.get("auth_session_used") and report["completed_pages"] and report["valid_pages_assessed"] == 0:
             report["warnings"].append("The stored authenticated session did not unlock any captured route; refresh authentication and repeat the crawl before trusting this assessment.")
         if report["completed_pages"] and report["valid_pages_assessed"] == 0:
             report["warnings"].append("No valid target page or API response was assessed; this run cannot establish security coverage.")
             report["status"] = "route_validation_failed"
+            report["scanner_error_category"] = "ROUTE_VALIDATION_FAILED"
         else:
             report["status"] = "stopped" if job["stop"] else ("completed_with_gaps" if report["warnings"][3:] else "completed")
     except InterruptedError:
@@ -538,6 +735,7 @@ def _worker(run_id, job):
         with _LOCK:
             report["finished_at"] = now()
             report["pending_pages"] = len(job["queue"])
+            _sync_summary(report)
             try:
                 _persist(run_id, report)
             finally:

@@ -158,6 +158,20 @@
         </div>
       </div>
 
+      <div class="border border-indigo-200 bg-indigo-50/70 rounded-lg p-4 space-y-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-route text-indigo-600"></i>
+          <label for="assessment-mode-first" class="text-xs font-bold text-indigo-950 uppercase tracking-wide">Assessment flow</label>
+        </div>
+        <select id="assessment-mode-first" class="w-full md:w-auto text-xs font-semibold border border-indigo-300 rounded-lg px-3 py-2.5 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400">
+          <option value="both" selected>Functional testing + Security review</option>
+          <option value="functional_only">Functional testing only</option>
+          <option value="security_only">Security review only</option>
+          <option value="vapt_only">VAPT assessment only</option>
+        </select>
+        <p id="assessment-mode-first-help" class="text-[11px] text-indigo-900">The crawl and module-review steps stay unchanged. After crawling, choose whether to continue into test planning, security review, or both.</p>
+      </div>
+
       <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
@@ -534,7 +548,7 @@
         </div>
         <div class="overflow-x-auto max-h-72">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
               <tr>
                 <th scope="col" class="table-cell text-left">Route</th>
                 <th scope="col" class="table-cell text-left">Module</th>
@@ -548,6 +562,30 @@
           </table>
         </div>
       </div>
+
+      <!-- Evidence Registry: actual crawl records, not the label-only summary. -->
+      <details class="border border-slate-200 rounded-lg overflow-hidden" open>
+        <summary class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 flex justify-between items-center cursor-pointer">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-list-check text-purple-600"></i> Discovered UI Evidence by Route</span>
+          <span id="analyze-target-count-badge" class="text-slate-500 text-[11px] font-normal">0 targets</span>
+        </summary>
+        <p class="px-4 pt-3 text-[11px] text-slate-500">Each row is a real crawler record. Product/card context links controls such as Add, Remove, and Add to cart to the item they belong to.</p>
+        <div class="p-4 overflow-auto max-h-[30rem]">
+          <table class="min-w-full text-xs">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <tr>
+                <th scope="col" class="table-cell text-left">Route</th>
+                <th scope="col" class="table-cell text-left">Item / Context</th>
+                <th scope="col" class="table-cell text-left">Control</th>
+                <th scope="col" class="table-cell text-left">Primary Selector</th>
+                <th scope="col" class="table-cell text-left">XPath</th>
+                <th scope="col" class="table-cell text-center">Discovery</th>
+              </tr>
+            </thead>
+            <tbody id="analyze-elements-table-body"></tbody>
+          </table>
+        </div>
+      </details>
 
       <!-- Parking Lot Review Section -->
       <div class="border border-slate-200 rounded-lg overflow-hidden">
@@ -622,6 +660,12 @@
           </div>
 
           <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requested Testcases</label>
+            <input id="testcase-count" type="number" min="0" max="100" value="0" inputmode="numeric" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" />
+            <p class="text-[10px] text-slate-500 mt-1">0 = automatic grounded coverage. A positive value caps the generated catalogue; uploaded rows are retained first.</p>
+          </div>
+
+          <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requirements Artifact (Optional)</label>
             <input id="upload-requirements" type="file" accept=".txt,.md,.json,.yaml,.yml,.csv,.xlsx,.xls" class="w-full text-xs text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200" />
             <p class="text-[10px] text-slate-500 mt-1">Excel/JSON/YAML/Markdown requirements or testcase files are parsed and attached to this plan.</p>
@@ -651,7 +695,7 @@
             </div>
             <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
               <table class="min-w-full text-xs">
-                <th scope="col"ead class="bg-slate-100 text-slate-700">
+                <thead class="bg-slate-100 text-slate-700">
                   <tr>
                     <th scope="col" class="table-cell text-left">TC ID</th>
                     <th scope="col" class="table-cell text-left">Screen / Feature</th>
@@ -761,7 +805,7 @@
         <!-- Checkbox Selection Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-56 bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700">
+            <thead class="bg-slate-100 text-slate-700">
               <tr>
                 <th scope="col" class="table-cell text-center w-10">Run?</th>
                 <th scope="col" class="table-cell text-left">TC ID</th>
@@ -783,7 +827,7 @@
       <!-- Execution Results Table with Categorical Failure Column -->
       <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm">
         <table class="min-w-full text-xs">
-          <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+          <thead class="bg-slate-100 text-slate-700 font-semibold">
             <tr>
               <th scope="col" class="table-cell text-left">TC ID</th>
               <th scope="col" class="table-cell text-left">Step</th>
@@ -846,6 +890,9 @@
             <button id="btn-dl-execution" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Execution Results
             </button>
+            <button id="btn-dl-source-excel" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-file-excel text-emerald-600 mr-1"></i> Uploaded Excel + Results
+            </button>
             <button id="btn-dl-checkpoint" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
             </button>
@@ -869,7 +916,7 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">Route</th>
                   <th scope="col" class="table-cell text-left">Module</th>
@@ -891,13 +938,14 @@
           </summary>
           <div class="p-4 overflow-x-auto max-h-72">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">Route</th>
-                  <th scope="col" class="table-cell text-left">Role</th>
-                  <th scope="col" class="table-cell text-left">Label</th>
+                  <th scope="col" class="table-cell text-left">Item / Context</th>
+                  <th scope="col" class="table-cell text-left">Control</th>
                   <th scope="col" class="table-cell text-left">Primary Selector</th>
-                  <th scope="col" class="table-cell text-center">Safety</th>
+                  <th scope="col" class="table-cell text-left">XPath</th>
+                  <th scope="col" class="table-cell text-center">Discovery</th>
                 </tr>
               </thead>
               <tbody id="report-elements-table-body"></tbody>
@@ -922,7 +970,7 @@
           </summary>
           <div class="p-4 overflow-x-auto">
             <table class="min-w-full text-xs">
-              <th scope="col"ead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
                 <tr>
                   <th scope="col" class="table-cell text-left">TC ID</th>
                   <th scope="col" class="table-cell text-left">Step</th>
@@ -1028,7 +1076,7 @@
         <!-- Saved Runs Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Run ID</th>
                 <th scope="col" class="table-cell text-left">Application URL</th>
@@ -1077,7 +1125,7 @@
         <!-- Suites Table -->
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Suite Name</th>
                 <th scope="col" class="table-cell text-left">Target App URL</th>
@@ -1118,7 +1166,7 @@
 
         <div class="border border-slate-200 rounded-lg overflow-x-auto shadow-sm bg-white">
           <table class="min-w-full text-xs">
-            <th scope="col"ead class="bg-slate-100 text-slate-700 font-semibold">
+            <thead class="bg-slate-100 text-slate-700 font-semibold">
               <tr>
                 <th scope="col" class="table-cell text-left">Run ID</th>
                 <th scope="col" class="table-cell text-left">Target URL</th>
@@ -1546,7 +1594,13 @@
 
     function calculate_module_progress(runContext) {
       const selected = Array.isArray(runContext?.selected_modules) ? runContext.selected_modules.filter(Boolean) : [];
-      const completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
+      let completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
+      // Some fast/mock scans persist the final scan document before emitting
+      // per-module telemetry.  A terminal run is still complete; do not show
+      // a contradictory 0/N progress indicator.
+      if (isTerminalStatus(runContext?.status) && !completed.length && selected.length) {
+        completed = [...selected];
+      }
       const pending = selected.filter(m => !completed.includes(m));
       const total = selected.length;
       const done = completed.length;
@@ -1556,9 +1610,16 @@
 
     function calculate_route_progress(runContext) {
       const rp = runContext?.route_progress || {};
-      const scanned = Number(rp.scanned || 0);
-      const pending = Number(rp.pending || 0);
-      const total = Number(rp.total || (scanned + pending) || 0);
+      let scanned = Number(rp.scanned || 0);
+      let pending = Number(rp.pending || 0);
+      let total = Number(rp.total || (scanned + pending) || 0);
+      const scanRoutes = Array.isArray(runContext?.scan_results?.routes) ? runContext.scan_results.routes : [];
+      const resultTotal = Number(runContext?.scan_results?.summary?.total_routes || scanRoutes.length || 0);
+      if (isTerminalStatus(runContext?.status) && scanned === 0 && resultTotal > 0) {
+        scanned = resultTotal;
+        pending = 0;
+        total = resultTotal;
+      }
       const percentage = total > 0 ? Math.round((scanned / total) * 100) : 0;
       return { scanned, pending, total, percentage };
     }
@@ -1627,6 +1688,8 @@
 
       const moduleProgress = calculate_module_progress(snapshot);
       const routeProgress = calculate_route_progress(snapshot);
+      const resultSummary = snapshot.scan_results?.summary || {};
+      const resultRoutes = Array.isArray(snapshot.scan_results?.routes) ? snapshot.scan_results.routes : [];
       const status = String(snapshot.status || "").toLowerCase();
       const isComplete = status === "scanned";
       const isPartial = status === "partial_scanned";
@@ -1640,18 +1703,20 @@
 
       document.getElementById("live-module-progress").textContent = `${moduleProgress.completed_count} / ${moduleProgress.total}`;
       document.getElementById("live-route-progress").textContent = `${routeProgress.scanned} scanned (${routeProgress.pending} pend)`;
-      document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || 0);
+      const observedTargets = Number(resultSummary.total_automation_targets || 0)
+        || resultRoutes.reduce((total, route) => total + routeTargetCount(route), 0);
+      document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || observedTargets || 0);
       document.getElementById("live-safe-actions").textContent = Number(snapshot.safe_actions_explored || 0);
       document.getElementById("live-parking-lot").textContent = Number(snapshot.parking_lot_actions || 0);
       document.getElementById("live-retry-count").textContent = Number(snapshot.retry_count || 0);
       document.getElementById("live-current-target").textContent = localState.currentRoute
         ? localState.currentRoute
         : (isComplete && localState.lastCompletedRoute ? `No active route (last: ${localState.lastCompletedRoute})` : "No active route");
-      if (snapshot.route_health) {
-        document.getElementById("live-health-working").textContent = `${Number(snapshot.route_health.working_count || 0)}W`;
-        document.getElementById("live-health-partial").textContent = `${Number(snapshot.route_health.partial_count || 0)}P`;
-        document.getElementById("live-health-nonworking").textContent = `${Number(snapshot.route_health.non_working_count || 0)}NW`;
-      }
+      const routeCounts = calculateRouteCounts(resultRoutes, resultSummary);
+      const health = snapshot.route_health || {};
+      document.getElementById("live-health-working").textContent = `${Number(health.working_count ?? routeCounts.working)}W`;
+      document.getElementById("live-health-partial").textContent = `${Number(health.partial_count ?? routeCounts.partial)}P`;
+      document.getElementById("live-health-nonworking").textContent = `${Number(health.non_working_count ?? routeCounts.nonWorking)}NW`;
 
       const progressBar = document.getElementById("scan-progress-bar");
       if (progressBar) {
@@ -1828,6 +1893,23 @@
         } else {
           renderAnalyzeView();
         }
+      }
+      // Returning from Analyze to Crawl Progress used to reveal the values
+      // that were painted when the panel was first opened (often 0/N), rather
+      // than the persisted terminal result. Always reconcile the canonical
+      // run snapshot when the telemetry panel becomes visible.
+      if (stepId === 4 && state.runId) {
+        fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`, { cache: "no-store" })
+          .then(r => r.ok ? r.json() : null)
+          .then(runCtx => {
+            if (!runCtx) return;
+            reconcile_terminal_snapshot(state, runCtx);
+            if (runCtx.scan_results) {
+              state.scanData = runCtx.scan_results;
+              unlockStep(5);
+            }
+          })
+          .catch(() => {});
       }
       if (stepId === 6) renderAttachedScanContext();
       renderStepper();
@@ -2119,6 +2201,7 @@
       document.getElementById("btn-dl-excel").onclick = () => downloadArtifact("excel");
       document.getElementById("btn-dl-markdown").onclick = () => downloadArtifact("markdown");
       document.getElementById("btn-dl-execution").onclick = () => downloadArtifact("execution_results");
+      document.getElementById("btn-dl-source-excel").onclick = () => downloadArtifact("source_excel");
       document.getElementById("btn-dl-checkpoint").onclick = () => downloadArtifact("checkpoint");
       document.getElementById("btn-dl-screenshots").onclick = () => downloadArtifact("screenshots");
 
@@ -2463,6 +2546,10 @@
           const stateRes = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`, { cache: "no-store" });
           if (!stateRes.ok) continue;
           const runCtx = await stateRes.json();
+          const polledTelemetry = runCtx.latest_telemetry;
+          if (polledTelemetry && Number(polledTelemetry.last_event_sequence || 0) > Number(state.lastEventSequence || 0)) {
+            handleTelemetryEvent(polledTelemetry);
+          }
           reconcile_terminal_snapshot(state, runCtx);
           const runStatus = String(runCtx.status || "").toLowerCase();
           if (["scanned", "partial_scanned", "paused", "failed"].includes(runStatus) && (runCtx.scan_results || ["partial_scanned", "paused", "failed"].includes(runStatus))) {
@@ -2722,6 +2809,10 @@
             if (r.ok) {
               const runCtx = await r.json();
               if (runCtx && runCtx.run_id === state.runId) {
+                const polledTelemetry = runCtx.latest_telemetry;
+                if (polledTelemetry && Number(polledTelemetry.last_event_sequence || 0) > Number(state.lastEventSequence || 0)) {
+                  handleTelemetryEvent(polledTelemetry);
+                }
                 const seq = Number(runCtx.last_event_sequence || 0);
                 if (seq && seq < Number(state.lastEventSequence || 0)) {
                   return;
@@ -2748,6 +2839,71 @@
       }, 1000);
     }
 
+    function getRouteTargets(route) {
+      return Array.isArray(route?.automation_targets) ? route.automation_targets : [];
+    }
+
+    function legacyComponentCount(route) {
+      const components = route?.components || {};
+      return ["buttons", "inputs", "dropdowns", "tables", "charts", "maps"]
+        .reduce((total, key) => total + (Array.isArray(components[key]) ? components[key].length : 0), 0);
+    }
+
+    function routeTargetCount(route) {
+      return Number(route?.total_automation_targets || 0) || getRouteTargets(route).length || legacyComponentCount(route);
+    }
+
+    function totalDiscoveredTargets(routes, summary) {
+      const reported = Number(summary?.total_automation_targets || 0);
+      const legacySummary = ["total_buttons", "total_inputs", "total_dropdowns", "total_tables"]
+        .reduce((total, key) => total + Number(summary?.[key] || 0), 0);
+      return reported || routes.reduce((total, route) => total + routeTargetCount(route), 0) || legacySummary;
+    }
+
+    function targetPrimarySelector(target) {
+      const primary = target?.selector?.primary || {};
+      const value = primary.value || target?.selector || target?.generated_selector || "";
+      return value ? `${primary.strategy ? `${primary.strategy}: ` : ""}${value}` : "Unavailable";
+    }
+
+    function targetContextLabel(target) {
+      const context = target?.business_context || {};
+      if (context.entity_name) return context.entity_name;
+      if (context.entity_key) return context.entity_key;
+      return target?.menu_name || "Page-level control";
+    }
+
+    function targetDiscoveryLabel(target) {
+      const source = target?.discovery_mechanism || "passive_dom";
+      const dynamic = target?.is_dynamic ? " dynamic" : "";
+      return `${source}${dynamic}`;
+    }
+
+    function appendTargetEvidenceRows(tableBody, routes) {
+      tableBody.innerHTML = "";
+      let rendered = 0;
+      routes.forEach(route => {
+        getRouteTargets(route).forEach(target => {
+          rendered += 1;
+          const tr = document.createElement("tr");
+          const kind = target?.type || target?.category || "interactive";
+          tr.innerHTML = `
+            <td class="table-cell font-mono text-[11px] align-top">${escapeHtml(route.path || "/")}</td>
+            <td class="table-cell text-slate-700 align-top"><span class="font-semibold">${escapeHtml(targetContextLabel(target))}</span>${target?.business_context?.entity_key ? `<span class="block font-mono text-[10px] text-slate-400">${escapeHtml(target.business_context.entity_key)}</span>` : ""}</td>
+            <td class="table-cell align-top"><span class="font-semibold text-slate-800">${escapeHtml(target.label || "Unlabeled control")}</span><span class="block text-[10px] text-slate-500">${escapeHtml(kind)} / ${escapeHtml(target.interaction_type || "observe")}</span></td>
+            <td class="table-cell font-mono text-[10px] text-slate-600 break-all align-top">${escapeHtml(targetPrimarySelector(target))}</td>
+            <td class="table-cell font-mono text-[10px] text-slate-500 break-all align-top">${escapeHtml(target.element_xpath || "Unavailable")}</td>
+            <td class="table-cell text-center align-top"><span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">${escapeHtml(targetDiscoveryLabel(target))}</span></td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      });
+      if (!rendered) {
+        tableBody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-slate-500 py-6">No detailed target records were returned by this scan. Re-run the crawl to collect UI evidence.</td></tr>`;
+      }
+      return rendered;
+    }
+
     function renderAnalyzeView() {
       if (!state.scanData) return;
       const scanSummary = state.scanData.summary || {};
@@ -2759,7 +2915,7 @@
       container.innerHTML = "";
       const cards = [
         { label: "Total Routes", val: counts.total, color: "text-blue-600" },
-        { label: "Total Elements", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), color: "text-purple-600" },
+        { label: "Total Elements", val: totalDiscoveredTargets(routes, scanSummary), color: "text-purple-600" },
         { label: "Working Routes", val: counts.working, color: "text-emerald-600" },
         { label: "Non-Working / Partial", val: counts.partial + counts.nonWorking, color: "text-rose-600" }
       ];
@@ -2785,11 +2941,15 @@
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
-          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+          <td class="table-cell text-center font-mono">${routeTargetCount(r)}</td>
           <td class="table-cell text-center">${r.dom_stable ? "✅ Yes" : "❌ No"}</td>
         `;
         routesBody.appendChild(tr);
       });
+
+      const evidenceBody = document.getElementById("analyze-elements-table-body");
+      const evidenceCount = appendTargetEvidenceRows(evidenceBody, routes);
+      document.getElementById("analyze-target-count-badge").textContent = `${evidenceCount} target${evidenceCount === 1 ? "" : "s"}`;
 
       // Parking Lot List
       const parkingList = document.getElementById("analyze-parking-list");
@@ -2855,6 +3015,7 @@
         const provider = document.getElementById("llm-provider-select").value;
         const model = document.getElementById("llm-model-input").value.trim() || null;
         const prompt = document.getElementById("planning-prompt").value.trim() || null;
+        const requestedCount = Math.max(0, Math.min(100, Number.parseInt(document.getElementById("testcase-count")?.value || "0", 10) || 0));
 
         // Persist user artifacts first. The scan map is always sent in the
         // generate request; this context ID links uploaded requirements and
@@ -2883,31 +3044,15 @@
           model,
           user_prompt: prompt,
           context_id: contextId,
-          run_id: state.runId
+          run_id: state.runId,
+          testcase_count: requestedCount
         };
-        const startRes = await fetch(`${API_BASE}/generate-test/start`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(generationPayload)
-        });
-        const startData = await readApiResponse(startRes, "Test generation start");
-        if (!startRes.ok) throw new Error(formatApiError(startData, "Plan generation start failed"));
-
-        let data = null;
-        for (let attempt = 0; attempt < 900; attempt++) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const statusRes = await fetch(`${API_BASE}/generate-test/status/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
-          if (!statusRes.ok) continue;
-          const job = await statusRes.json();
-          if (job.status === "completed") {
-            data = job.result;
-            break;
-          }
-          if (job.status === "failed") {
-            throw new Error(typeof job.error === "string" ? job.error : formatApiError(job.error, "Plan generation failed"));
-          }
-        }
-        if (!data) throw new Error("Test generation is still running. Reopen this session to continue monitoring it.");
+        const data = await runAsyncJob(
+          `${API_BASE}/generate-test/start`,
+          `${API_BASE}/generate-test/status`,
+          generationPayload,
+          "Test generation"
+        );
 
         state.generatedPlan = data;
         const meta = data.planning_metadata || {};
@@ -2961,6 +3106,50 @@
       renderExecutionSelectionTable(testCases);
     }
 
+    async function runAsyncJob(startUrl, statusUrl, payload, label) {
+      const startRes = await fetch(startUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const startData = await readApiResponse(startRes, `${label} start`);
+      if (!startRes.ok) throw new Error(formatApiError(startData, `${label} start failed`));
+
+      let consecutiveStatusFailures = 0;
+      for (let attempt = 0; attempt < 900; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        let statusRes;
+        let job;
+        try {
+          statusRes = await fetch(`${statusUrl}/${encodeURIComponent(startData.job_id)}`, { cache: "no-store" });
+          job = await readApiResponse(statusRes, `${label} status`);
+        } catch (err) {
+          consecutiveStatusFailures += 1;
+          if (consecutiveStatusFailures < 5) continue;
+          throw new Error(`${label} status could not be read after ${consecutiveStatusFailures} attempts: ${err.message}`);
+        }
+
+        if (!statusRes.ok) {
+          consecutiveStatusFailures += 1;
+          if (statusRes.status === 401) triggerSessionExpired();
+          // A short tunnel/server interruption can be recovered, but a lost
+          // async job must never leave the UI spinning for fifteen minutes.
+          if (statusRes.status >= 500 && consecutiveStatusFailures < 5) continue;
+          throw new Error(formatApiError(job, `${label} status is unavailable`));
+        }
+
+        consecutiveStatusFailures = 0;
+        if (job.status === "completed") return job.result;
+        if (job.status === "failed") {
+          if (Number(job.http_status) === 401) {
+            triggerSessionExpired();
+          }
+          throw new Error(typeof job.error === "string" ? job.error : formatApiError(job.error, `${label} failed`));
+        }
+      }
+      throw new Error(`${label} is still running. Reopen this session to continue monitoring it.`);
+    }
+
     async function handleRunExecution() {
       if (!state.generatedPlan) {
         showActionableError("Execution", state.runId, "PREREQUISITE_MISSING", "Generate test plan before running execution.", "Complete test planning in step 6 first.");
@@ -2971,10 +3160,10 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Steps...`;
 
       try {
-        const res = await fetch(`${API_BASE}/execute-test`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const data = await runAsyncJob(
+          `${API_BASE}/execute-test/start`,
+          `${API_BASE}/execute-test/status`,
+          {
             base_url: state.targetUrl,
             scan: state.scanData,
             script: state.generatedPlan.script,
@@ -2982,16 +3171,9 @@
             auth_session_id: state.authSessionId,
             run_id: state.runId,
             allow_mutating_actions: false
-          })
-        });
-
-        if (res.status === 401) {
-          triggerSessionExpired();
-          return;
-        }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(formatApiError(data, "Execution failed"));
+          },
+          "Execution"
+        );
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
@@ -3117,7 +3299,7 @@
 
       const cards = [
         { title: "Total Routes Scanned", val: counts.total, sub: `${counts.working} Working | ${counts.partial} Partial | ${counts.nonWorking} Non-Working`, color: "text-blue-600" },
-        { title: "Elements Mapped", val: (scanSummary.total_buttons || 0) + (scanSummary.total_inputs || 0) + (scanSummary.total_dropdowns || 0) + (scanSummary.total_tables || 0), sub: "Across all targeted modules", color: "text-purple-600" },
+        { title: "Elements Mapped", val: totalDiscoveredTargets(routes, scanSummary), sub: "Complete crawler evidence across targeted modules", color: "text-purple-600" },
         { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
         { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
       ];
@@ -3147,7 +3329,7 @@
           <td class="table-cell text-slate-600">${escapeHtml(r.menu_name || "General")}</td>
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeClass}">${escapeHtml(norm)}</span></td>
           <td class="table-cell text-center font-mono font-bold">${r.route_score || 100}</td>
-          <td class="table-cell text-center font-mono">${(r.components?.buttons || []).length + (r.components?.inputs || []).length}</td>
+          <td class="table-cell text-center font-mono">${routeTargetCount(r)}</td>
         `;
         routesBody.appendChild(tr);
       });
@@ -3155,14 +3337,7 @@
       // Expandable 2: Element Registry
       const elemBody = document.getElementById("report-elements-table-body");
       elemBody.innerHTML = "";
-      routes.forEach(r => {
-        const comp = r.components || {};
-        (comp.buttons || []).forEach(b => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `<td class="table-cell font-mono text-[11px]">${escapeHtml(r.path)}</td><td class="table-cell font-semibold">Button</td><td class="table-cell font-bold text-slate-800">${escapeHtml(b)}</td><td class="table-cell font-mono text-[10px] text-slate-500">button:has-text("${escapeHtml(b)}")</td><td class="table-cell text-center"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">SAFE</span></td>`;
-          elemBody.appendChild(tr);
-        });
-      });
+      appendTargetEvidenceRows(elemBody, routes);
 
       // Expandable 3: Parking Lot
       const parkingContainer = document.getElementById("report-parking-container");
@@ -3427,7 +3602,7 @@
     }
 
     async function downloadArtifact(type) {
-      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "execution_results", "checkpoint", "screenshots", "log"];
+      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "source_excel", "execution_results", "checkpoint", "screenshots", "log"];
       if (!ALLOWED_TYPES.includes(type)) {
         showActionableError("Download Artifact", state.runId, "INVALID_ARTIFACT", `Artifact type '${type}' is not permitted.`, "Select a standard artifact type.");
         return;
@@ -3457,6 +3632,7 @@
           json: "JSON Audit Package",
           yaml: "YAML Schema Export",
           excel: "Excel Report (10 Sheets)",
+          source_excel: "Uploaded Excel + Execution Results",
           markdown: "Markdown Summary",
           execution_results: "Execution Results JSON",
           checkpoint: "Checkpoint State",
@@ -3510,6 +3686,13 @@
       if (attachedContext) attachedContext.classList.add("hidden");
       const chipsContainer = document.getElementById("selected-modules-chips");
       if (chipsContainer) chipsContainer.innerHTML = "";
+
+      // A deliberate New Scan starts with the combined default. Do not reset
+      // this during Analyze: the first-page choice must survive the crawl.
+      const firstAssessmentMode = document.getElementById("assessment-mode-first");
+      const detailAssessmentMode = document.getElementById("assessment-mode");
+      if (firstAssessmentMode) firstAssessmentMode.value = "both";
+      if (detailAssessmentMode) detailAssessmentMode.value = "both";
 
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       updateActiveRunBar();
@@ -4092,26 +4275,19 @@
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Selected (${state.selectedExecutionTestIds.length})...`;
 
       try {
-        const res = await fetch(`${API_BASE}/regression/execute-selected`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const data = await runAsyncJob(
+          `${API_BASE}/regression/execute-selected/start`,
+          `${API_BASE}/regression/execute-selected/status`,
+          {
             run_id: state.runId,
             base_url: state.targetUrl,
             selected_test_case_ids: state.selectedExecutionTestIds,
             confirmed: true,
             auth_session_id: state.authSessionId,
             allow_mutating_actions: false
-          })
-        });
-
-        if (res.status === 401) {
-          triggerSessionExpired();
-          return;
-        }
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(formatApiError(data, "Selective execution failed"));
+          },
+          "Selective execution"
+        );
 
         state.executionResults = data;
         renderExecutionResults(data.rows || []);
@@ -4391,7 +4567,7 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
-  <script src="/ui/js/security_review.js"></script>
+  <script src="/ui/js/security_review.js?v=assessment-mode-sync-2"></script>
   <!-- Floating Toast Notifications -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 

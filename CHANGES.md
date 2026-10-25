@@ -1,5 +1,19 @@
 # PiOne Testmate — UX Stabilization and Production Safety Changes
 
+## V3 Product Blueprint (2026-10-26)
+
+- Defined the **Assurance Graph** as the product differentiator: target, session,
+  route/state, UI/API evidence, test step, execution proof, security finding and
+  regression decision remain linked.
+- Added a phase roadmap covering proof-core reliability, API/Excel/security coverage,
+  explainable learning and team-scale execution.
+- Added a senior-demo brief with an honest narrative, live SauceDemo/Mock Demo flow,
+  executive questions and security claims to avoid.
+- Added a copy/paste Antigravity execution prompt with preservation rules, mode
+  isolation, Excel lineage, DAST adapter boundaries, test matrix and quality gates.
+- Updated README product positioning so marketing language matches the implemented
+  bounded VAPT scope and current local/single-user maturity.
+
 ## Acceptance Hardening Update (Current)
 
 - Standardized the persisted run-state contract returned by `GET /run/{run_id}/state` to include `run_id`, `scan_id`, target namespace, auth status, selected/current module+route, route progress, element/action counters, retry count, last event sequence, and checkpoint version.

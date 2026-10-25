@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from automation_framework.crawler.auth_exceptions import (
     AuthenticationExpiredError,
@@ -26,6 +27,7 @@ ALLOWED_ARTIFACT_TYPES = {
     "yaml",
     "markdown",
     "excel",
+    "source_excel",
     "execution_results",
     "checkpoint",
     "screenshots",
@@ -116,6 +118,7 @@ router = APIRouter()
 # kept in-process briefly; the generated plan itself is still persisted by
 # the existing generation flow.
 _BACKGROUND_PLAN_JOBS: dict[str, dict[str, Any]] = {}
+_BACKGROUND_EXECUTION_JOBS: dict[str, dict[str, Any]] = {}
 
 # Remote browsers (for example, a colleague using LocalTunnel) must not hold
 # one HTTP request open for the full Playwright crawl.  The tunnel can expire
@@ -123,6 +126,80 @@ _BACKGROUND_PLAN_JOBS: dict[str, dict[str, Any]] = {}
 # only as a lightweight in-process guard; durable progress remains in
 # RunContext/checkpoints and the existing telemetry channel.
 _BACKGROUND_SCAN_TASKS: set[asyncio.Task] = set()
+
+
+def _persist_execution_job_state(
+    run_id: str | None,
+    job_id: str,
+    status: str,
+    *,
+    selected_count: int | None = None,
+    error: str | None = None,
+    result: dict[str, Any] | None = None,
+) -> None:
+    """Keep an execution job recoverable after an app reload."""
+    if not run_id:
+        return
+    run_ctx = get_run_context(run_id)
+    if not run_ctx:
+        return
+    metadata: dict[str, Any] = {
+        "job_id": job_id,
+        "status": status,
+        "selected_count": selected_count,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if error:
+        metadata["error"] = redact_sensitive_data(str(error))
+    if result:
+        metadata["execution_id"] = result.get("execution_id")
+    run_ctx.artifact_paths["async_execution_job"] = metadata
+    if status == "running":
+        run_ctx.status = "executing"
+    save_run_context(run_ctx)
+
+
+def _recover_execution_job(job_id: str) -> dict[str, Any] | None:
+    """Recover a terminal selected-execution job from durable run state."""
+    context_dir = Path(REPORT_PATH) / "run_contexts"
+    for path in context_dir.glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            artifacts = payload.get("artifact_paths") or {}
+            metadata = artifacts.get("async_execution_job") or {}
+            if metadata.get("job_id") != job_id:
+                continue
+            if metadata.get("status") == "failed":
+                return {
+                    "status": "failed",
+                    "error": metadata.get("error") or "Execution failed before completion.",
+                    "http_status": 500,
+                }
+            rows = payload.get("execution_results")
+            if metadata.get("status") == "completed" or (payload.get("status") == "executed" and rows is not None):
+                summary = payload.get("execution_summary") or {}
+                return {
+                    "status": "completed",
+                    "result": {
+                        "status": "success",
+                        "run_id": payload.get("run_id"),
+                        "execution_id": artifacts.get("execution_id"),
+                        "selected_test_count": metadata.get("selected_count") or 0,
+                        "executed_test_count": len({row.get("TC_ID") for row in rows if row.get("TC_ID")}),
+                        "total_steps": len(rows),
+                        "summary": summary,
+                        "rows": rows,
+                        "artifacts": artifacts,
+                    },
+                }
+            return {
+                "status": "failed",
+                "error": "Execution monitoring was interrupted by an app restart before results were saved. Retry the selected tests.",
+                "http_status": 503,
+            }
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            continue
+    return None
 
 
 async def _run_scan_in_background(request: ScanRequest) -> None:
@@ -507,9 +584,6 @@ async def scan(request: ScanRequest) -> ScanResponse:
         # Build page_intelligence dictionary for mock export
         page_intelligence = {}
         for r in mock_resp.routes:
-            buttons = [{"label": b, "tag": "button", "role": "button", "selector": f"button:has-text('{b}')"} for b in r.components.buttons]
-            inputs = [{"label": inp, "tag": "input", "role": "textbox", "selector": f"input[name='{inp.lower()}']"} for inp in r.components.inputs]
-            dropdowns = [{"label": d, "tag": "select", "role": "combobox", "selector": f"select[name='{d.lower()}']"} for d in r.components.dropdowns]
             page_intelligence[r.path] = {
                 "route": r.path,
                 "url": f"{request.url.rstrip('/')}{r.path}",
@@ -518,9 +592,8 @@ async def scan(request: ScanRequest) -> ScanResponse:
                 "route_status": "WORKING",
                 "route_score": 100,
                 "dom_stable": True,
-                "buttons": buttons,
-                "inputs": inputs,
-                "dropdowns": dropdowns,
+                "automation_targets": r.automation_targets,
+                "auto_detected_elements": r.automation_targets,
                 "tables": r.components.tables,
                 "charts": r.components.charts,
                 "interactions": [i.model_dump() for i in r.interactions],
@@ -715,6 +788,7 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
             requirements_list,
             testcases_list,
             combined_prompt,
+            request.testcase_count,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -760,12 +834,60 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
                 source_references=rc.get("source_references", []),
                 notes_reason=rc.get("notes_reason", ""),
                 tested_version=rc.get("tested_version", ""),
+                locators=rc.get("locators") or {},
             ))
         except Exception:
             continue
 
     if not test_cases:
         test_cases = build_test_cases(request.scan, context)
+
+    # Do not silently drop an uploaded testcase row when an AI response omits
+    # it. Retain the row as a safe, grounded route check and record the gap so
+    # execution/report consumers can audit exactly what happened.
+    uploaded_by_id = {
+        str(item.get("item_id") or "").strip(): item
+        for item in testcases_list
+        if str(item.get("item_id") or "").strip()
+    }
+    represented = {case.tc_id for case in test_cases}
+    upload_gaps: list[dict[str, Any]] = []
+    first_route = request.scan.routes[0].path if request.scan.routes else "/"
+    for item_id, item in uploaded_by_id.items():
+        if item_id in represented:
+            for case in test_cases:
+                if case.tc_id == item_id:
+                    case.locators = {**case.locators, "_uploaded_row": item.get("metadata") or {}}
+                    if item.get("source_reference") and item["source_reference"] not in case.source_references:
+                        case.source_references.append(item["source_reference"])
+                    break
+            continue
+        row = item.get("metadata") or {}
+        route = str(row.get("route") or row.get("url") or row.get("path") or first_route).strip() or first_route
+        fallback_step = TestStep(
+            step_id=f"{item_id}_S01",
+            action="navigate",
+            route=route,
+            expected_result="Uploaded testcase route is reachable; detailed actions require grounded scan evidence.",
+            safety_classification="safe_action",
+        )
+        test_cases.append(TestCase(
+            tc_id=item_id,
+            title=item.get("title") or item_id,
+            module=str(row.get("module") or row.get("screen") or "Uploaded testcase"),
+            route=route,
+            purpose=item.get("description") or item.get("title") or "Uploaded testcase",
+            steps=[fallback_step],
+            screen=str(row.get("screen") or "Uploaded testcase"),
+            feature=str(row.get("feature") or "Uploaded testcase"),
+            testcase=str(row.get("testcase") or item.get("title") or item_id),
+            steps_to_execute=str(row.get("steps to execute") or row.get("steps") or "Navigate to the uploaded route"),
+            source_references=[item.get("source_reference", "uploaded")],
+            locators={"_uploaded_row": row},
+            notes_reason="No grounded provider plan matched this uploaded row; retained as a safe route check.",
+        ))
+        represented.add(item_id)
+        upload_gaps.append({"item_id": item_id, "reason": "No grounded provider testcase matched the uploaded row; executed as a safe route check."})
 
     script = _build_pytest_script(
         base_url=request.base_url,
@@ -782,6 +904,9 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
     metadata["uploaded_sources"] = context.get("source_files", [])
     metadata["normalized_requirements"] = len(requirements_list)
     metadata["normalized_testcases"] = len(testcases_list)
+    metadata["requested_testcases"] = request.testcase_count
+    metadata["actual_testcases"] = len(test_cases)
+    metadata["uploaded_rows_retained"] = len(uploaded_by_id)
     metadata["testcase_template"] = [
         "Testcase Id", "Screen", "Feature", "Testcase", "Steps to Execute",
         "Expected Result", "Test Status", "Actual Result", "Severity", "BUG Status",
@@ -817,7 +942,7 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         context_id=request.context_id,
         test_cases=test_cases,
         planning_metadata=metadata,
-        coverage_gaps=plan_result.get("coverage_gaps", []),
+        coverage_gaps=plan_result.get("coverage_gaps", []) + upload_gaps,
         provider=plan_result.get("provider", metadata.get("provider", "deterministic")),
         model=plan_result.get("model", metadata.get("model", "")),
         fallback_used=plan_result.get("fallback_used", metadata.get("fallback_used", False)),
@@ -966,6 +1091,47 @@ async def execute_test(request: ExecuteTestRequest) -> ExecuteTestResponse:
             status_code=401,
             detail="Authentication expired. Refresh the session to continue.",
         ) from exc
+
+
+async def _run_execute_test_job(job_id: str, request: ExecuteTestRequest) -> None:
+    try:
+        result = await execute_test(request)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "completed",
+            "result": jsonable_encoder(result),
+        }
+    except HTTPException as exc:
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": exc.detail,
+            "http_status": exc.status_code,
+        }
+    except Exception as exc:
+        logger.exception("Background execution failed for %s", job_id)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "http_status": 500,
+        }
+
+
+@router.post("/execute-test/start", summary="Start test execution without holding the HTTP request open")
+async def start_execute_test_async(request: ExecuteTestRequest) -> dict[str, str]:
+    job_id = uuid4().hex
+    _BACKGROUND_EXECUTION_JOBS[job_id] = {"status": "running"}
+    task = asyncio.create_task(_run_execute_test_job(job_id, request))
+    task.add_done_callback(lambda _: None)
+    return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/execute-test/status/{job_id}", summary="Get asynchronous test execution status")
+async def get_execute_test_status(job_id: str) -> dict[str, Any]:
+    if not _RUN_ID_REGEX.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid execution job ID")
+    job = _BACKGROUND_EXECUTION_JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Execution job not found")
+    return job
 
 
 @router.post("/regression-run", response_model=RegressionRunResponse, summary="Rerun a saved controlled test plan")
@@ -1268,6 +1434,7 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
                     "parking_lot_actions": len(chk_data.get("parking_lot_actions", [])),
                     "retry_count": int((latest_event or {}).get("retry_count", 0) or 0),
                     "last_event_sequence": int((latest_event or {}).get("last_event_sequence", 0) or 0),
+                    "latest_telemetry": latest_event or {},
                     "checkpoint_version": int((latest_checkpoint or {}).get("version", 0) or 0),
                     "scan_results": {
                         "page_intelligence": chk_data.get("page_intelligence", {}),
@@ -1296,6 +1463,10 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
     effective_event = latest_event if use_latest_event else {}
 
     data["scan_id"] = data.get("scan_id") or run_id
+    # HTTP clients can consume this snapshot when WebSocket upgrade/forwarding
+    # is unavailable through a tunnel.  Keep the existing state contract and
+    # expose only the latest already-published event as a polling fallback.
+    data["latest_telemetry"] = effective_event or latest_event or {}
     data["current_module"] = effective_event.get("current_module", data.get("current_module"))
     data["current_route"] = effective_event.get("current_route", data.get("current_route"))
     data["route_progress"] = calculate_route_progress({
@@ -1403,6 +1574,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         "yaml": yaml_path.is_file(),
         "markdown": md_path.is_file(),
         "excel": excel_path.is_file(),
+        "source_excel": bool(run_ctx and run_ctx.artifact_paths.get("source_excel") and Path(run_ctx.artifact_paths["source_excel"]).is_file()),
         "execution_results": bool(exec_json and exec_json.is_file()) or bool(run_ctx and run_ctx.execution_results),
         "checkpoint": chk_path.is_file(),
         "screenshots": len(screenshots) > 0,
@@ -1449,6 +1621,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         "yaml": "application/x-yaml",
         "markdown": "text/markdown",
         "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "source_excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "execution_results": "application/json",
         "checkpoint": "application/json",
         "screenshots": "application/zip",
@@ -1475,6 +1648,13 @@ async def download_artifact(run_id: str, artifact_type: str):
             if execution_excel.is_file():
                 target_file = execution_excel
                 filename = f"{display_stem}_execution_results.xlsx"
+    elif artifact_type == "source_excel":
+        target_file = REPORT_PATH / run_id / "uploaded_testcases_with_results.xlsx"
+        filename = f"{display_stem}_uploaded_testcases_with_results.xlsx"
+        if run_ctx and run_ctx.artifact_paths.get("source_excel"):
+            candidate = Path(run_ctx.artifact_paths["source_excel"])
+            if candidate.is_file():
+                target_file = candidate
     elif artifact_type == "checkpoint":
         target_file = REPORT_PATH / f"checkpoint_{run_id}.json"
         filename = f"{display_stem}_checkpoint.json"
@@ -2123,6 +2303,59 @@ async def execute_selected_regression(request: ExecuteSelectedRegressionRequest)
         "rows": rows,
         "artifacts": artifacts,
     }
+
+
+async def _run_selected_execution_job(job_id: str, request: ExecuteSelectedRegressionRequest) -> None:
+    try:
+        result = await execute_selected_regression(request)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "completed",
+            "result": jsonable_encoder(result),
+        }
+        _persist_execution_job_state(
+            request.run_id, job_id, "completed",
+            selected_count=len(request.selected_test_case_ids), result=result,
+        )
+    except HTTPException as exc:
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": exc.detail,
+            "http_status": exc.status_code,
+        }
+        _persist_execution_job_state(request.run_id, job_id, "failed", error=str(exc.detail))
+    except Exception as exc:
+        logger.exception("Background selective execution failed for %s", job_id)
+        _BACKGROUND_EXECUTION_JOBS[job_id] = {
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "http_status": 500,
+        }
+        _persist_execution_job_state(request.run_id, job_id, "failed", error=f"{type(exc).__name__}: {exc}")
+
+
+@router.post("/regression/execute-selected/start", summary="Start selected execution without holding the HTTP request open")
+async def start_selected_execution_async(request: ExecuteSelectedRegressionRequest) -> dict[str, str]:
+    job_id = uuid4().hex
+    _BACKGROUND_EXECUTION_JOBS[job_id] = {"status": "running"}
+    _persist_execution_job_state(
+        request.run_id, job_id, "running", selected_count=len(request.selected_test_case_ids),
+    )
+    task = asyncio.create_task(_run_selected_execution_job(job_id, request))
+    task.add_done_callback(lambda _: None)
+    return {"job_id": job_id, "status": "started"}
+
+
+@router.get("/regression/execute-selected/status/{job_id}", summary="Get selected execution status")
+async def get_selected_execution_status(job_id: str) -> dict[str, Any]:
+    if not _RUN_ID_REGEX.fullmatch(job_id):
+        raise HTTPException(status_code=400, detail="Invalid execution job ID")
+    job = _BACKGROUND_EXECUTION_JOBS.get(job_id)
+    if not job:
+        recovered = _recover_execution_job(job_id)
+        if recovered:
+            return recovered
+        raise HTTPException(status_code=404, detail="Execution job not found")
+    return job
 
 
 # --- Baseline Endpoints ---

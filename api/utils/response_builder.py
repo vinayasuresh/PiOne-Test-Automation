@@ -16,7 +16,9 @@ from automation_framework.crawler.route_health_scorer import (
 )
 
 
-# Cap each list so the response stays compact and readable in the UI.
+# Compact, human-readable category summaries and interaction history.  The
+# automation target registry is intentionally *not* truncated: it is the
+# evidence used to explain what was actually found on every route.
 _MAX_LIST_SIZE = 25
 
 
@@ -49,6 +51,7 @@ def build_scan_response(
     total_inputs  = 0
     total_dropdowns = 0
     total_tables  = 0
+    total_automation_targets = 0
     working_routes = 0
     partial_routes = 0
     non_working_routes = 0
@@ -60,6 +63,7 @@ def build_scan_response(
         total_inputs  += len(route.components.inputs)
         total_dropdowns += len(route.components.dropdowns)
         total_tables  += len(route.components.tables)
+        total_automation_targets += len(route.automation_targets)
 
         if is_working_route(route.route_status):
             working_routes += 1
@@ -83,6 +87,7 @@ def build_scan_response(
             total_inputs=total_inputs,
             total_dropdowns=total_dropdowns,
             total_tables=total_tables,
+            total_automation_targets=total_automation_targets,
             working_routes=working_routes,
             partial_routes=partial_routes,
             non_working_routes=non_working_routes,
@@ -165,7 +170,8 @@ def _build_route(route_url: str, route_doc: dict, validations: dict | None = Non
         framework=route_doc.get("framework", "") or "",
         components=ComponentGroups(**grouped),
         interactions=interactions,
-        automation_targets=targets[:_MAX_LIST_SIZE],
+        automation_targets=targets,
+        total_automation_targets=len(targets),
         route_status=status,
         route_score=score,
         dom_stable=dom_stable,

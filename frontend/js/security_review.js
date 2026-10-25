@@ -31,11 +31,17 @@
   }
 
   function applyMode() {
-    const mode = document.getElementById('assessment-mode')?.value || 'both';
+    const firstMode = document.getElementById('assessment-mode-first');
+    const detailMode = document.getElementById('assessment-mode');
+    const mode = firstMode?.value || detailMode?.value || 'both';
+    if (detailMode && detailMode.value !== mode) detailMode.value = mode;
+    if (firstMode && firstMode.value !== mode) firstMode.value = mode;
     const securityOnly = mode === 'security_only' || mode === 'vapt_only';
     const vaptOnly = mode === 'vapt_only';
     const functionalOnly = mode === 'functional_only';
     const help = document.getElementById('assessment-mode-help');
+    const firstHelp = document.getElementById('assessment-mode-first-help');
+    const securityPanel = document.getElementById('security-review-panel');
     const proceed = document.getElementById('btn-analyze-proceed');
     const start = el('start');
     if (help) {
@@ -44,6 +50,21 @@
         : functionalOnly
           ? 'Security review is disabled. Continue with the normal test-planning and execution flow.'
           : 'Run the normal test-planning/execution flow and start the security review separately when ready.';
+    }
+    if (firstHelp) {
+      firstHelp.textContent = securityOnly
+        ? (vaptOnly
+          ? 'Crawl and review modules as usual, then run the authorized bounded VAPT checks. Functional test planning and execution are skipped.'
+          : 'Crawl and review modules as usual, then run the passive security review. Functional test planning and execution are skipped.')
+        : functionalOnly
+          ? 'Crawl and review modules as usual. Security review controls remain disabled and the normal test-planning/execution flow continues.'
+          : 'Crawl and review modules as usual, then use Analyze to run security review and/or continue to test planning.';
+    }
+    if (securityPanel) {
+      // Functional-only runs keep the Analyze step and its route/element
+      // intelligence, but remove the optional security controls entirely.
+      securityPanel.classList.toggle('hidden', functionalOnly);
+      securityPanel.setAttribute('aria-hidden', functionalOnly ? 'true' : 'false');
     }
     if (start) {
       start.disabled = functionalOnly || busy || active(currentStatus);
@@ -294,7 +315,16 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const mode = document.getElementById('assessment-mode');
-    if (mode) mode.onchange = applyMode;
+    const firstMode = document.getElementById('assessment-mode-first');
+    if (mode) mode.onchange = () => {
+      if (firstMode) firstMode.value = mode.value;
+      applyMode();
+    };
+    if (firstMode) firstMode.onchange = () => {
+      if (mode) mode.value = firstMode.value;
+      applyMode();
+    };
+    applyMode();
     el('start').onclick = async () => {
       const checks = [...document.querySelectorAll('[name="security-check"]:checked')].map(x => x.value);
       if (el('active').checked) checks.push('cors_probe', 'reflection_canary');
@@ -328,7 +358,6 @@
       if (panel.classList.contains('hidden')) { clearTimeout(timer); timer = null; return; }
       if (displayedRun !== state.runId) {
         displayedRun = state.runId; clear(); el('authorized').checked = false; el('active').checked = false;
-        if (mode) mode.value = 'both';
       }
       applyMode();
       if (currentStatus === 'not_started') refresh();
