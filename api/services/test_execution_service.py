@@ -60,7 +60,18 @@ def execute_test_cases(
             for step in tc.steps:
                 primary_loc = ""
                 if isinstance(step.selector, dict):
-                    primary_loc = step.selector.get("primary", "")
+                    primary = step.selector.get("primary", "")
+                    # Generated plans may preserve the structured selector
+                    # object (strategy/value) instead of flattening it to a
+                    # display string.  Mock execution still returns the same
+                    # ExecutionResultRow contract as live execution, so make
+                    # the evidence human-readable before validation/export.
+                    if isinstance(primary, dict):
+                        strategy = str(primary.get("strategy") or "unknown")
+                        value = str(primary.get("value") or step.target_label or "")
+                        primary_loc = f"{strategy}: {value}" if value else strategy
+                    else:
+                        primary_loc = str(primary or "")
                 elif isinstance(step.selector, str):
                     primary_loc = step.selector
                 if not primary_loc:
