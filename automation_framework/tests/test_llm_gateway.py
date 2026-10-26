@@ -867,8 +867,8 @@ def test_uploaded_requirements_plus_scan_map_planning(sample_scan_context):
 # 17. Complete Flow: Scan -> Provider Select -> Plan -> Validate -> Execute
 # ---------------------------------------------------------------------------
 
-def test_complete_flow_scan_to_plan_to_execute(sample_scan_context):
-    client = TestClient(app)
+def test_complete_flow_scan_to_plan_to_execute(sample_scan_context, sync_client):
+    client = sync_client
 
     scan_resp = ScanResponse(
         status="success",
@@ -945,8 +945,8 @@ def test_complete_flow_scan_to_plan_to_execute(sample_scan_context):
     assert not any(row.Action in {"delete", "remove", "logout", "submit", "pay", "reset"} for row in rows)
 
 
-def test_provider_status_endpoint_is_safe(monkeypatch):
-    client = TestClient(app)
+def test_provider_status_endpoint_is_safe(monkeypatch, sync_client):
+    client = sync_client
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434?token=abc")
     monkeypatch.setenv("OLLAMA_MODEL", "llama3.1:8b")
     monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "180")
@@ -964,8 +964,8 @@ def test_provider_status_endpoint_is_safe(monkeypatch):
         assert secret not in dumped
 
 
-def test_generate_test_returns_missing_model_message(sample_scan_context):
-    client = TestClient(app)
+def test_generate_test_returns_missing_model_message(sample_scan_context, sync_client):
+    client = sync_client
     scan_resp = ScanResponse(
         status="success",
         routes=[

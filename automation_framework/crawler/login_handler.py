@@ -245,7 +245,7 @@ def _wait_for_login_form(
 
     if not has_any_input:
         current_u = (page.url or "").lower().strip()
-        if current_u.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+        if current_u.startswith(("chrome-error:", "chrome-error://")):
             raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
         raise DiscoveryUnavailableError("no input fields found on the login page")
     raise DiscoveryUnavailableError("password field never appeared on the login page")
@@ -458,7 +458,7 @@ def _validate_login_success(page: Page) -> None:
         pass
 
     if is_login_path or has_visible_password:
-        raise LoginFailedError(f"Invalid credentials or login rejected; still on login page (url={page.url})")
+        raise LoginFailedError(f"Invalid credentials or login rejected; still on login page after submit (url={page.url})")
 
 
 def _capture_login_diagnostics(page: Page) -> dict[str, Any]:

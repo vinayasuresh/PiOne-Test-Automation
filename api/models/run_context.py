@@ -21,6 +21,7 @@ class RunContext(BaseModel):
     auth_session_id: Optional[str] = None
     auth_status: str = "none"  # "authenticated" | "expired" | "none"
     username: Optional[str] = None
+    assessment_mode: str = "both"  # "both" | "functional_only" | "security_only" | "vapt_only"
     selected_modules: list[str] = Field(default_factory=list)
     completed_modules: list[str] = Field(default_factory=list)
     pending_modules: list[str] = Field(default_factory=list)

@@ -63,6 +63,7 @@ def create_run_context(
     auth_session_id: str | None = None,
     url: str | None = None,
     display_name: str | None = None,
+    assessment_mode: str = "both",
 ) -> RunContext:
     origin = target_origin or url or ""
     rid = validate_run_id_safe(run_id) if run_id else generate_run_id()
@@ -74,6 +75,7 @@ def create_run_context(
         allowed_path_namespace=allowed_path_namespace,
         auth_session_id=auth_session_id,
         username=username,
+        assessment_mode=assessment_mode or "both",
         status="discovered",
     )
     save_run_context(ctx)

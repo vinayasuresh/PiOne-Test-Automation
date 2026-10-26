@@ -96,6 +96,7 @@
           <i class="fa-solid fa-satellite-dish text-blue-400"></i> Active Session:
         </span>
         <span id="active-bar-run-id" class="text-amber-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700" title="Internal run ID is hidden from normal workflow use">--</span>
+        <span id="active-bar-mode" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700">LIVE SCAN</span>
         <span id="active-bar-url" class="font-mono text-blue-300 truncate max-w-xs" title="Target URL">--</span>
         <span class="text-slate-600">|</span>
         <span class="text-slate-400">Mod: <strong id="active-bar-module" class="text-slate-200">--</strong></span>
@@ -1520,6 +1521,8 @@
     let state = {
       currentStep: 1,
       maxUnlockedStep: 1,
+      assessmentMode: "both",
+      isGeneratingPlan: false,
       runId: "",
       sessionName: "",
       targetUrl: "https://www.saucedemo.com",
@@ -1756,6 +1759,13 @@
       const displayName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || `Session ${state.runId.substring(0, 8)}`;
       document.getElementById("active-bar-run-id").textContent = displayName;
       document.getElementById("active-bar-run-id").title = `Internal run ID: ${state.runId}`;
+      const modeBadge = document.getElementById("active-bar-mode");
+      if (modeBadge) {
+        modeBadge.textContent = state.isLive ? "LIVE SCAN" : "MOCK DEMO";
+        modeBadge.className = state.isLive
+          ? "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700"
+          : "px-2 py-0.5 rounded text-[10px] font-bold bg-purple-900/60 text-purple-300 border border-purple-700";
+      }
       document.getElementById("active-bar-url").textContent = state.targetUrl || "--";
       document.getElementById("active-bar-url").title = state.targetUrl || "";
       document.getElementById("active-bar-module").textContent = state.currentModuleName || (state.selectedModuleIds?.length ? `${state.selectedModuleIds.length} modules` : "--");
@@ -1912,6 +1922,8 @@
           .catch(() => {});
       }
       if (stepId === 6) renderAttachedScanContext();
+      if (stepId === 7) renderExecutionSelectionTable();
+      if (stepId === 8) renderReportView();
       renderStepper();
       saveActiveState();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1929,7 +1941,8 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify({
             runId: state.runId,
             targetUrl: state.targetUrl,
-            currentStep: state.currentStep
+            currentStep: state.currentStep,
+            assessmentMode: state.assessmentMode || "both"
           }));
         } catch (_) {}
       }
@@ -1951,6 +1964,19 @@
         state.authSessionId = runCtx.auth_session_id || "";
         state.modules = runCtx.discovered_modules || [];
         state.selectedModuleIds = runCtx.selected_modules || [];
+        let savedMode = null;
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) savedMode = JSON.parse(raw).assessmentMode;
+        } catch (_) {}
+        state.assessmentMode = runCtx.assessment_mode || savedMode || state.assessmentMode || "both";
+        const firstAssessmentEl = document.getElementById("assessment-mode-first");
+        const detailAssessmentEl = document.getElementById("assessment-mode");
+        if (firstAssessmentEl) firstAssessmentEl.value = state.assessmentMode;
+        if (detailAssessmentEl) detailAssessmentEl.value = state.assessmentMode;
+        if (window.SecurityReview && typeof window.SecurityReview.applyMode === "function") {
+          window.SecurityReview.applyMode();
+        }
 
         if (runCtx.scan_results) {
           state.scanData = runCtx.scan_results;
@@ -2017,6 +2043,23 @@
     }
 
     function bindAllEvents() {
+      // Provider Selection Change
+      const provSelect = document.getElementById("llm-provider-select");
+      if (provSelect) {
+        provSelect.onchange = (e) => {
+          const val = e.target.value;
+          const badge = document.getElementById("provider-conn-badge");
+          if (badge) badge.classList.add("hidden");
+          const statusBadge = document.getElementById("provider-availability-badge");
+          if (statusBadge) {
+            statusBadge.textContent = val === "deterministic" ? "Local Built-in" : "Configured";
+            statusBadge.className = "bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded text-[10px]";
+          }
+          const warningBox = document.getElementById("fallback-warning-box");
+          if (warningBox) warningBox.classList.add("hidden");
+        };
+      }
+
       // Return to Current Run
       document.getElementById("btn-return-current-run").onclick = () => switchView("workflow");
 
@@ -3009,6 +3052,8 @@
         showActionableError("Test Planning", state.runId, "PREREQUISITE_MISSING", "Scan required before generating test plans.", "Complete step 4 before proceeding.");
         return;
       }
+      if (state.isGeneratingPlan) return;
+      state.isGeneratingPlan = true;
       const btn = document.getElementById("btn-generate-plan");
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Plan...`;
@@ -3085,6 +3130,7 @@
       } catch (err) {
         showActionableError("Test Generation", state.runId, "PLANNING_ERROR", err.message, "Try switching to Deterministic provider or check target elements.");
       } finally {
+        state.isGeneratingPlan = false;
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
       }
@@ -3553,8 +3599,14 @@
           displaySuggestion = displaySuggestion || "Verify username and password and try again.";
         } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable") || combined.includes("502") || combined.includes("bad gateway") || combined.includes("localtunnel")) {
           displayCategory = "BACKEND_UNAVAILABLE";
-          displayMessage = "The local app tunnel/backend returned 502 Bad Gateway, so the browser is not reaching the Testmate service.";
-          displaySuggestion = "Restart the FastAPI server and localtunnel, confirm localhost:8000 is healthy, then retry.";
+          const isTunnel = window.location.hostname.includes("loca.lt") || window.location.hostname.includes("ngrok") || combined.includes("localtunnel");
+          if (isTunnel) {
+            displayMessage = "The local app tunnel returned 502 Bad Gateway, so the browser is not reaching the Testmate service.";
+            displaySuggestion = "Restart the FastAPI server and localtunnel, confirm the tunnel url matches, and retry.";
+          } else {
+            displayMessage = "Cannot connect to the PiOne Testmate backend service at " + (window.location.origin || "http://localhost:8000") + ".";
+            displaySuggestion = "Ensure the FastAPI server is running (`.venv\\Scripts\\python.exe -m uvicorn api.main:app --port 8000`) and healthy.";
+          }
         } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
           displayCategory = "ARTIFACT_UNAVAILABLE";
           displayMessage = "The requested artifact or report has not been generated yet or is still processing.";
@@ -4258,6 +4310,9 @@
     }
 
     function openExecConfirmModal() {
+      if (!state.selectedExecutionTestIds || !state.selectedExecutionTestIds.length) {
+        updateSelectedTestsCounter();
+      }
       const checked = state.selectedExecutionTestIds;
       if (!checked || !checked.length) {
         showToast("Please select at least one test case to execute.", "warning");

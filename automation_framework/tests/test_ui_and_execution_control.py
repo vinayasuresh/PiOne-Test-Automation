@@ -65,8 +65,9 @@ from automation_framework.crawler.crawl_exporter import export_crawl_results
 
 
 @pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+def client():
+    with TestClient(app) as client:
+        yield client
 
 
 # 1. Branding Consistency Tests
@@ -635,3 +636,25 @@ def test_sanitized_error_handling_no_leaks(client: TestClient):
     res = client.post("/scan", json=bad_req)
     # The response detail must never contain the plain password or secrets
     assert "super_secret_password_12345" not in res.text
+
+
+def test_assessment_mode_ui_and_state_contract(client: TestClient):
+    """Verify assessment mode persistence in run context and frontend controls presence."""
+    from api.services.run_context_service import create_run_context, get_run_context, save_run_context
+    ctx = create_run_context(url="https://www.saucedemo.com")
+    run_id = ctx.run_id
+    ctx.assessment_mode = "functional_only"
+    save_run_context(ctx)
+
+    res = client.get(f"/run/{run_id}/state")
+    assert res.status_code == 200
+    data = res.json()
+    assert data.get("assessment_mode") == "functional_only"
+
+    # Verify frontend index.html includes mode controls and active bar indicator
+    ui_res = client.get("/")
+    assert ui_res.status_code == 200
+    html = ui_res.text
+    assert 'id="assessment-mode-first"' in html
+    assert 'id="assessment-mode"' in html
+    assert 'id="active-bar-mode"' in html

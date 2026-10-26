@@ -34,4 +34,5 @@ async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
 def sync_client():
     """Reliable synchronous client configured with explicit transport and bounded timeouts."""
     from fastapi.testclient import TestClient
-    return TestClient(app, base_url="http://testserver")
+    with TestClient(app, base_url="http://testserver") as client:
+        yield client

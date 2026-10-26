@@ -127,6 +127,24 @@ def sanitize_context(context: Any) -> Any:
 
     return context
 
+def _extract_selector_value(sel: Any) -> str | None:
+    """Safely extract selector string value whether selector is a string or structured dictionary."""
+    if not sel:
+        return None
+    if isinstance(sel, str):
+        val = sel.strip()
+        return val if val else None
+    if isinstance(sel, dict):
+        primary = sel.get("primary")
+        if isinstance(primary, dict) and primary.get("value"):
+            return str(primary["value"]).strip()
+        if isinstance(primary, str) and primary.strip():
+            return primary.strip()
+        if sel.get("value"):
+            return str(sel["value"]).strip()
+    return None
+
+
 
 # ---------------------------------------------------------------------------
 # Reliable HTTP helper with timeout, single retry, and size bounds
@@ -306,9 +324,9 @@ def validate_plan_grounding(
     parking_selectors = set()
     parking_labels = set()
     for p in parking_lot_actions:
-        p_sel = (p.get("selector") or {}).get("primary", {}).get("value") or (p.get("selector") or {}).get("value")
+        p_sel = _extract_selector_value(p.get("selector"))
         if p_sel:
-            parking_selectors.add(str(p_sel).strip())
+            parking_selectors.add(p_sel)
         p_lbl = (p.get("label") or p.get("text") or "").strip().lower()
         if p_lbl:
             parking_labels.add(p_lbl)
@@ -637,8 +655,9 @@ class DeterministicAdapter(BaseLLMAdapter):
 
         parking_lot = scan_context.get("parking_lot_actions", [])
         parking_selectors = {
-            (p.get("selector") or {}).get("primary", {}).get("value") or (p.get("selector") or {}).get("value")
-            for p in parking_lot if p.get("selector")
+            _extract_selector_value(p.get("selector"))
+            for p in parking_lot
+            if _extract_selector_value(p.get("selector"))
         }
         parking_labels = {
             str(p.get("label") or p.get("text") or "").casefold()

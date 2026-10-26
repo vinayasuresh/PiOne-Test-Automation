@@ -13,13 +13,13 @@ def test_browser_readiness_healthy():
 
 
 def test_health_endpoint_reports_browser_status():
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert "browser_ready" in data
-    assert data["browser_ready"] is True
-    assert data["build_id"] is not None
+    with TestClient(app) as client:
+        response = client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert "browser_ready" in data
+        assert data["browser_ready"] is True
+        assert data["build_id"] is not None
 
 
 def test_browser_readiness_missing_actionable_error(monkeypatch):
@@ -32,17 +32,17 @@ def test_browser_readiness_missing_actionable_error(monkeypatch):
         },
     )
 
-    client = TestClient(app)
-    health_resp = client.get("/health")
-    assert health_resp.status_code == 200
-    assert health_resp.json()["browser_ready"] is False
-    assert "Run .venv\\Scripts\\python.exe -m playwright install chromium" in health_resp.json()["browser_error"]
+    with TestClient(app) as client:
+        health_resp = client.get("/health")
+        assert health_resp.status_code == 200
+        assert health_resp.json()["browser_ready"] is False
+        assert "Run .venv\\Scripts\\python.exe -m playwright install chromium" in health_resp.json()["browser_error"]
 
-    disc_resp = client.post(
-        "/discover-modules",
-        json={"url": "https://www.example.com", "username": "", "password": ""},
-    )
-    assert disc_resp.status_code == 503
+        disc_resp = client.post(
+            "/discover-modules",
+            json={"url": "https://www.example.com", "username": "", "password": ""},
+        )
+        assert disc_resp.status_code == 503
     assert "Run .venv\\Scripts\\python.exe -m playwright install chromium" in disc_resp.json()["detail"]["message"]
 
     scan_resp = client.post(

@@ -231,10 +231,10 @@ class SPAHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-def start_test_spa_server() -> Tuple[http.server.HTTPServer, str]:
+def start_test_spa_server() -> Tuple[http.server.ThreadingHTTPServer, str]:
     """Start an ephemeral test SPA HTTP server on localhost."""
     # Find free port
-    server = http.server.HTTPServer(("127.0.0.1", 0), SPAHTTPRequestHandler)
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SPAHTTPRequestHandler)
     port = server.server_port
     base_url = f"http://127.0.0.1:{port}"
 

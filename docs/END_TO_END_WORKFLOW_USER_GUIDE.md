@@ -118,17 +118,36 @@ flowchart TD
    ```
 
 2. **Verify Chromium Executable**:
-   PiOne Testmate checks browser readiness on startup. If Chromium is not installed:
+   PiOne Testmate automatically verifies browser readiness on startup via `/health`. If Chromium is missing:
    ```bash
    .venv/Scripts/python.exe -m playwright install chromium
    ```
+   *(Note: The UI displays actionable remediation instructions without exposing raw Python tracebacks.)*
 
-3. **Launch the Application Server**:
+3. **Backend Startup & Port Reliability**:
+   Start the FastAPI server on port 8000:
    ```bash
-   .venv/Scripts/python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload
+   .venv/Scripts/python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
    ```
+   
+   > [!TIP]
+   > **Resolving Windows `WinError 10013` (Port 8000 Already Bound)**:
+   > If Uvicorn fails with `[WinError 10013] An attempt was made to access a socket in a way forbidden by its access permissions`, an orphaned background Python process from a prior session is holding port 8000.
+   > Check and terminate safely in PowerShell:
+   > ```powershell
+   > # Find the process holding port 8000
+   > Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Select-Object OwningProcess
+   > 
+   > # Stop only that specific PID safely
+   > Stop-Process -Id <PID> -Force
+   > ```
+   > Port 8000 is not blocked by Windows dynamic NAT exclusions; safe process termination immediately restores server availability.
 
-4. **Access the Dashboard**:
+4. **Localhost vs. Remote Tunnel Proxying**:
+   * **Localhost Direct Access** (`http://127.0.0.1:8000` or `http://localhost:8000`): Direct low-latency connection for local QA and testing. If the server is offline, the app prompts to start Uvicorn.
+   * **Remote Tunnel Support** (`localtunnel`, `ngrok`): Used to share sessions with colleagues. The tunnel acts strictly as a reverse proxy, not the backend itself. If the tunnel returns `502 Bad Gateway`, verify that localhost:8000 is running and that the tunnel URL matches before restarting both services.
+
+5. **Access the Dashboard**:
    Open your browser to: **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)**  
    Interactive Swagger API Documentation: **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**
 
@@ -152,16 +171,21 @@ flowchart LR
 
 ### Step 1: Scan Application (Target Specification & Authentication)
 
-In Step 1, the user initializes the target boundary and configures credentials.
+In Step 1, the user initializes the target boundary, selects the assessment flow, and configures credentials.
 
 * **Target URL Input (`#url-input`)**: Fully qualified HTTP or HTTPS address (e.g., `https://www.saucedemo.com`).
 * **Execution Mode Switcher (`#target-mode-toggle`)**:
-  * **Live Target Scan**: Launches a real Playwright Chromium browser instance, enforces SSRF rules, handles authentication, and crawls the live DOM.
-  * **Mock / Demo Simulation**: A 100% offline, deterministic mode simulating a full crawl, route analysis, and test execution without launching a browser or network calls.
+  * **Live Target Scan (`isLive = true`)**: Launches a real Playwright Chromium browser instance, validates SSL certificates, enforces strict SSRF boundary rules, authenticates via form submission, probes interactive controls, records network telemetry, and captures full-resolution screenshots. Displayed in the Persistent Active Run Bar with a blue `LIVE SCAN` badge.
+  * **Mock Demo Simulation (`isLive = false`)**: A 100% offline, deterministic simulation of the complete 8-step pipeline without external network calls or browser processes. Generates mock route graphs (5 routes, 47 UI elements) and simulated step executions for UX evaluation, training, and unit verification. Displayed with a purple `MOCK DEMO` badge.
+* **Assessment Flow Modes (`#assessment-mode-first` / `#assessment-mode`)**:
+  * **Both Functional & Security Review (`both`)**: Default mode. Traverses all modules, constructs the UI intelligence catalog in Analyze, provides optional passive security assessment, and advances seamlessly into test planning, execution, and regression reporting.
+  * **Functional Testing Only (`functional_only`)**: Focuses purely on functional test planning, execution, and regression suites. Completely disables and hides the security assessment panel in Step 5 (`aria-hidden="true"`).
+  * **Security Review Only (`security_only` / `vapt_only`)**: Focuses strictly on authorized passive DAST / OWASP Top 10 security review after crawling. Functional test planning is bypassed, allowing immediate access to security findings and exports without requiring test plan creation.
+  * *Mode Persistence Guarantee*: The selected mode is stored in `localStorage` and `RunContext.assessment_mode`. It persists across all steps and page reloads, only resetting when the user explicitly triggers a **New Scan**.
 * **Authentication Credentials**:
   * **Username (`#username-input`)**
   * **Password (`#password-input`)** with toggle reveal (`#btn-toggle-password`) and instant credential wiper (`#btn-clear-creds`).
-  * *Security Guarantee*: Passwords are never saved in local storage, query parameters, or disk checkpoints.
+  * *Security Guarantee*: Passwords are redacted from telemetry, disk checkpoints, Excel reports, and JSON payloads.
 * **Action Button**: Click **Discover Modules** (`#btn-discover`).
 
 ```mermaid
@@ -328,11 +352,14 @@ Step 7 generates grounded, deterministic test cases using your preferred AI engi
   * **Google Gemini API**: Cloud inference via Gemini Pro / Flash.
   * **Anthropic Claude API**: Cloud inference via Claude 3.5 Sonnet.
   * **OpenAI API**: Cloud inference via GPT-4o / GPT-4o-mini.
-* **Requirement Context Ingestion (`#test-context-upload`)**:
-  * Upload custom business requirements, user stories, or acceptance criteria in `.txt`, `.md`, `.json`, or `.csv` format.
-  * Testing Scenario Prompt: Custom focus prompt (e.g., *"Focus on checkout payment validations and empty field errors"*).
-* **Deterministic Grounding**:
-  * Every generated step references a verified `element_id` and selector from the Step 5 Element Registry. Hallucinated selectors are rejected.
+* **Requirement & QA Excel Context Ingestion (`#upload-requirements` & `#upload-testcases`)**:
+  * **Upload Requirements Document**: Ingests user stories, acceptance criteria, or specification documents in `.txt`, `.md`, `.json`, or `.csv` format.
+  * **Upload Pre-existing QA Test Cases (`.xlsx`, `.csv`)**: Upload existing enterprise test case matrices. PiOne Testmate parses uploaded test cases, matches steps against discovered DOM element selectors, and executes rows deterministically line-by-line in uploaded sequence.
+  * **Testing Scenario Prompt**: Custom focus prompt (e.g., *"Focus on inventory item navigation, cart badge count, and catalogue filters"*).
+* **Deterministic Grounding & Fallback Transparency**:
+  * Every planned step is grounded in real, crawled UI targets. If an AI provider (Ollama, Gemini) times out, encounters quota limits, or generates ungrounded selectors, PiOne Testmate automatically falls back to the deterministic engine.
+  * The UI explicitly displays the grounding status (`X scan targets linked`), provider availability badge (`Grounded AI Active` vs `Fallback Active`), and exact fallback rationale.
+  * Switching providers initiates a fresh request without stale loading states or duplicate submissions.
 * **Action Button**: Click **Generate Test Plan** (`#btn-generate-plan`).
 
 ---
@@ -358,18 +385,34 @@ Step 8 executes generated test plans against the live application using Playwrig
 
 Step 9 provides unified audit packages, reporting dashboards, and baseline savers.
 
-#### Standard 10-Sheet Enterprise Excel Workbook
-Every completed run produces a comprehensive audit-ready `.xlsx` workbook:
-1. `working_routes`: Routes with health score >= 70.
-2. `partial_routes`: Routes with health score 40-69.
-3. `non_working_routes`: Broken routes with health score < 40.
-4. `menu_hierarchy`: Global navigation architecture and module hierarchies.
-5. `element_map`: Complete inventory of all interactive elements with 12 attributes.
-6. `parking_lot_actions`: Blocked destructive actions requiring human review.
-7. `scan_events`: Deterministic, timestamped event log stream.
-8. `test_cases`: Generated test plan cases, descriptions, and steps.
-9. `execution_results`: Execution outcomes, pass/fail status, locators used, console errors, and artifact paths.
-10. `coverage_gaps`: Uncovered requirements and unmapped elements.
+#### Comprehensive 12-Sheet Enterprise Audit Workbook (`.xlsx`)
+Every completed run produces a standardized multi-sheet Excel report that combines deep crawl intelligence, QA matrices, and step-level execution telemetry:
+1. `Route Health`: Canonical overview of all routes with health scores, HTTP status, load timings, and stability flags.
+2. `working_routes`: Operational routes meeting enterprise criteria (Score >= 70).
+3. `partial_routes`: Bounded or degraded routes (Score 40-69).
+4. `non_working_routes`: Broken or unreachable routes (Score < 40).
+5. `menu_hierarchy`: Discovered global navigation tree with depth levels and selector roots.
+6. `element_map`: Complete 12-attribute inventory of all discovered DOM controls and selectors.
+7. `parking_lot_actions`: Segregated destructive controls requiring explicit human authorization.
+8. `scan_events`: Timestamped telemetry events capturing the entire crawling lifecycle.
+9. `test_cases`: Grounded test plan cases, modules, descriptions, and step sequences.
+10. `Test Execution`: Complete step-by-step execution results. Includes both application fields (`TC_ID`, `Step_ID`, `Action`, `Expected_Result`, `Actual_Result`, `Status`, `failure_category`, `locator_used`, `Artifact_Path`) and QA audit matrix fields (`Testcase Id`, `Steps to Execute`, `Test Status`, `Severity`, `BUG Status`, `Notes / Reason`).
+11. `execution_results`: Raw tabular execution records formatted for programmatic CI/CD ingestion.
+12. `coverage_gaps`: Unmapped requirements, orphan controls, and recommended coverage improvements.
+
+#### Status Badges & Meaning
+* **Active Run Bar**:
+  * `LIVE SCAN`: Real browser execution active against a live network target.
+  * `MOCK DEMO`: Deterministic offline simulation active.
+  * Status badges: `IDLE`, `IN_PROGRESS` (blue), `COMPLETED` / `SCANNED` (green), `PAUSED` (amber), `FAILED` (red).
+* **Route Health Badges**:
+  * `WORKING` (green): 100% page load success, DOM stable, 0 console/network errors.
+  * `PARTIAL` (amber): Bounded traversal completed with warnings or partial extraction.
+  * `NON_WORKING` (red): HTTP 4xx/5xx errors or unreachable routes.
+* **Step Execution Badges**:
+  * `Pass` (emerald): Action and assertions succeeded; locator verified and screenshot captured.
+  * `Fail` (rose): Action failed or timed out. Accompanied by exact `failure_category` and error trace.
+  * `Skipped` (slate): Step bypassed due to a previous step failure in the same test case.
 
 #### Grouped Report Downloads
 * **Primary Audit Package**:
@@ -407,9 +450,11 @@ Access via the **Saved Runs** top-level tab (`#view-saved-runs`).
 ### Named Regression Suites & Selectable Execution
 Access via the **Regression Suites** top-level tab (`#view-suites`).
 * **Create Suite (`#btn-create-suite`)**: Group tests by module, tag (`smoke`, `regression`, `critical`), or environment.
-* **Selectable Test Execution (`#btn-run-execution`)**:
-  * Select specific tests via checkboxes.
-  * **Confirmation Modal (`#exec-confirm-modal`)**: Explicitly previews the exact number of selected tests, target URL, and execution mode before launching Playwright.
+* **Selectable Test Execution & Single-Click Launch**:
+  * When entering Step 7, all generated tests are automatically selected and populated in the execution table on the very first view.
+  * Filter tests by module, tag, or execution state (`All`, `Failed`, `Changed`, `Review`).
+  * **Pre-Execution Safety Modal (`#exec-confirm-modal`)**: Clicking **Execute Selected Tests** opens an explicit safety confirmation displaying the exact count of tests and steps to be executed against the target URL. Checking the authorization box and clicking **Confirm & Execute** launches the Playwright worker immediately without redundant clicks.
+  * **Per-Step Execution Outcomes**: Each step is strictly classified as `Pass`, `Fail`, or `Skipped` with granular failure categories (`timeout`, `element_not_found`, `assertion_mismatch`, `navigation_error`) and exact locator engines logged without suppressing or converting errors.
 * **Typed `DELETE` Confirmation**:
   * Bulk deletion of all suites (`#btn-delete-all-suites`) requires typing `DELETE` into a modal input, preventing accidental data loss.
 
