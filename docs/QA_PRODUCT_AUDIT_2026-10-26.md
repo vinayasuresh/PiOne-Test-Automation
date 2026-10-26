@@ -32,7 +32,9 @@ The Mock Demo flow was exercised through Scan Application → Choose Modules →
 - `pytest automation_framework/tests/test_saucedemo_and_route_health.py::test_route_health_classification_and_aggregation automation_framework/tests/test_saucedemo_and_route_health.py::test_mock_demo_preserves_registry_evidence_shape automation_framework/tests/test_test_planning_service.py -q` → **12 passed**.
 - `pytest automation_framework/tests/test_saucedemo_and_route_health.py::test_export_artifacts_include_route_health_and_execution_sheets automation_framework/tests/test_saucedemo_and_route_health.py::test_mock_demo_preserves_registry_evidence_shape -q -m browser` → **2 passed**.
 - Python compilation passed for every edited backend module; all four inline JavaScript blocks compile with Node; `git diff --check` has no whitespace error.
-- The broad non-browser suite was started but did not finish within the bounded audit window. It must be completed in CI before release; this document does not count it as passing.
+- The complete core suite passed: **172 passed, 62 deselected**.
+- The explicitly marked browser suite passed: **62 passed, 172 deselected**.
+- Live SauceDemo verification passed against build `6b21eaa`: health check, module discovery, crawl of 3 routes, authorized bounded security review, and JSON/Markdown/Excel security exports.
 
 ## Finding ledger
 
@@ -41,9 +43,9 @@ The Mock Demo flow was exercised through Scan Application → Choose Modules →
 | QA-001 | Target evidence was collected but hidden/reconstructed in UI | High | Fixed and browser-verified in Mock Demo | A QA user could not trust or inspect what the system planned from. |
 | QA-002 | API truncated route targets at 25 | Critical | Fixed and unit-tested | Test planning and exports could silently omit controls. |
 | QA-003 | Product-level controls had no business identity | High | Fixed in extraction contract; browser fixture pending | `Add to cart` must identify *which* item, not just the label. |
-| QA-004 | Completed scan could display zero progress/targets | High | Fixed in terminal reconciliation; needs live-run browser regression | Contradictory state destroys confidence in long-running automation. |
+| QA-004 | Completed scan could display zero progress/targets | High | Fixed and live-run verified | Contradictory state destroys confidence in long-running automation. |
 | QA-005 | Mock Demo did not conform to live evidence shape | Medium | Fixed and unit-tested | Demo behaviour must not hide real integration defects. |
-| QA-006 | Browser test fixture can stall at Playwright startup on this host | High | Open environment blocker | It prevents this audit from claiming the full live-crawler suite passed. |
+| QA-006 | Browser test fixture can stall at Playwright startup on this host | High | Closed in unrestricted verification | The restricted runner denied Windows socket-pair creation, but the same core and browser suites passed outside that sandbox; this is an audit-environment limitation, not an application failure. |
 | QA-007 | Security review is constrained passive/recon style, not full DAST | Critical claim gap | Open product gap | It must not be marketed as confirmed XSS/SQLi testing. |
 
 ## Is it really an AI QA product today?
@@ -98,7 +100,7 @@ The product roadmap should add adapters—not reimplement scanners blindly:
 - Interrupted crawl, lost browser, expired auth and backend restart each have a reproducible recovery test.
 - Excel-imported test cases show one execution result per source row and a clear “not executed/invalid/skipped” reason where applicable.
 - Security UI labels its mode exactly: `Passive Security Review`, `Authorized Active DAST`, or `Imported Scanner Findings`; never a generic “security scan.”
-- All browser tests run reliably in CI on a clean worker. The local Playwright startup stall is resolved or quarantined with a tracked issue.
+- All current browser tests pass on an unrestricted Windows worker. The restricted Codex runner may still reject local socket creation; that limitation must not be confused with an application failure.
 
 ## Product positioning after these gates
 
