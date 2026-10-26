@@ -1298,6 +1298,7 @@ def _build_pytest_script(
             + repr(
                 {
                     "path": route.path,
+                    "url": route.url or route.path,
                     "module": route.menu_name or route.path.strip("/") or "Home",
                     "targets": targets,
                 }

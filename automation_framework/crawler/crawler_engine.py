@@ -1434,7 +1434,7 @@ class CrawlerEngine:
         safe_actions_count = sum(
             len([
                 a for a in getattr(self.route_tracker.graph.get_node(r), "actions", [])
-                if a.get("classification") in {"SAFE_NAVIGATION", "SAFE_EXPAND", "SAFE_PROBE"}
+                if is_safe_action(str(a.get("classification") or "").lower())
             ])
             for r in mod_routes if hasattr(self.route_tracker, "graph") and self.route_tracker.graph.get_node(r)
         )

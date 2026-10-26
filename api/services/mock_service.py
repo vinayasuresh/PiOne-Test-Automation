@@ -150,6 +150,7 @@ def get_mock_response(url: str) -> ScanResponse:  # noqa: ARG001 — url kept fo
         targets = _mock_targets(route_data)
         routes.append(RouteResult(
             path=route_data["path"],
+            url=route_data["path"],
             menu_name=route_data["menu_name"],
             purpose=route_data["purpose"],
             components=ComponentGroups(

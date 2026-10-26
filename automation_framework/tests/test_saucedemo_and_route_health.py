@@ -197,6 +197,28 @@ def test_mock_demo_preserves_registry_evidence_shape():
     assert first_target["discovery_mechanism"] == "mock_fixture"
 
 
+def test_scan_response_keeps_canonical_route_and_safety_evidence():
+    response = build_scan_response(
+        {
+            "page_intelligence": {
+                "https://demo.test/inventory-item.html?id=0": {
+                    "menu_name": "Product details",
+                    "automation_targets": [
+                        {"label": "Add to cart", "classification": "safe_action"},
+                        {"label": "Checkout", "classification": "requires_manual_confirmation"},
+                    ],
+                }
+            },
+            "parking_lot_actions": [{"label": "Checkout", "classification": "requires_manual_confirmation"}],
+        },
+        duration=0.1,
+    )
+
+    assert response.routes[0].url == "https://demo.test/inventory-item.html?id=0"
+    assert response.safe_actions_explored == 1
+    assert response.parking_lot_actions[0]["label"] == "Checkout"
+
+
 # ---------------------------------------------------------------------------
 # 2. Action Classifier & Grounded Safe Business Action Planning
 # ---------------------------------------------------------------------------

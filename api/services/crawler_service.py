@@ -23,6 +23,7 @@ from automation_framework.crawler.auth_exceptions import (
 )
 from automation_framework.crawler.crawl_exporter import export_crawl_results
 from automation_framework.crawler.crawler_engine import CrawlerEngine
+from automation_framework.crawler.action_classifier import is_safe_action
 from automation_framework.crawler.login_handler import login
 from automation_framework.crawler.navigation_expander import ensure_navigation_expanded
 from automation_framework.crawler.ui_wait_engine import wait_for_ui_stability
@@ -579,8 +580,8 @@ def _count_safe_actions(crawl_results: dict) -> int:
     total = 0
     for doc in page_intelligence.values():
         for target in (doc or {}).get("automation_targets", []) or []:
-            classification = str(target.get("classification") or "").upper()
-            if classification in {"SAFE_NAVIGATION", "SAFE_EXPAND", "SAFE_PROBE"}:
+            classification = str(target.get("classification") or target.get("safety_classification") or "").lower()
+            if is_safe_action(classification):
                 total += 1
     return total
 

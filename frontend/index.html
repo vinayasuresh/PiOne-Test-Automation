@@ -2475,10 +2475,12 @@
       const box = document.getElementById("attached-scan-context");
       if (!box) return;
       const scan = state.scanData || {};
-      const routeValues = Array.isArray(scan.routes) ? scan.routes.map(r => typeof r === "string" ? r : (r.route || r.path || "")).filter(Boolean) : Object.keys(scan.page_intelligence || {});
-      const targetValues = Array.isArray(scan.elements) ? scan.elements.map(e => e.element_id || e.element_identity || `${e.route || ""}|${e.xpath || ""}|${e.role || ""}|${e.label || ""}`) : Object.values(scan.page_intelligence || {}).flatMap(r => (r.automation_targets || r.auto_detected_elements || []).map(e => e.element_identity || e.id || `${e.element_xpath || e.xpath || ""}|${e.element_role || e.role || ""}|${e.label || e.text || ""}`));
+      const routeValues = Array.isArray(scan.routes) ? scan.routes.map(r => typeof r === "string" ? r : (r.url || r.route || r.path || "")).filter(Boolean) : Object.keys(scan.page_intelligence || {});
+      const targetValues = Array.isArray(scan.routes)
+        ? scan.routes.flatMap(r => (r.automation_targets || []).map(e => e.element_identity || e.id || `${r.url || r.path || ""}|${e.element_xpath || e.xpath || ""}|${e.element_role || e.role || ""}|${e.label || e.text || ""}`))
+        : (Array.isArray(scan.elements) ? scan.elements.map(e => e.element_id || e.element_identity || `${e.route || ""}|${e.xpath || ""}|${e.role || ""}|${e.label || ""}`) : Object.values(scan.page_intelligence || {}).flatMap(r => (r.automation_targets || r.auto_detected_elements || []).map(e => e.element_identity || e.id || `${e.element_xpath || e.xpath || ""}|${e.element_role || e.role || ""}|${e.label || e.text || ""}`)));
       const routes = routeValues.length ? new Set(routeValues).size : Number(scan.summary?.total_routes || 0);
-      const targets = targetValues.length ? new Set(targetValues).size : Number(scan.summary?.total_elements || scan.elements_found || 0);
+      const targets = targetValues.length ? new Set(targetValues).size : Number(scan.summary?.total_automation_targets || scan.total_automation_targets || scan.elements_found || 0);
       const status = document.getElementById("attached-context-status");
       const summary = document.getElementById("attached-context-summary");
       if (!state.runId || !state.scanData) { box.classList.add("hidden"); return; }
@@ -2535,7 +2537,7 @@
         const startData = await readApiResponse(res, "Scan start");
         if (!res.ok) throw new Error(formatApiError(startData, "Scan start failed"));
         state.runId = startData.run_id || state.runId;
-        state.sessionName = state.sessionName || document.getElementById("session-name-input")?.value.trim() || "Test Session";
+        state.sessionName = document.getElementById("session-name-input")?.value.trim() || "Test Session";
         updateRunUI();
 
         // The crawler continues server-side.  Poll only the lightweight
@@ -3071,7 +3073,13 @@
           document.getElementById("provider-availability-badge").textContent = "Grounded AI Active";
           document.getElementById("provider-availability-badge").className = "bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]";
         }
-        document.getElementById("grounding-status-badge").textContent = "100% Grounded";
+        const groundedTargetCount = Number(meta.scan_targets || 0);
+        document.getElementById("grounding-status-badge").textContent = groundedTargetCount
+          ? `${groundedTargetCount} scan targets linked`
+          : "Grounding unavailable";
+        document.getElementById("grounding-status-badge").className = groundedTargetCount
+          ? "bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[10px]"
+          : "bg-rose-100 text-rose-800 font-bold px-2 py-0.5 rounded text-[10px]";
 
         unlockStep(7);
       } catch (err) {
@@ -3106,7 +3114,7 @@
       renderExecutionSelectionTable(testCases);
     }
 
-    async function runAsyncJob(startUrl, statusUrl, payload, label) {
+    async function runAsyncJob(startUrl, statusUrl, payload, label, onStatus) {
       const startRes = await fetch(startUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3116,6 +3124,7 @@
       if (!startRes.ok) throw new Error(formatApiError(startData, `${label} start failed`));
 
       let consecutiveStatusFailures = 0;
+      const startedAt = Date.now();
       for (let attempt = 0; attempt < 900; attempt++) {
         await new Promise(resolve => setTimeout(resolve, 1000));
         let statusRes;
@@ -3139,6 +3148,13 @@
         }
 
         consecutiveStatusFailures = 0;
+        if (typeof onStatus === "function") {
+          onStatus({
+            status: job.status,
+            attempt,
+            elapsedSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)),
+          });
+        }
         if (job.status === "completed") return job.result;
         if (job.status === "failed") {
           if (Number(job.http_status) === 401) {
@@ -3591,8 +3607,8 @@
     function viewScreenshot(path) {
       if (!path) return;
       const cleanPath = String(path).replace(/[<>"']/g, "");
-      document.getElementById("modal-title").textContent = cleanPath;
       const filename = encodeURIComponent(cleanPath.split(/[\\/]/).pop());
+      document.getElementById("modal-title").textContent = `Step screenshot evidence — ${decodeURIComponent(filename)}`;
       if (state.runId) {
         document.getElementById("modal-img").src = `${API_BASE}/reports/${encodeURIComponent(state.runId)}/screenshot/${filename}`;
       } else {
@@ -4286,7 +4302,10 @@
             auth_session_id: state.authSessionId,
             allow_mutating_actions: false
           },
-          "Selective execution"
+          "Selective execution",
+          ({ elapsedSeconds }) => {
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Selected (${state.selectedExecutionTestIds.length}) · ${elapsedSeconds}s`;
+          }
         );
 
         state.executionResults = data;

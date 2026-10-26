@@ -52,6 +52,33 @@ def test_plan_uses_current_route_and_stable_selector():
     assert cases[0].requirement_references == ["Users must validate creation permissions."]
 
 
+def test_plan_preserves_query_string_for_data_bearing_routes():
+    scan = ScanResponse(
+        routes=[
+            RouteResult(
+                path="/inventory-item.html",
+                url="https://www.saucedemo.com/inventory-item.html?id=0",
+                menu_name="Product details",
+                components=ComponentGroups(),
+                automation_targets=[
+                    {
+                        "label": "Add to cart",
+                        "type": "button",
+                        "selector": {"primary": {"strategy": "css", "value": "#add-to-cart"}},
+                        "safety_classification": "safe_action",
+                    }
+                ],
+            )
+        ],
+        summary=ScanSummary(total_routes=1, total_buttons=1, total_inputs=0, total_tables=0, scan_duration_seconds=0),
+    )
+
+    case = build_test_cases(scan, {})[0]
+
+    assert case.route == "https://www.saucedemo.com/inventory-item.html?id=0"
+    assert case.steps[0].route == "https://www.saucedemo.com/inventory-item.html?id=0"
+
+
 def test_plan_excludes_non_working_routes():
     assert build_test_cases(_scan([], status="NON-WORKING"), {}) == []
 

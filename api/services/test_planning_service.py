@@ -29,14 +29,15 @@ def build_test_cases(scan: ScanResponse, context: dict[str, Any]) -> list[TestCa
     for number, route in enumerate(scan.routes, start=1):
         if is_non_working_route(route.route_status):
             continue
+        canonical_route = getattr(route, "url", "") or route.path
         module = route.menu_name or route.path.strip("/") or "Home"
-        refs = _matching_context_lines(source_text, module, route.path)
+        refs = _matching_context_lines(source_text, module, canonical_route)
         steps = _plan_steps_for_route(route, number)
         cases.append(TestCase(
             tc_id=f"TC_{number:03d}",
             title=f"Verify {module} route and safe business workflows",
             module=module,
-            route=route.path,
+            route=canonical_route,
             purpose=route.purpose,
             requirement_references=refs,
             steps=steps,
@@ -48,12 +49,13 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
     """Derive grounded safe actions and assertions for a scanned route."""
     module = getattr(route, "menu_name", "") or getattr(route, "path", "").strip("/") or "Home"
     path = getattr(route, "path", "/")
+    canonical_route = getattr(route, "url", "") or path
 
     steps: list[TestStep] = [
         TestStep(
             step_id=f"TC_{number:03d}_S01",
             action="navigate",
-            route=path,
+            route=canonical_route,
             target_label=module,
             expected_result=f"{module} route loads within the scanned application scope.",
             safety_classification="safe_navigation",
@@ -93,7 +95,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="click",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"Add {label} to cart safely.",
@@ -105,7 +107,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
                 steps.append(TestStep(
                     step_id=f"TC_{number:03d}_S{step_num:02d}",
                     action="assert_cart_count",
-                    route=path,
+                    route=canonical_route,
                     target_label="Shopping cart count",
                     selector={"strategy": "css", "value": ".shopping_cart_badge", "fallback": [".cart_badge", "[data-test='shopping-cart-badge']"]},
                     expected_result="Shopping cart item count updates.",
@@ -119,7 +121,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="click",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"Click {label} to return to inventory.",
@@ -144,7 +146,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="click",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"Click {label} to view product details.",
@@ -158,7 +160,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="select",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 value="lohi",
@@ -173,7 +175,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="type",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 value="test",
@@ -188,7 +190,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="click",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"Toggle or expand {label}.",
@@ -202,7 +204,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="click",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"Navigate with pagination control {label}.",
@@ -216,7 +218,7 @@ def _plan_steps_for_route(route: Any, number: int) -> list[TestStep]:
             steps.append(TestStep(
                 step_id=f"TC_{number:03d}_S{step_num:02d}",
                 action="assert_visible",
-                route=path,
+                route=canonical_route,
                 target_label=label,
                 selector=selector,
                 expected_result=f"{label} is visible and available to the user.",

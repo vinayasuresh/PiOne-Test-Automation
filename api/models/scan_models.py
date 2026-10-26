@@ -165,6 +165,9 @@ class Interaction(BaseModel):
 
 class RouteResult(BaseModel):
     path: str
+    # Canonical route as observed by the browser, including query parameters
+    # and fragments. ``path`` remains the compact UI label for compatibility.
+    url: str = ""
     menu_name: str = ""
     purpose: str = ""
     framework: str = ""
@@ -223,6 +226,10 @@ class ScanResponse(BaseModel):
     # Opaque authenticated browser-session reference for later execution.
     # Never contains cookies or credentials.
     auth_session_id: Optional[str] = None
+    # Safety evidence belongs to the scan response so Analyze, planning, and
+    # Report all consume the same immutable source of truth.
+    safe_actions_explored: int = 0
+    parking_lot_actions: list[dict[str, Any]] = []
 
 
 class ErrorResponse(BaseModel):

@@ -81,6 +81,8 @@ def build_scan_response(
         route_namespace=crawl_results.get("route_namespace"),
         auth_session_id=auth_session_id,
         routes=routes,
+        safe_actions_explored=int(crawl_results.get("safe_actions_explored", _count_safe_actions(crawl_results)) or 0),
+        parking_lot_actions=list(crawl_results.get("parking_lot_actions", []) or []),
         summary=ScanSummary(
             total_routes=len(routes),
             total_buttons=total_buttons,
@@ -93,6 +95,22 @@ def build_scan_response(
             non_working_routes=non_working_routes,
             scan_duration_seconds=round(duration, 2),
         ),
+    )
+
+
+def _count_safe_actions(crawl_results: dict) -> int:
+    """Count every deterministic safe class, including safe business actions."""
+    safe_classes = {
+        "SAFE_NAVIGATION", "SAFE_EXPAND", "SAFE_PROBE", "SAFE_ACTION",
+        "SAFE_FILTER", "SAFE_SEARCH", "SAFE_SORT", "SAFE_PAGINATION",
+        "safe_navigation", "safe_expand", "safe_probe", "safe_action",
+        "safe_filter", "safe_search", "safe_sort", "safe_pagination",
+    }
+    return sum(
+        1
+        for route in (crawl_results.get("page_intelligence", {}) or {}).values()
+        for target in ((route or {}).get("automation_targets", []) or [])
+        if str(target.get("classification") or target.get("safety_classification") or "") in safe_classes
     )
 
 
@@ -165,6 +183,7 @@ def _build_route(route_url: str, route_doc: dict, validations: dict | None = Non
 
     return RouteResult(
         path=path,
+        url=str(route_url),
         menu_name=route_doc.get("menu_name", "") or "",
         purpose=route_doc.get("purpose", "") or "",
         framework=route_doc.get("framework", "") or "",
