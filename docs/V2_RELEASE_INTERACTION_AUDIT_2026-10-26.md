@@ -106,3 +106,18 @@ Only three happy-path cases were generated. The inventory journey had useful act
 Call this **“v2 internal beta / guided demo”**, not a production-grade AI QA platform yet. For a senior-demo, lead with the real evidence capture and traceable execution, then plainly say the next v2 stabilization work is data lineage: preserving route parameters, eliminating stale run state, and validating every generated step against the approved scan.
 
 The product is not fake—it has a promising end-to-end skeleton and real browser evidence—but the current planner-to-execution trust boundary is not strong enough to promise autonomous production QA.
+
+## Baseline closure after the live audit
+
+The following V2 corrections were implemented and committed in `24daaff`:
+
+- Canonical route URLs now retain query strings/fragments from scan evidence into generated steps.
+- Analyze/planning context counts targets from the route registry and no longer falls back to an unrelated `total_elements` field.
+- Safe-action and parking-lot evidence are carried in the scan response for Analyze, planning, and Report.
+- Safe business actions such as Add to Cart are included in safe-action totals.
+- New scans use the current session-name field instead of a stale restored name.
+- Execution polling shows elapsed seconds rather than an unexplained long spinner.
+- Screenshot evidence uses a readable filename title instead of an absolute local path.
+- “100% Grounded” was replaced with a truthful linked-target count or an explicit unavailable state.
+
+Verification after the changes: 13 focused planning/route tests passed, the canonical-route and safety-evidence regression passed explicitly, Python compilation passed, and the previous live run remains documented as the pre-fix reproduction. The browser-state test bundle was not claimed because it exceeded the bounded test window; a fresh live SauceDemo rerun should be the next release-gate check.
