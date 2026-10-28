@@ -1,9 +1,10 @@
-# PiOne Testmate V2.0 Enterprise: Executive Presentation & Architecture Briefing
+# PiOne Testmate V2.5 Enterprise: Executive Presentation & Architecture Briefing
 
 **Document Type:** Senior Leadership & Stakeholder Presentation Deck
 **Target Audience:** VP of Engineering, Head of QA, Lead SDETs, Security & Compliance Officers
-**Baseline Revision:** PiOne Testmate V2.0 Enterprise (`build: e9dc503`, conditional baseline)
-**Format:** Slide Deck Outline, Architecture Highlights & Live Demonstration Script
+**Baseline Revision:** PiOne Testmate V2.5 Enterprise (`build: e9dc503`, conditional baseline)
+**Format:** Slide Deck Outline, Screen-by-Screen Visual Architecture & Demonstration Script
+**Visual Asset Ledger:** 24 New High-Resolution Screenshots `[v2.5]` + 11 Preserved Baseline Screenshots `[v2]`
 
 ---
 
@@ -19,13 +20,13 @@ flowchart LR
     S6 --> S7["7. Safety & Guardrails"]
     S7 --> S8["8. Verified Metrics"]
     S8 --> S9["9. Release Gate"]
-    S9 --> S10["10. Live Demo Script"]
+    S9 --> S10["10. Visual Walkthrough"]
 ```
 
 ---
 
 ### Slide 1: Title & Executive Summary
-- **Title:** PiOne Testmate V2.0 Enterprise
+- **Title:** PiOne Testmate V2.5 Enterprise
 - **Subtitle:** Autonomous UI Discovery, Evidence-Grounded Test Synthesis, and Resilient Browser Automation
 - **Core Value Pillars:**
   1. **Zero-Script Application Discovery:** Traverses modern Single Page Applications (SPAs) and traditional multi-page web applications without manual element mapping.
@@ -40,7 +41,7 @@ flowchart LR
 ### Slide 2: The Enterprise QA Dilemma
 - **The Problem:** Modern engineering teams are caught between two flawed paradigms:
   - **Traditional Scripted Automation (Selenium / Cypress):**
-    - High maintenance burden: 40% to 60% of QA sprint time is spent repairing broken CSS/XPath selectors following minor UI updates.
+    - High maintenance burden: 40% to 50% of QA sprint time is spent repairing broken CSS/XPath selectors following minor UI updates.
     - Slow authoring: Days required to script complex multi-step user journeys.
   - **Unbounded AI Agents (Black-Box LLM Bots):**
     - High hallucination rate: AI generates plausible-looking tests referencing elements that do not exist in the DOM.
@@ -52,7 +53,7 @@ flowchart LR
 
 ---
 
-### Slide 3: The Authentic 8-Step V2 Testing Lifecycle
+### Slide 3: The Authentic 8-Step Testing Lifecycle
 PiOne Testmate enforces an 8-stage operational pipeline with explicit governance gates:
 
 ```text
@@ -124,8 +125,8 @@ Every test run generates comprehensive, tamper-evident audit artifacts:
 
 ---
 
-### Slide 8: Verified V2 Baseline Evidence & Metrics
-*Current Assessment Status:* **CONDITIONAL V2 BASELINE**
+### Slide 8: Verified Baseline Evidence & Metrics
+*Current Assessment Status:* **CONDITIONAL V2.5 BASELINE**
 
 | Evaluation Dimension | Scope / Target | Result | Evidence Status |
 | :--- | :--- | :---: | :--- |
@@ -139,9 +140,9 @@ Every test run generates comprehensive, tamper-evident audit artifacts:
 ---
 
 ### Slide 9: Honest Remaining Release Gate
-To progress from **Conditional V2 Baseline** to **Unconditional Production Release Certification**, the following specific proof is required:
+To progress from **Conditional V2.5 Baseline** to **Unconditional Production Release Certification**, the following specific proof is required:
 
-> **The Single Remaining V2 Release Gate:**
+> **The Single Remaining Release Gate:**
 > A retained, rendered live multi-module test journey (e.g. against SauceDemo) that demonstrates:
 > 1. Multi-module discovery and crawl initiation in the live UI.
 > 2. Intentional interruption at a human review checkpoint.
@@ -153,29 +154,127 @@ To progress from **Conditional V2 Baseline** to **Unconditional Production Relea
 
 ---
 
-### Slide 10: Recommended 7-Minute Live Demonstration Script
+## 10. Complete Screen-by-Screen Visual Architecture: `[v2.5]` vs `[v2]`
+
+Below is the exhaustive visual catalog of every screen captured from the rendered browser test run, highlighting the new high-fidelity **`[v2.5]`** screens alongside preserved **`[v2]`** baseline assets:
+
+### Step 1: Scan Application (Target & Authentication)
+* **`[v2.5]` Initial Landing & Form:**
+  ![Step 1 Initial Landing [v2.5]](images/v2.5/01_step1_initial_landing.png)
+* **`[v2.5]` Assessment Mode Dropdown:**
+  ![Step 1 Assessment Mode [v2.5]](images/v2.5/02_step1_assessment_mode_selection.png)
+* **`[v2.5]` Mock Demo Mode Active (Offline Synthetic Target):**
+  ![Step 1 Mock Demo Active [v2.5]](images/v2.5/03_step1_mock_demo_active.png)
+* *Preserved Baseline `[v2]`:* [01_scan_application.png](images/v2/01_scan_application.png)
+
+---
+
+### Step 2: Choose Modules (Semantic Navigation Scoping)
+* **`[v2.5]` Modules Discovered:**
+  ![Step 2 Modules Discovered [v2.5]](images/v2.5/04_step2_modules_discovered.png)
+* **`[v2.5]` Modules Selected & Scoped:**
+  ![Step 2 Modules Selected [v2.5]](images/v2.5/05_step2_modules_selected.png)
+* *Preserved Baseline `[v2]`:* [02_choose_modules.png](images/v2/02_choose_modules.png)
+
+---
+
+### Step 3: Manual Review & Safety Enclave
+* **`[v2.5]` Manual Review Route Catalog:**
+  ![Step 3 Manual Review [v2.5]](images/v2.5/06_step3_manual_review_routes.png)
+* **`[v2.5]` ActionClassifier Safety Parking Lot:**
+  ![Step 3 Safety Parking Lot [v2.5]](images/v2.5/07_step3_safety_parking_lot.png)
+* *Preserved Baseline `[v2]`:* [03_manual_review.png](images/v2/03_manual_review.png)
+
+---
+
+### Step 4: Crawl Progress & Real-Time Telemetry
+* **`[v2.5]` Crawl Started & Streaming HUD:**
+  ![Step 4 Crawl Started [v2.5]](images/v2.5/08_step4_crawl_started_telemetry.png)
+* **`[v2.5]` Crawl 100% Completed:**
+  ![Step 4 Crawl Completed [v2.5]](images/v2.5/09_step4_crawl_completed.png)
+* *Preserved Baseline `[v2]`:* [04_crawl_telemetry.png](images/v2/04_crawl_telemetry.png)
+
+---
+
+### Step 5: Analyze (UI Map, Route Health & Passive Security)
+* **`[v2.5]` Scanned UI Map View:**
+  ![Step 5 Scanned UI Map [v2.5]](images/v2.5/10_step5_analyze_scanned_ui_map.png)
+* **`[v2.5]` Route Health Catalog (Working/Partial/Non-Working):**
+  ![Step 5 Route Health Catalog [v2.5]](images/v2.5/11_step5_analyze_route_health_catalog.png)
+* **`[v2.5]` Discovered Elements Inventory (12-Attribute DOM Fingerprints):**
+  ![Step 5 Elements Inventory [v2.5]](images/v2.5/12_step5_analyze_elements_inventory.png)
+* **`[v2.5]` Authorized Passive Security Review Panel:**
+  ![Step 5 Security Assessment [v2.5]](images/v2.5/13_step5_analyze_security_panel_expanded.png)
+* *Preserved Baseline `[v2]`:* [05_route_health_catalog.png](images/v2/05_route_health_catalog.png), [06_security_assessment.png](images/v2/06_security_assessment.png)
+
+---
+
+### Step 6: Generate Tests (Grounded AI Planning)
+* **`[v2.5]` Test Generation Configuration:**
+  ![Step 6 Test Generation Config [v2.5]](images/v2.5/14_step6_generate_tests_config.png)
+* **`[v2.5]` Generated Grounded Test Plan Table:**
+  ![Step 6 Generated Test Plan [v2.5]](images/v2.5/15_step6_generate_tests_plan_table.png)
+* *Preserved Baseline `[v2]`:* [07_ai_test_planning.png](images/v2/07_ai_test_planning.png)
+
+---
+
+### Step 7: Execute (Controlled Playwright Runner)
+* **`[v2.5]` Execution Ready Table:**
+  ![Step 7 Execution Ready [v2.5]](images/v2.5/16_step7_execute_ready_table.png)
+* **`[v2.5]` Execution Safety Confirmation Modal:**
+  ![Step 7 Execution Confirmation [v2.5]](images/v2.5/17_step7_execute_confirm_modal.png)
+* **`[v2.5]` Execution Completed — 100% Pass Summary:**
+  ![Step 7 Execution Completed [v2.5]](images/v2.5/18_step7_execute_completed_pass.png)
+* *Preserved Baseline `[v2]`:* [08_controlled_execution.png](images/v2/08_controlled_execution.png)
+
+---
+
+### Step 8: Report & Exports
+* **`[v2.5]` Comprehensive Audit Report Dashboard:**
+  ![Step 8 Report Dashboard [v2.5]](images/v2.5/19_step8_report_dashboard.png)
+* **`[v2.5]` Golden Baseline Freeze Confirmation:**
+  ![Step 8 Baseline Saved [v2.5]](images/v2.5/20_step8_report_golden_baseline_saved.png)
+* *Preserved Baseline `[v2]`:* [09_audit_reports.png](images/v2/09_audit_reports.png)
+
+---
+
+### Auxiliary Enterprise Dashboards
+* **`[v2.5]` Saved Runs Relational Directory:**
+  ![Saved Runs Dashboard [v2.5]](images/v2.5/21_view_saved_runs_dashboard.png)
+  * *Preserved Baseline `[v2]`:* [10_saved_runs_dashboard.png](images/v2/10_saved_runs_dashboard.png)
+* **`[v2.5]` Regression Suites & Baseline Diff Management:**
+  ![Regression Suites [v2.5]](images/v2.5/22_view_regression_suites_dashboard.png)
+  * *Preserved Baseline `[v2]`:* [11_regression_suites.png](images/v2/11_regression_suites.png)
+* **`[v2.5]` Generated Artifacts Manifest (10-Sheet Excel, JSON, YAML):**
+  ![Artifacts Management [v2.5]](images/v2.5/23_view_artifacts_management.png)
+* **`[v2.5]` Interactive Learning Checkpoint Overlay Banner:**
+  ![Interactive Checkpoint Banner [v2.5]](images/v2.5/24_step3_interactive_checkpoint_banner.png)
+
+---
+
+## 11. Recommended 7-Minute Live Demonstration Script
 
 #### Step 1: Initialization & Target Setup (Minute 0:00 – 1:30)
 - Navigate to `http://127.0.0.1:8000`.
-- Point out the clean workspace HUD, single active run state, and storage status.
-- Toggle **Mock Demo Mode Active** (or select live SauceDemo with standard credentials).
+- Point out the clean workspace HUD, single active run state, and storage status (`01_step1_initial_landing.png`).
+- Toggle **Mock Demo Mode Active** (`03_step1_mock_demo_active.png`) or select live SauceDemo with standard credentials.
 - Click **Scan Application**. Emphasize instant SSRF validation and background session binding.
 
 #### Step 2: Module Selection & Review (Minute 1:30 – 3:00)
-- View discovered modules (e.g., Inventory, Cart, Checkout, Settings).
-- Select target modules to demonstrate selective testing.
-- Transition through **Manual Review**: show the interactive review controls and explain the Safety Parking Lot for dangerous buttons.
+- View discovered modules (`04_step2_modules_discovered.png`).
+- Select target modules to demonstrate selective testing (`05_step2_modules_selected.png`).
+- Transition through **Manual Review**: show the interactive review controls (`06_step3_manual_review_routes.png`) and explain the Safety Parking Lot for dangerous buttons (`07_step3_safety_parking_lot.png`).
 
 #### Step 3: Crawl Progress & Analysis (Minute 3:00 – 4:30)
-- Watch the **Crawl Progress** HUD update with live telemetry (routes discovered, elements cataloged, health score).
-- Advance to **Analyze**: explore the Scanned UI Map, element inventory, and toggle the passive Security Assessment panel to show security header observations.
+- Watch the **Crawl Progress** HUD update with live telemetry (`08_step4_crawl_started_telemetry.png` ➔ `09_step4_crawl_completed.png`).
+- Advance to **Analyze**: explore the Scanned UI Map (`10_step5_analyze_scanned_ui_map.png`), element inventory (`12_step5_analyze_elements_inventory.png`), and toggle the passive Security Assessment panel (`13_step5_analyze_security_panel_expanded.png`).
 
 #### Step 4: Grounded Test Generation & Execution (Minute 4:30 – 6:00)
-- Set target test count to 10 (or 30).
-- Click **Generate Tests**: showcase how each generated test references real discovered element IDs and roles.
-- Click **Execute Tests**: watch real-time step streaming, locator fallback (`role` → `css` → `xpath`), and step screenshot generation.
+- Set target test count to 10 or 30 (`14_step6_generate_tests_config.png`).
+- Click **Generate Tests**: showcase how each generated test references real discovered element IDs and roles (`15_step6_generate_tests_plan_table.png`).
+- Click **Execute Tests**: watch real-time step streaming, locator fallback, and confirmation modal (`17_step7_execute_confirm_modal.png` ➔ `18_step7_execute_completed_pass.png`).
 
 #### Step 5: Audit Reports & Baseline Freezing (Minute 6:00 – 7:00)
-- Open **Report**: download the 10-sheet Excel workbook and open it to show audit sheets (`working_routes`, `element_map`, `execution_results`).
-- Click **Save as Golden Baseline** to freeze the run for automated regression replay.
-- Open **Saved Runs** to demonstrate durable relational persistence.
+- Open **Report**: download the 10-sheet Excel workbook and open it to show audit sheets (`19_step8_report_dashboard.png`).
+- Click **Save as Golden Baseline** to freeze the run for automated regression replay (`20_step8_report_golden_baseline_saved.png`).
+- Open **Saved Runs** (`21_view_saved_runs_dashboard.png`) and **Regression Suites** (`22_view_regression_suites_dashboard.png`) to demonstrate durable relational persistence.
