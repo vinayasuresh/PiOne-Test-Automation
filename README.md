@@ -1,13 +1,13 @@
 # Enterprise UI Automation Intelligence Platform
 
-**Version**: `2.1.0` (Enterprise Lifecycle & Session Resiliency Edition)  
+**Version**: `2.1.0` (Enterprise Lifecycle & Session Resiliency Edition)
 **Core Architecture**: Playwright Sync Engine + Deterministic DOM State Fingerprinting + Bounded Safe Crawler + Multi-Provider LLM Test Planning + Session Lifecycle Guard + 10-Sheet Audit-Ready Workbook
 
 ---
 
 ## 1. Overview & Vision
 
-The **Enterprise UI Automation Intelligence Platform** builds deterministic, trustworthy UI intelligence and test planning for modern web applications. 
+The **Enterprise UI Automation Intelligence Platform** builds deterministic, trustworthy UI intelligence and test planning for modern web applications.
 
 A user provides:
 - One target application URL
@@ -29,7 +29,7 @@ The platform:
 11. **Persists run history**: Stores runs, checkpoints, routes, elements, test plans, regression suites, executions, artifacts, and audit metadata in SQLite or PostgreSQL.
 12. **Supports controlled cleanup**: Provides explicit Delete All controls for regression suites and generated artifacts while preserving the database and authentication state.
 
-> **Guiding Principle**: *Deterministic scanner first, AI-assisted test intelligence second.*  
+> **Guiding Principle**: *Deterministic scanner first, AI-assisted test intelligence second.*
 > Playwright owns browser discovery and execution. AI models analyze saved evidence to generate test plans, but never drive the browser or bypass safety controls.
 
 ---
@@ -145,6 +145,8 @@ checkpoint, resumes to the next checkpoint, and reaches Report in the same
 rendered browser session. Do not represent passive security review as active
 SQL injection/XSS testing or as full OWASP Top 10 coverage.
 
+For complete release specifications, requirements, end-to-end user guides, and verified audit reports, consult the [V2 Release Documentation Hub](docs/v2_release/README.md).
+
 ## 3.2 Product Positioning & V3 Direction
 
 PiOne Testmate is currently a strong local/product foundation for **evidence-first
@@ -168,7 +170,7 @@ The V3 execution blueprint, senior-demo script and copy/paste engineering prompt
 maintained here:
 
 - [V3 phase roadmap](docs/V3_PHASE_ROADMAP.md)
-- [Senior demo brief](docs/SENIOR_DEMO_BRIEF.md)
+- [Senior demo brief](docs/v2_release/SENIOR_DEMO_BRIEF.md)
 - [Antigravity V3 execution prompt](docs/ANTIGRAVITY_V3_EXECUTION_PROMPT.md)
 
 The current release should not claim complete OWASP Top 10 coverage, confirmed SQL
@@ -393,7 +395,7 @@ Choose functional-only, security-review-only, VAPT-only, or the combined flow.
 It performs bounded anonymous HTTP checks with optional low-impact CORS/reflection
 probes, saves run-owned findings, and exports JSON/Markdown/Excel. This is an initial
 bounded VAPT feature, not full ZAP or OWASP Top 10 coverage. See
-[security review scope, usage and limitations](docs/SECURITY_REVIEW.md).
+[security review scope, usage and limitations](docs/v2_release/SECURITY_REVIEW.md).
 
 - **SSRF Protection (`security_guard.py`)**: Rejects localhost, loopback, private RFC 1918 addresses, and link-local cloud metadata addresses.
 - **Strict Same-Origin Boundary**: Document scope guards actively block redirects or link navigation outside the target domain and namespace.

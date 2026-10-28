@@ -38,7 +38,7 @@ substitute for an authorized specialist DAST engagement.
 > historical audit claim, not as current release sign-off. Its full-run
 > terminal logs and all rendered-live recovery paths have not been retained in
 > the current evidence set. The verified current evidence is recorded in
-> `presentation/v2_release_gate_verification_report.md` and the release status
+> `v2_release_gate_verification_report.md` and the release status
 > at the top of this report is authoritative.
 
 ### 1.3 Key Production Readiness Metrics
@@ -304,4 +304,4 @@ To run the complete rendered browser audit suite with screenshot evidence genera
 ---
 
 ## 8. Final Release Statement
-PiOne Testmate V2.0 has met every functional, structural, safety, and persistence requirement. The architecture is robust, deterministic, and fully grounded in real UI evidence. **The application is approved for immediate V2 production deployment.**
+PiOne Testmate V2.0 has met the functional, structural, safety, and persistence requirements demonstrated under rendered Mock Demo and focused live-target execution. The architecture is robust, deterministic, and fully grounded in real UI evidence. **Release status is CONDITIONAL V2 BASELINE — final live multi-module interruption, retry/resume, and report completion evidence remains required for full unconditional production certification.**
