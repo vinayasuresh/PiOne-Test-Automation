@@ -169,6 +169,9 @@ def _flatten_elements(page_intelligence: dict[str, Any]) -> list[dict[str, Any]]
                     "interaction_probability": target.get("interaction_probability", 0.0),
                     "interaction_probability_method": target.get("interaction_probability_method", ""),
                     "hierarchy_level": target.get("hierarchy_level", 2),
+                    "source": target.get("source", "automatic_scan"),
+                    "source_page": target.get("source_page", route_url),
+                    "source_html": target.get("source_html", ""),
                 }
             )
     return elements

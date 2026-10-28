@@ -30,6 +30,14 @@ def test_app_boundary_guard_blocks_static_assets_and_cdns():
     assert not guard.is_allowed("https://example.com/app/assets/app.json")
     assert not guard.is_allowed("https://example.com/app/static/main.js")
 
+
+def test_app_boundary_guard_allows_application_assets_routes():
+    """An application section named /assets must not be mistaken for a file bucket."""
+    guard = AppBoundaryGuard("https://example.com")
+    assert guard.is_allowed("https://example.com/assets")
+    assert guard.is_allowed("https://example.com/assets/hardware")
+    assert guard.is_allowed("https://example.com/assets/software")
+
 def test_app_boundary_guard_allowed_and_blocked_paths():
     guard = AppBoundaryGuard(
         "https://example.com/app",

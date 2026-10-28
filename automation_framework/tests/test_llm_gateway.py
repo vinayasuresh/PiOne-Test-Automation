@@ -224,6 +224,64 @@ def test_testcase_count_caps_grounded_plan_and_preserves_upload_metadata(sample_
     assert result["planning_metadata"]["requested_testcases"] == 1
 
 
+def test_testcase_count_expands_with_grounded_action_checks(sample_scan_context):
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic",
+        model=None,
+        scan_context=sample_scan_context,
+        requirements=[],
+        testcases=[],
+        user_prompt="cover the discovered safe user flows",
+        requested_count=5,
+    )
+
+    assert len(result["test_cases"]) == 5
+    assert result["planning_metadata"]["requested_testcases"] == 5
+    assert result["planning_metadata"]["actual_testcases"] == 5
+    assert any("focused, grounded action checks" in note for note in result["planning_notes"])
+    assert all(case["steps"][0]["action"] == "navigate" for case in result["test_cases"])
+
+
+def test_testcase_count_uses_targets_beyond_route_step_cap():
+    """Requested counts may use all captured safe controls, not only five per route."""
+    targets = [
+        {
+            "label": f"Filter {index}",
+            "type": "input",
+            "category": "inputs",
+            "selector": {"strategy": "css", "value": f"#filter-{index}"},
+        }
+        for index in range(1, 9)
+    ]
+    scan_context = {
+        "routes": [
+            {"path": "/inventory", "menu_name": "Inventory", "automation_targets": targets},
+            {
+                "path": "/cart",
+                "menu_name": "Cart",
+                "automation_targets": [{
+                    "label": "Continue shopping",
+                    "type": "button",
+                    "selector": {"strategy": "css", "value": "#continue-shopping"},
+                }],
+            },
+        ],
+    }
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic",
+        model=None,
+        scan_context=scan_context,
+        requirements=[],
+        testcases=[],
+        user_prompt="",
+        requested_count=10,
+    )
+
+    assert len(result["test_cases"]) == 10
+    assert result["shortfall_explanation"] is None
+    assert all(case["steps"][0]["action"] == "navigate" for case in result["test_cases"])
+
+
 # ---------------------------------------------------------------------------
 # 2. Deterministic Planner Success
 # ---------------------------------------------------------------------------

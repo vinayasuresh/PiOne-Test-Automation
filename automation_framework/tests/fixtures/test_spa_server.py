@@ -78,6 +78,22 @@ SPA_HTML = """<!DOCTYPE html>
                     </table>
                     <button id="btn-next-page">Next Page</button>
                 `;
+            } else if (path === '/analytics') {
+                // Keep the fixture's Analytics navigation route distinct from
+                // Home.  Previously it fell through to the Home shell, whose
+                // broad safe-navigation inventory caused checkpoint decision
+                // tests to deep-crawl unrelated routes before reaching the
+                // next module.  A real module route must be isolated here so
+                // Continue/Retry/End tests measure checkpoint behavior.
+                root.innerHTML = `
+                    <h1>Analytics Workspace</h1>
+                    <p id="analytics-desc">Read-only analytics module.</p>
+                    <button id="btn-refresh-analytics">Refresh Metrics</button>
+                    <table role="table">
+                        <tr><th>Metric</th><th>Value</th></tr>
+                        <tr><td>Active users</td><td>42</td></tr>
+                    </table>
+                `;
             } else if (path === '/info') {
                 root.innerHTML = `
                     <h1>Platform Information</h1>

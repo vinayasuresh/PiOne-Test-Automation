@@ -17,11 +17,15 @@ class RunContext(BaseModel):
     display_name: Optional[str] = None
     scan_id: Optional[str] = None
     target_origin: str
+    # Durable source of truth for mock mode. This prevents a page reload or a
+    # Saved Run reopen from silently treating an offline demo as a live target.
+    is_mock: bool = False
     allowed_path_namespace: str = "/"
     auth_session_id: Optional[str] = None
     auth_status: str = "none"  # "authenticated" | "expired" | "none"
     username: Optional[str] = None
     assessment_mode: str = "both"  # "both" | "functional_only" | "security_only" | "vapt_only"
+    interactive_mode: bool = False
     selected_modules: list[str] = Field(default_factory=list)
     completed_modules: list[str] = Field(default_factory=list)
     pending_modules: list[str] = Field(default_factory=list)

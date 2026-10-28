@@ -3,10 +3,18 @@
 import re
 from typing import Any, Optional
 
-from pydantic import BaseModel, field_validator
-
+from pydantic import BaseModel, ValidationInfo, field_validator
 
 from api.utils.security_guard import validate_target_url
+
+
+def _is_explicit_mock(info: ValidationInfo) -> bool:
+    """Return only the client-supplied mock-mode flag.
+
+    A URL hostname, run ID, and auth-session ID are all client-controlled
+    values. None of them may grant a DNS or SSRF validation bypass.
+    """
+    return bool(info.data.get("mock", False)) if info.data else False
 
 
 # ---------------------------------------------------------------------------
@@ -15,13 +23,13 @@ from api.utils.security_guard import validate_target_url
 
 
 class ScanRequest(BaseModel):
+    mock: bool = False
     url: str
     session_name: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
-    mock: bool = False
     interactive_mode: bool = False
-    interactive_timeout: int = 300  # seconds the crawler waits per route confirmation
+    interactive_timeout: int = 900  # seconds the crawler waits per module confirmation
     resume_run_id: Optional[str] = None
     scan_id: Optional[str] = None
     selected_module_ids: Optional[list[str]] = None
@@ -30,8 +38,9 @@ class ScanRequest(BaseModel):
 
     @field_validator("url")
     @classmethod
-    def validate_url(cls, v: str) -> str:
-        return validate_target_url(v)
+    def validate_url(cls, v: str, info: ValidationInfo) -> str:
+        is_mock = bool(info.data.get("mock", False)) if info.data else False
+        return validate_target_url(v, is_mock=is_mock)
 
     @field_validator("resume_run_id", "run_id")
     @classmethod
@@ -71,14 +80,17 @@ class ScanRequest(BaseModel):
 class ModuleDiscoveryRequest(BaseModel):
     """Authenticate once and return only the current application's modules."""
 
+    mock: bool = False
     url: str
     username: Optional[str] = None
     password: Optional[str] = None
+    session_name: Optional[str] = None
 
     @field_validator("url")
     @classmethod
-    def validate_discovery_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_discovery_url(cls, value: str, info: ValidationInfo) -> str:
+        is_mock = bool(info.data.get("mock", False)) if info.data else False
+        return validate_target_url(value, is_mock=is_mock)
 
 
 class ModuleOption(BaseModel):
@@ -87,6 +99,7 @@ class ModuleOption(BaseModel):
     label: str
     route: str = ""
     source: str = ""
+    dom_order: int = 0
     hierarchy_level: int = 0
     parent_module: Optional[str] = None
     confidence: float = 1.0
@@ -105,6 +118,7 @@ class ModuleDiscoveryResponse(BaseModel):
 
 
 class RouteReplayRequest(BaseModel):
+    mock: bool = False
     base_url: str
     route: str
     checkpoint_id: str
@@ -114,8 +128,8 @@ class RouteReplayRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_base_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
     @field_validator("checkpoint_id", "scan_id")
     @classmethod
@@ -243,6 +257,7 @@ class ErrorResponse(BaseModel):
 
 
 class GenerateTestRequest(BaseModel):
+    mock: bool = False
     base_url: str
     scan: ScanResponse
     description: Optional[str] = None
@@ -256,11 +271,12 @@ class GenerateTestRequest(BaseModel):
     # Optional planning cap.  Zero preserves the provider's automatic
     # grounded coverage; a positive value limits the returned catalogue.
     testcase_count: int = 0
+    evidence_revision: Optional[int] = None
 
     @field_validator("base_url")
     @classmethod
-    def validate_generate_base_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_generate_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
     @field_validator("context_id")
     @classmethod
@@ -311,6 +327,8 @@ class GeneratedTestResponse(BaseModel):
     model: str = ""
     fallback_used: bool = False
     warnings: list[str] = []
+    shortfall_explanation: Optional[dict[str, Any]] = None
+    evidence_revision: Optional[int] = None
 
 
 class TestStep(BaseModel):
@@ -361,6 +379,7 @@ class TestCase(BaseModel):
 
 
 class ExecuteTestRequest(BaseModel):
+    mock: bool = False
     base_url: str
     scan: ScanResponse
     script: str
@@ -373,8 +392,8 @@ class ExecuteTestRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_execute_base_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_execute_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
     @field_validator("auth_session_id")
     @classmethod
@@ -427,6 +446,7 @@ class ExecuteTestResponse(BaseModel):
 
 
 class RerunStepRequest(BaseModel):
+    mock: bool = False
     base_url: str
     test_case: TestCase
     step_id: str
@@ -435,8 +455,8 @@ class RerunStepRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_rerun_base_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_rerun_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class RerunStepResponse(BaseModel):
@@ -452,14 +472,15 @@ class RerunStepResponse(BaseModel):
 
 class RefreshSessionRequest(BaseModel):
     run_id: str
+    mock: bool = False
     url: str
     username: Optional[str] = None
     password: Optional[str] = None
 
     @field_validator("url")
     @classmethod
-    def validate_refresh_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_refresh_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class RefreshSessionResponse(BaseModel):
@@ -479,6 +500,7 @@ class SessionStatusResponse(BaseModel):
 
 class RegressionRunRequest(BaseModel):
     execution_id: Optional[str] = None
+    mock: bool = False
     base_url: str
     run_id: Optional[str] = None
 
@@ -494,8 +516,8 @@ class RegressionRunRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_regression_base_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_regression_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class RegressionRunResponse(BaseModel):
@@ -535,6 +557,7 @@ class ArtifactStatusResponse(BaseModel):
 
 
 class CreateRunRequest(BaseModel):
+    mock: bool = False
     url: str
     username: Optional[str] = None
     password: Optional[str] = None
@@ -544,8 +567,8 @@ class CreateRunRequest(BaseModel):
 
     @field_validator("url")
     @classmethod
-    def validate_create_run_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_create_run_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class SaveProgressRequest(BaseModel):
@@ -562,6 +585,7 @@ class ResumeRunRequest(BaseModel):
 
 class CreateRegressionSuiteRequest(BaseModel):
     name: str
+    mock: bool = False
     base_url: str
     environment: str = "production"
     description: str = ""
@@ -572,8 +596,8 @@ class CreateRegressionSuiteRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_suite_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_suite_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class UpdateRegressionSuiteRequest(BaseModel):
@@ -587,6 +611,7 @@ class UpdateRegressionSuiteRequest(BaseModel):
 
 class ExecuteSelectedRegressionRequest(BaseModel):
     run_id: str
+    mock: bool = False
     base_url: str
     suite_id: Optional[str] = None
     filter_type: str = "all"  # all, modules, routes, tags, failed_only, changed_only, never_executed, review_required
@@ -606,8 +631,8 @@ class ExecuteSelectedRegressionRequest(BaseModel):
 
     @field_validator("base_url")
     @classmethod
-    def validate_exec_url(cls, value: str) -> str:
-        return validate_target_url(value)
+    def validate_exec_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
 
 
 class SaveBaselineRequest(BaseModel):
@@ -619,5 +644,6 @@ class SaveBaselineRequest(BaseModel):
 
 class CompareBaselineRequest(BaseModel):
     current_run_id: str
-    baseline_run_id: str
+    baseline_run_id: Optional[str] = None
+    baseline_id: Optional[str] = None
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 # Sensitive dictionary keys (case-insensitive)
 SENSITIVE_KEY_NAMES = {
@@ -90,8 +91,14 @@ def redact_sensitive_data(obj: Any) -> Any:
         is_password_field = str(obj.get("type", "")).lower() == "password" or str(obj.get("input_type", "")).lower() == "password"
         for k, v in obj.items():
             k_str = str(k).lower().strip()
+            # Route graphs use complete URLs as dictionary keys.  A route such
+            # as `/enrollment-tokens` is a public navigation identifier, not a
+            # field named `token`; redacting its *value* corrupts the graph and
+            # makes an otherwise valid checkpoint impossible to resume.
+            parsed_key = urlparse(str(k))
+            is_url_key = parsed_key.scheme in {"http", "https"} and bool(parsed_key.netloc)
             # If the key itself indicates sensitive content, redact its value directly
-            if any(sens in k_str for sens in SENSITIVE_KEY_NAMES):
+            if not is_url_key and any(sens in k_str for sens in SENSITIVE_KEY_NAMES):
                 cleaned[k] = "[REDACTED]"
             elif is_password_field and k_str in {"value", "default_value", "text", "val"}:
                 cleaned[k] = "[REDACTED]"

@@ -340,7 +340,15 @@ async def test_api_system_db_status(async_client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_api_runs_crud_endpoints(async_client: httpx.AsyncClient):
+async def test_api_runs_crud_endpoints(async_client: httpx.AsyncClient, monkeypatch):
+    # A resume endpoint must schedule the crawler, but this CRUD contract test
+    # must not launch a real browser or make a network request.
+    from api.routers import scan as scan_router
+
+    async def no_op_background_scan(_request):
+        return None
+
+    monkeypatch.setattr(scan_router, "_run_scan_in_background", no_op_background_scan)
     # 1. List runs
     res = await async_client.get("/runs")
     assert res.status_code == 200
@@ -363,6 +371,7 @@ async def test_api_runs_crud_endpoints(async_client: httpx.AsyncClient):
     save_res = await async_client.post(f"/runs/{run_id}/save-progress", json={"run_id": run_id})
     assert save_res.status_code == 200
     assert save_res.json()["status"] == "saved"
+    assert save_res.json()["checkpoint_version"] >= 1
 
     # 5. Pause run
     pause_res = await async_client.post(f"/runs/{run_id}/pause")

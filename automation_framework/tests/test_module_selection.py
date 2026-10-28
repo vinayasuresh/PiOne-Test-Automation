@@ -123,6 +123,24 @@ def test_selecting_multiple_modules(page: Page, spa_server: str):
     assert len(engine.completed_modules) == 2
 
 
+def test_resume_honours_selected_saved_route_missing_from_current_menu(page: Page, spa_server: str):
+    """A checkpoint route selection must not leave a run permanently partial.
+
+    ``/details`` is reachable in the fixture but deliberately is not in its
+    persistent navigation.  This models an authenticated landing/deep-link
+    route that was selected before a later menu discovery changes.
+    """
+    page.goto(spa_server, wait_until="domcontentloaded")
+    engine = CrawlerEngine(page, base_url=spa_server)
+    saved_route_id = f"route:{spa_server}/details"
+
+    results = engine.crawl(start_url=spa_server, selected_module_ids=[saved_route_id])
+
+    assert saved_route_id in engine.completed_modules
+    assert results["completed_modules"] == [saved_route_id]
+    assert any("/details" in route for route in engine.route_tracker.get_visited_routes())
+
+
 # ----------------------------------------------------------------------
 # 4. Selecting All Modules
 # ----------------------------------------------------------------------

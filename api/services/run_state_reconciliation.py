@@ -12,8 +12,12 @@ def _as_list(value: Any) -> list[Any]:
 
 
 def calculate_module_progress(data: Mapping[str, Any]) -> dict[str, Any]:
-    selected = [str(m) for m in _as_list(data.get("selected_modules")) if str(m).strip()]
-    completed = [str(m) for m in _as_list(data.get("completed_modules")) if str(m).strip()]
+    # Checkpoints/events can be replayed after reconnects.  Treat module IDs
+    # as an ordered set so a repeated event cannot inflate progress or make a
+    # partially scanned run appear complete.
+    selected = list(dict.fromkeys(str(m) for m in _as_list(data.get("selected_modules")) if str(m).strip()))
+    completed_raw = list(dict.fromkeys(str(m) for m in _as_list(data.get("completed_modules")) if str(m).strip()))
+    completed = [m for m in selected if m in completed_raw]
     pending = [m for m in selected if m not in completed]
     total = len(selected)
     done = len(completed)

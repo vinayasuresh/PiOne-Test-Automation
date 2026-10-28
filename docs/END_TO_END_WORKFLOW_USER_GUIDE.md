@@ -257,7 +257,8 @@ Step 4 streams real-time Playwright exploration events via WebSockets / Server-S
   * **Elements Discovered (`#live-element-count`)**: Real-time counter of registered buttons, inputs, dropdowns, and tables.
 * **Interactive Scan Controls**:
   * **Pause Scan (`#btn-scan-pause`)**: Halts crawling at the next safe boundary.
-  * **Resume Scan (`#btn-scan-resume`)**: Resumes exploration from the active checkpoint.
+  * **Resume Scan (`#btn-scan-resume`)**: Continues exploration from the active checkpoint; it does not deliberately re-run completed modules.
+  * **Retry Crawl / Module**: Re-runs the current failed or stopped scope only after the confirmation dialog explains the scope that will be retested. It is different from Resume.
   * **End Scan & Save (`#btn-scan-end-save`)**: Gracefully terminates the crawl and packages all partial results as valid artifacts.
   * **Discard Run (`#btn-scan-discard`)**: Cancels the run and removes partial runtime state.
 * **Completion Milestone**:
@@ -269,6 +270,7 @@ Step 4 streams real-time Playwright exploration events via WebSockets / Server-S
     * **View Analysis** button (`#btn-view-analysis`) is enabled.
     * Pause and End buttons are disabled.
   * *Important Constraint*: The UI never auto-advances to Step 5; user must click **View Analysis**.
+  * **Progress Rule**: `100%` means every selected module has reached a terminal outcome. A `partial` or `stopped` run keeps its checkpoint and exposes Resume or Retry rather than presenting completion.
 
 ---
 
@@ -439,7 +441,8 @@ Access via the **Saved Runs** top-level tab (`#view-saved-runs`).
 * Displays all historical runs persisted in SQLite/PostgreSQL.
 * Metrics: Run ID, Target URL, Status, Progress %, Completed/Pending Modules, Discovered Routes, and Timestamps.
 * **Actions Available**:
-  * **Resume Scan**: Reconnects to an interrupted or paused crawl and resumes traversal from the last checkpoint.
+  * **Resume Scan**: Reconnects to an interrupted or paused crawl and resumes traversal from the last checkpoint. It should preserve completed-module evidence and not silently begin a brand-new scan.
+  * **Retry**: Explicitly retests the failed/current scope after confirmation. Use it only when re-running that scope is intended.
   * **Open Results**: Loads the run's saved state into Analyze and Report views.
   * **Duplicate as New Run**: Clones module selections and target parameters into a fresh `run_id`.
   * **Archive Run**: Safely flags run as archived.

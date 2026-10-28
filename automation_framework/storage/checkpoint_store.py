@@ -93,6 +93,8 @@ class CheckpointStore:
                 "feature_routes": data.get("feature_routes", {}),
                 "menu_hierarchy": data.get("menu_hierarchy", {}),
                 "scan_events": data.get("scan_events", []),
+                "manual_interactions": data.get("manual_interactions", []),
+                "interaction_flow": data.get("interaction_flow", []),
                 "manual_checkpoint_state": data.get("manual_checkpoint_state", {}),
                 "current_module_id": data.get("current_module_id", ""),
                 "current_route": data.get("current_route", ""),

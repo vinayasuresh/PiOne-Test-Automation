@@ -65,9 +65,14 @@ def is_local_allowed() -> bool:
     return val in {"1", "true", "yes"}
 
 
-def validate_target_url(url: str, allow_local: bool | None = None) -> str:
+def validate_target_url(url: str, allow_local: bool | None = None, is_mock: bool = False) -> str:
     """Validate target URL for scheme, hostname, and SSRF restrictions.
-    
+
+    When is_mock is True, skips external DNS resolution while strictly validating
+    allowed HTTP/HTTPS scheme, well-formed hostname, and safety against metadata
+    and loopback/private literals. For live targets (is_mock=False), all SSRF guardrails
+    and DNS resolutions are strictly enforced.
+
     Returns the normalized URL or raises ValueError.
     """
     if not url or not isinstance(url, str):
@@ -84,36 +89,52 @@ def validate_target_url(url: str, allow_local: bool | None = None) -> str:
     if not hostname:
         raise ValueError("URL must include a valid hostname or domain")
 
+    # Reject userinfo (e.g. http://user:pass@host) to prevent host obscuration
+    if parsed.username or parsed.password:
+        raise ValueError("URL must not contain embedded user credentials")
+
     hostname_lower = unquote(hostname).lower().strip("[]")
 
     if allow_local is None:
         allow_local = is_local_allowed()
 
-    # Reject blocked hostnames and suffixes
-    if not allow_local:
-        if hostname_lower in BLOCKED_HOSTNAMES:
-            raise ValueError(f"SSRF Protection: Access to '{hostname}' is forbidden.")
-        if any(hostname_lower.endswith(suffix) for suffix in BLOCKED_DOMAIN_SUFFIXES):
-            raise ValueError(f"SSRF Protection: Domain '{hostname}' is forbidden.")
-
-    # Check for obfuscated numeric/octal/hex IP representations (e.g. 2130706433, 0177.0.0.1, 0x7f.1)
-    if not allow_local and re.match(r"^[0-9a-fxA-FX.]+$", hostname_lower) and not re.match(r"^[a-zA-Z]+$", hostname_lower):
-        try:
-            raw_bytes = socket.inet_aton(hostname_lower)
-            inet_ip = ipaddress.IPv4Address(raw_bytes)
-            _check_ip_safety(inet_ip, hostname)
-        except (OSError, ValueError):
-            pass
-
-    # Validate IP addresses directly or resolve via DNS
+    # Check if hostname is direct IP literal (IPv4 or IPv6)
+    is_ip_literal = False
     try:
-        # Check if hostname is direct IP literal (IPv4 or IPv6)
         ip_obj = ipaddress.ip_address(hostname_lower)
+        is_ip_literal = True
+    except ValueError:
+        ip_obj = None
+
+    if is_ip_literal:
         if not allow_local:
             _check_ip_safety(ip_obj, hostname)
-    except ValueError:
-        # Hostname is a domain name, resolve all address records via DNS
+    else:
+        # Hostname is a domain name
+        if not re.match(r"^[a-zA-Z0-9.-]+$", hostname_lower):
+            raise ValueError(f"Invalid hostname characters in '{hostname}'")
+
+        # Reject blocked hostnames and suffixes (allow safe mock domains like .test/.mock only in mock mode)
         if not allow_local:
+            if hostname_lower in BLOCKED_HOSTNAMES:
+                raise ValueError(f"SSRF Protection: Access to '{hostname}' is forbidden.")
+            if any(hostname_lower.endswith(suffix) for suffix in BLOCKED_DOMAIN_SUFFIXES):
+                raise ValueError(f"SSRF Protection: Domain '{hostname}' is forbidden.")
+
+        # Check for obfuscated numeric/octal/hex IP representations (e.g. 2130706433, 0177.0.0.1, 0x7f.1)
+        if not allow_local and re.match(r"^[0-9a-fxA-FX.]+$", hostname_lower) and not re.match(r"^[a-zA-Z]+$", hostname_lower):
+            try:
+                raw_bytes = socket.inet_aton(hostname_lower)
+                inet_ip = ipaddress.IPv4Address(raw_bytes)
+                _check_ip_safety(inet_ip, hostname)
+            except (OSError, ValueError):
+                pass
+
+        # Only an explicit is_mock=True request may skip external DNS resolution.
+        if is_mock:
+            # Deterministic mock mode: skip external DNS resolution for valid domain names.
+            pass
+        elif not allow_local:
             try:
                 addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
                 if not addr_info:

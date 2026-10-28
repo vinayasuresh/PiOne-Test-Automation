@@ -1,4 +1,5 @@
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 from automation_framework.crawler.route_graph import RouteGraph, RouteNode, normalize_route_url
@@ -9,6 +10,9 @@ from automation_framework.engine.element_identity_registry import (
     normalize_label,
 )
 from automation_framework.storage.checkpoint_store import CheckpointStore, compute_namespace
+from automation_framework.utils.redactor import redact_sensitive_data
+from automation_framework.crawler.crawler_engine import CrawlerEngine
+from automation_framework.crawler.route_tracker import RouteTracker
 
 
 def test_route_health_scorer_working():
@@ -119,3 +123,124 @@ def test_checkpoint_store_atomic_save_and_load():
         # Loading with mismatched namespace should reject
         mismatched = store.load(expected_base_url="https://other.com/portal")
         assert mismatched is None
+
+
+def test_checkpoint_store_retains_manual_locator_evidence():
+    """Resume data must retain the human-taught locator audit trail."""
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        store = CheckpointStore(Path(tmp_dir) / "interaction_checkpoint.json")
+        interaction = {
+            "type": "click", "label": "Add to cart", "selector": "#add-cart",
+            "xpath": "//*[@id='add-cart']", "page_url": "https://example.com/shop",
+            "source": "interactive_learning", "route": "https://example.com/shop",
+        }
+        assert store.save({
+            "session_id": "interactive_run",
+            "namespace": compute_namespace("https://example.com"),
+            "manual_interactions": [interaction],
+            "interaction_flow": [{"step": "click", "selector": "#add-cart", "route": "https://example.com/shop"}],
+        })
+        loaded = store.load(expected_base_url="https://example.com")
+        assert loaded is not None
+        assert loaded["manual_interactions"] == [interaction]
+        assert loaded["interaction_flow"][0]["selector"] == "#add-cart"
+
+
+def test_redaction_preserves_url_keyed_route_graph_nodes():
+    """A URL containing `token` text is a route key, not a credential field."""
+    route = "https://example.com/enrollment-tokens"
+    payload = {"route_graph": {route: {"route": route, "status": "WORKING_ROUTE"}}}
+
+    redacted = redact_sensitive_data(payload)
+
+    assert isinstance(redacted["route_graph"][route], dict)
+    assert redacted["route_graph"][route]["route"] == route
+
+
+def test_route_graph_load_skips_a_legacy_redacted_entry():
+    good_route = "https://example.com/dashboard"
+    graph = RouteGraph.from_dict({
+        good_route: {"route": good_route, "status": "WORKING_ROUTE", "visited": True},
+        "https://example.com/enrollment-tokens": "[REDACTED]",
+    })
+
+    assert graph.get_node(good_route) is not None
+    assert graph.is_visited(good_route)
+    assert graph.get_node("https://example.com/enrollment-tokens") is None
+
+
+def test_menu_list_preserves_rendered_dom_order_across_navigation_buckets():
+    """Menu discovery must follow the target DOM, never bucket/alphabetical order."""
+    engine = object.__new__(CrawlerEngine)
+    engine.base_url = "https://example.com"
+    engine.page = SimpleNamespace(url="https://example.com")
+    engine.route_tracker = RouteTracker()
+    engine.feature_routes = {}
+    shell = {
+        "global_navigation": {
+            "sidebar_menus": [{"selector": "nav", "items": [
+                {"text": "First", "href": "/first", "selector": "#first", "dom_order": 3},
+            ]}],
+            "top_navigation_menus": [{"selector": "header", "items": [
+                {"text": "Second", "href": "/second", "selector": "#second", "dom_order": 1},
+                {"text": "Third", "href": "/third", "selector": "#third", "dom_order": 2},
+                {"text": "Same route action", "href": "/second", "selector": "#same-route", "dom_order": 4},
+            ]}],
+        }
+    }
+    modules = engine._build_menu_list(shell)
+    assert [item["label"] for item in modules] == ["Second", "Third", "First", "Same route action"]
+    assert len({item["id"] for item in modules}) == 4
+
+
+def test_menu_list_reconstructs_parent_links_for_nested_navigation():
+    """Nested target menus retain a stable parent module for audit/export use."""
+    engine = object.__new__(CrawlerEngine)
+    engine.base_url = "https://example.com"
+    engine.page = SimpleNamespace(url="https://example.com")
+    engine.route_tracker = RouteTracker()
+    engine.feature_routes = {}
+    shell = {"global_navigation": {"sidebar_menus": [{"selector": "aside", "items": [
+        {"text": "Assets", "href": "/assets", "selector": "#assets", "dom_order": 1, "hierarchy_level": 0},
+        {"text": "Hardware", "href": "/assets/hardware", "selector": "#hardware", "dom_order": 2, "hierarchy_level": 1},
+        {"text": "Software", "href": "/assets/software", "selector": "#software", "dom_order": 3, "hierarchy_level": 1},
+    ]}]}}
+    modules = engine._build_menu_list(shell)
+    assert modules[1]["parent_module"] == modules[0]["id"]
+    assert modules[2]["parent_module"] == modules[0]["id"]
+
+
+def test_checkpoint_route_selection_is_restored_when_not_in_current_navigation():
+    """Resume must execute every selected checkpoint route, not only visible menus."""
+    menu_items = [{"id": "control:#menu|menu", "label": "Menu", "url": ""}]
+    selected_items = list(menu_items)
+    saved_route_id = "route:https://example.com/inventory"
+
+    restored = CrawlerEngine._restore_missing_saved_route_selections(
+        menu_items=menu_items,
+        selected_items=selected_items,
+        selected_module_ids=["control:#menu|menu", saved_route_id],
+        base_url="https://example.com",
+    )
+
+    assert restored == 1
+    assert [item["id"] for item in menu_items] == ["control:#menu|menu", saved_route_id]
+    recovered = menu_items[-1]
+    assert recovered["url"] == "https://example.com/inventory"
+    assert recovered["source"] == "checkpoint_route_selection"
+    assert recovered in selected_items
+
+
+def test_checkpoint_route_selection_does_not_restore_other_origins():
+    menu_items: list[dict] = []
+    selected_items: list[dict] = []
+
+    restored = CrawlerEngine._restore_missing_saved_route_selections(
+        menu_items=menu_items,
+        selected_items=selected_items,
+        selected_module_ids=["route:https://outside.example/steal"],
+        base_url="https://example.com",
+    )
+
+    assert restored == 0
+    assert not menu_items

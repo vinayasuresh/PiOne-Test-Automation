@@ -51,8 +51,15 @@ def test_ssrf_rejections():
             validate_target_url(url, allow_local=False)
 
 
-def test_public_urls_allowed():
-    """Verify public URLs pass validation."""
+def test_public_urls_allowed(monkeypatch):
+    """Verify public URLs pass validation without depending on external DNS."""
+    # This is a unit test of URL normalization and SSRF address handling, not a
+    # live DNS availability test. Keep it deterministic on offline Windows and
+    # CI hosts while exercising the public-address branch.
+    monkeypatch.setattr(
+        "api.utils.security_guard.socket.getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", ("8.8.8.8", 0))],
+    )
     valid_urls = [
         ("https://www.saucedemo.com", "https://www.saucedemo.com"),
         ("https://www.google.com/test/", "https://www.google.com/test"),
@@ -68,8 +75,12 @@ def test_allow_local_targets_bypass():
     assert validate_target_url("http://localhost:3000", allow_local=True) == "http://localhost:3000"
 
 
-def test_safe_redirect():
-    """Validate redirection boundaries."""
+def test_safe_redirect(monkeypatch):
+    """Validate redirection boundaries without external DNS availability."""
+    monkeypatch.setattr(
+        "api.utils.security_guard.socket.getaddrinfo",
+        lambda *args, **kwargs: [(2, 1, 6, "", ("8.8.8.8", 0))],
+    )
     base = "https://www.saucedemo.com"
     assert is_safe_redirect("https://www.saucedemo.com/inventory.html", base) is True
     assert is_safe_redirect("https://malicious.com/phish", base) is False
@@ -103,6 +114,14 @@ def test_run_context_lifecycle():
     assert loaded.status == "scanned"
     assert loaded.selected_modules == ["mod_inventory", "mod_cart"]
     assert loaded.username == "testuser"
+
+
+def test_mock_mode_persists_in_run_context():
+    """Reloaded mock runs must stay mock runs instead of becoming live scans."""
+    ctx = create_run_context(url="https://example.test", is_mock=True)
+    loaded = get_run_context(ctx.run_id)
+    assert loaded is not None
+    assert loaded.is_mock is True
 
 
 # ---------------------------------------------------------------------------
@@ -594,8 +613,17 @@ def test_auth_state_template_clean_no_credentials():
 
 
 
-def test_scan_request_accepts_empty_auth_session_id():
+def test_scan_request_accepts_empty_auth_session_id(monkeypatch):
     """Public unauthenticated scans send empty auth_session_id, which must validate cleanly."""
+    # This test exercises request normalization, not the workstation's DNS.
+    # Keep it deterministic on offline/restricted Windows hosts while retaining
+    # the normal SSRF guard path for a public address.
+    import socket
+
+    def public_dns(*_args, **_kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", public_dns)
     from api.models.scan_models import ScanRequest, ExecuteTestRequest, ScanResponse
     req = ScanRequest(url="https://the-internet.herokuapp.com", auth_session_id="", scan_id="run-xyz")
     assert req.auth_session_id is None

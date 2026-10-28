@@ -22,7 +22,11 @@ STATIC_ASSET_EXTENSIONS = {
 
 IGNORED_SCHEMES = {"mailto", "javascript", "tel"}
 NON_APPLICATION_PATHS = {
-    "assets", "static", "cdn", "fonts", "images", "media", "vendor",
+    # ``assets`` is also a legitimate application route in enterprise UIs
+    # (for example /assets/hardware).  Keep the generic static buckets here
+    # and handle file-like /assets paths below instead of rejecting the whole
+    # application section.
+    "static", "cdn", "fonts", "images", "media", "vendor",
 }
 
 
@@ -48,7 +52,14 @@ def is_within_app_path(url: str, base_url: str) -> bool:
 
 def is_non_application_path(url: str) -> bool:
     segments = {part.lower() for part in unquote(urlparse(url).path).split("/") if part}
-    return bool(segments & NON_APPLICATION_PATHS)
+    if segments & NON_APPLICATION_PATHS:
+        return True
+    if "assets" in segments:
+        # Block static files beneath an /assets route, but allow application
+        # screens such as /assets, /assets/hardware, and /assets/software.
+        final_segment = unquote(urlparse(url).path).rstrip("/").rsplit("/", 1)[-1]
+        return "." in final_segment
+    return False
 
 
 def is_internal_url(url: str, base_url: str) -> bool:

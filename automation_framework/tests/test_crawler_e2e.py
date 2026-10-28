@@ -24,6 +24,12 @@ from playwright.sync_api import sync_playwright, Page
 from automation_framework.crawler.action_classifier import ActionType
 from automation_framework.crawler.crawl_exporter import export_crawl_results
 from automation_framework.crawler.crawler_engine import CrawlerEngine
+from automation_framework.crawler.interactive_capture import (
+    events_to_interactions,
+    extract_events,
+    inject_capture,
+    interactions_to_flow,
+)
 from automation_framework.crawler.route_health_scorer import RouteStatus
 from automation_framework.engine.element_identity_registry import ElementIdentityRegistry
 from automation_framework.storage.checkpoint_store import CheckpointStore, compute_namespace
@@ -213,6 +219,54 @@ def test_checkpoint_atomic_save_and_resumption(page: Page, spa_server: str):
 # ----------------------------------------------------------------------
 # 7. Interactive Review "Confirm & Continue"
 # ----------------------------------------------------------------------
+def test_interactive_evidence_keeps_page_selector_xpath_and_source():
+    """Manual evidence must remain testable after target-page navigation."""
+    interactions = events_to_interactions([{
+        "type": "click",
+        "detected_type": "button",
+        "tag": "button",
+        "text": "Add to cart",
+        "selector": "button[data-testid='add-cart']",
+        "xpath": "/html/body/main[1]/button[1]",
+        "page_url": "https://shop.example/products/1",
+        "page_title": "Product detail",
+        "source": "interactive_learning",
+        "element_html": '<button data-testid="add-cart">Add to cart</button>',
+        "ts": 123,
+    }])
+
+    assert interactions == [
+        {
+            "type": "click", "component": "button", "detected_type": "button",
+            "label": "Add to cart", "selector": "button[data-testid='add-cart']",
+            "tag": "button", "framework_type": "native", "component_tag": "button",
+            "page_url": "https://shop.example/products/1", "page_title": "Product detail",
+            "xpath": "/html/body/main[1]/button[1]", "source": "interactive_learning",
+            "element_html": '<button data-testid="add-cart">Add to cart</button>',
+            "timestamp": 123, "value": "",
+        }
+    ]
+    flow = interactions_to_flow(interactions)
+    assert flow[0]["page"] == "https://shop.example/products/1"
+    assert flow[0]["xpath"] == "/html/body/main[1]/button[1]"
+    assert flow[0]["source"] == "interactive_learning"
+
+
+def test_interactive_capture_survives_navigation_and_records_locator_evidence(page: Page, spa_server: str):
+    """A target-page click that navigates must not lose manual evidence."""
+    page.goto(spa_server, wait_until="domcontentloaded")
+    inject_capture(page)
+    with page.expect_navigation(wait_until="domcontentloaded"):
+        page.locator("#btn-view-details").click()
+
+    interactions = events_to_interactions(extract_events(page))
+    click = next(item for item in interactions if item["selector"] == "#btn-view-details")
+    assert click["page_url"] == spa_server + "/"
+    assert click["xpath"]
+    assert click["source"] == "interactive_learning"
+    assert "btn-view-details" in click["element_html"]
+
+
 def test_interactive_mode_confirm_and_continue(page: Page, spa_server: str):
     page.goto(spa_server, wait_until="domcontentloaded")
     engine = CrawlerEngine(page, base_url=spa_server, interactive_mode=True, interactive_timeout=3)

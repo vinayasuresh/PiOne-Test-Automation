@@ -53,7 +53,7 @@ def run_scan(
     username: str | None,
     password: str | None,
     interactive_mode: bool = False,
-    interactive_timeout: int = 300,
+    interactive_timeout: int = 900,
     resume_run_id: str | None = None,
     scan_id: str | None = None,
     replay_route: str | None = None,
@@ -328,8 +328,6 @@ def run_scan(
             selected = list(selected_module_ids or run_ctx.selected_modules or crawl_results.get("selected_modules", []) or [])
             completed = list(crawl_results.get("completed_modules", []) or run_ctx.completed_modules or [])
             current_module_id = str(crawl_results.get("current_module_id") or run_ctx.current_module or "")
-            if not stopped_early and selected:
-                completed = list(selected)
             if current_module_id and current_module_id in selected and current_module_id not in completed and not stopped_early:
                 completed.append(current_module_id)
 
@@ -363,11 +361,21 @@ def run_scan(
             run_ctx.completed_modules = mod_progress["completed_modules"]
             run_ctx.pending_modules = mod_progress["pending_modules"]
 
+            # Keep the durable crawl exports truthful as well as the UI/API
+            # snapshot.  Previously the service marked every selected module
+            # complete for any non-stopped run, which produced 100% progress
+            # and a completed status even when a module checkpoint was never
+            # presented or accepted.
+            crawl_results["selected_modules"] = list(run_ctx.selected_modules)
+            crawl_results["completed_modules"] = list(run_ctx.completed_modules)
+            crawl_results["pending_modules"] = list(run_ctx.pending_modules)
+            export_paths = _safe_export(crawl_results, actual_run_id)
+
             run_ctx.scan_results = scan_resp.model_dump(mode="json")
             run_ctx.route_graph = crawl_results.get("route_graph", {})
             run_ctx.ui_state_graph = crawl_results.get("ui_state_graph", {})
             run_ctx.element_registry = crawl_results.get("element_registry", {})
-            run_ctx.route_progress = calculate_route_progress({
+            reconciled_route_progress = calculate_route_progress({
                 "route_progress": {
                     "scanned": route_count,
                     "pending": 0 if not stopped_early else max(0, int(run_ctx.route_progress.get("pending", 0) or 0)),
@@ -375,6 +383,14 @@ def run_scan(
                 },
                 "scan_results": run_ctx.scan_results or {},
             })
+            # RunContext persists route counters only.  The display percentage is
+            # derived at the API boundary; storing it here violates the typed
+            # ``dict[str, int]`` contract and previously produced a Pydantic
+            # serialization warning at 100.0%.
+            run_ctx.route_progress = {
+                key: int(reconciled_route_progress[key])
+                for key in ("scanned", "pending", "total")
+            }
             run_ctx.elements_found = _count_elements(crawl_results)
             run_ctx.safe_actions_explored = _count_safe_actions(crawl_results)
             run_ctx.parking_lot_actions = len(crawl_results.get("parking_lot_actions", []) or [])
@@ -384,7 +400,7 @@ def run_scan(
                 run_ctx.checkpoints.append(crawl_results["checkpoint_id"])
             if export_paths:
                 run_ctx.artifact_paths.update(export_paths)
-            run_ctx.status = "partial_scanned" if stopped_early else "scanned"
+            run_ctx.status = "partial_scanned" if stopped_early or mod_progress["pending_count"] else "scanned"
             if run_ctx.status == "scanned":
                 run_ctx.current_module = ""
                 run_ctx.current_route = ""
@@ -414,7 +430,20 @@ def run_scan(
                     },
                 },
             })
-            save_checkpoint(actual_run_id, checkpoint_data)
+            checkpoint_saved = save_checkpoint(actual_run_id, checkpoint_data)
+            if checkpoint_saved:
+                # Keep the Saved Runs index in sync with the durable checkpoint
+                # file/DB record so the UI can truthfully advertise resumability.
+                try:
+                    from api.db.repository import DBRepository
+
+                    latest_checkpoint = DBRepository.get_latest_checkpoint(actual_run_id) or {}
+                    run_ctx.checkpoint_version = int(latest_checkpoint.get("version", run_ctx.checkpoint_version or 0) or 0)
+                except Exception:
+                    run_ctx.checkpoint_version = int(run_ctx.checkpoint_version or 0) + 1
+                if actual_run_id not in run_ctx.checkpoints:
+                    run_ctx.checkpoints.append(actual_run_id)
+                save_run_context(run_ctx)
 
             route_health = _route_health_counts(crawl_results)
             terminal_event = {
@@ -657,6 +686,7 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
                 "label": item["label"],
                 "route": item.get("url", ""),
                 "source": item.get("source", ""),
+                "dom_order": int(item.get("dom_order", 10**9)),
                 "hierarchy_level": int(item.get("hierarchy_level", 0)),
                 "parent_module": item.get("parent_module"),
                 "confidence": float(item.get("confidence", 1.0)),

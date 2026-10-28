@@ -1,5 +1,22 @@
 # PiOne Testmate — UX Stabilization and Production Safety Changes
 
+## V2 verification status update (2026-10-29)
+
+- Added a controlled rendered-browser audit covering functional-only planning
+  through 30 requested cases, execution, report downloads, baseline save, and
+  Saved Runs. The run generated 30 grounded cases and 82 passing execution
+  step rows; this is evidence for the Mock Demo path, not a live-target
+  certification.
+- Added/updated focused browser coverage for manual interaction capture and
+  checkpoint decisions. The interaction capture suite passed 4 tests.
+- Corrected the controlled browser fixture's `/analytics` route so module
+  checkpoint tests exercise a distinct module instead of falling through to
+  the root page.
+- The outstanding release-evidence item is deliberately tracked: prove one
+  rendered live multi-module checkpoint interruption followed by Retry/Resume
+  and a successful continuation to Report. Do not claim an unconditional
+  production GO until that journey is retained as evidence.
+
 ## V3 Product Blueprint (2026-10-26)
 
 - Defined the **Assurance Graph** as the product differentiator: target, session,

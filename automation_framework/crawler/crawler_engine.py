@@ -2,7 +2,7 @@ import time
 import json
 from typing import Any, Callable
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
@@ -211,6 +211,11 @@ class CrawlerEngine:
         self.menu_hierarchy = application_shell.get("global_navigation", {})
         menu_items = self._build_menu_list(application_shell)
         selected_items = self._select_menu_items(menu_items, selected_module_ids)
+        restored_count = self._restore_missing_saved_route_selections(
+            menu_items, selected_items, selected_module_ids, self.base_url,
+        )
+        if restored_count:
+            logger.info("Restored %s saved route selection(s) missing from current navigation", restored_count)
         logger.info(f"Discovered {len(menu_items)} modules; {len(selected_items)} selected for this run")
 
         # An application with no detectable navigation still has one usable
@@ -361,6 +366,53 @@ class CrawlerEngine:
         selected = set(selected_module_ids)
         return [item for item in menu_items if item.get("id") in selected]
 
+    @staticmethod
+    def _restore_missing_saved_route_selections(
+        menu_items: list[dict[str, str]],
+        selected_items: list[dict[str, str]],
+        selected_module_ids: list[str] | None,
+        base_url: str,
+    ) -> int:
+        """Append durable selected route IDs that are not in current navigation.
+
+        Checkpoint resume must honour the user's selected scope even when a
+        route disappears from the navigation due to authentication state,
+        collapsed menus, or a SPA re-render.  Both lists are mutated because
+        the crawl loop traverses ``menu_items`` while selection is calculated
+        from ``selected_items``.
+        """
+        selected_item_ids = {
+            str(item.get("id") or item.get("module_id") or "")
+            for item in selected_items
+        }
+        restored_count = 0
+        for raw_selected_id in selected_module_ids or []:
+            selected_id = str(raw_selected_id or "")
+            if not selected_id.startswith("route:") or selected_id in selected_item_ids:
+                continue
+            selected_url = selected_id.removeprefix("route:").strip()
+            if not selected_url or not is_valid_url(selected_url, base_url):
+                continue
+            recovered_item = {
+                "id": selected_id,
+                "module_id": selected_id,
+                "url": selected_url,
+                "label": f"Saved route: {urlparse(selected_url).path or '/'}",
+                "source": "checkpoint_route_selection",
+                # A route already present in a checkpoint must be scanned
+                # again here; merely marking its module complete would make
+                # the recovered selection a cosmetic 3/3.
+                "force_rescan": True,
+                "hierarchy_level": 0,
+                "parent_module": None,
+                "dom_order": 10**9,
+            }
+            menu_items.append(recovered_item)
+            selected_items.append(recovered_item)
+            selected_item_ids.add(selected_id)
+            restored_count += 1
+        return restored_count
+
     def _queue_page_routes(self, source_route: str, source_label: str) -> None:
         """Queue visible in-scope navigation targets from explicit links and router bindings."""
         if len(self._queued_routes) >= MAX_DISCOVERED_ROUTES:
@@ -490,12 +542,19 @@ class CrawlerEngine:
                     if resolved_url and not is_valid_url(resolved_url, self.base_url):
                         continue
 
-                    dedup_key = (resolved_url, "") if resolved_url else (label.lower(), container_selector)
+                    # Keep distinct menu controls even when they resolve to
+                    # the same route (common in SPAs: a sidebar item and a
+                    # breadcrumb/action can both open the current page).
+                    # Only collapse the same labelled control repeated by a
+                    # responsive desktop/mobile shell.
+                    dedup_key = (resolved_url, label.casefold()) if resolved_url else (label.casefold(), container_selector)
                     if dedup_key in seen_keys:
                         continue
                     seen_keys.add(dedup_key)
 
                     mid = self._module_id(resolved_url, label, item.get("selector", ""))
+                    if any(existing.get("id") == mid for existing in menu_items):
+                        mid = f"control:{item.get('selector', '').strip()}|{label.casefold()}"
                     menu_items.append(
                         {
                             "id": mid,
@@ -505,6 +564,7 @@ class CrawlerEngine:
                             "source": menu_type,
                             "container_selector": container_selector,
                             "selector": item.get("selector", ""),
+                            "dom_order": int(item.get("dom_order", 10**9)),
                             "hierarchy_level": item.get("hierarchy_level", 0),
                             "parent_module": item.get("parent_module"),
                             "confidence": 1.0 if resolved_url else 0.9,
@@ -517,6 +577,26 @@ class CrawlerEngine:
                             "hierarchy_level": item.get("hierarchy_level", 0),
                         }
 
+        # The detector records rendered DOM order.  Preserve it across the
+        # sidebar/top/overlay buckets instead of relying on dictionary bucket
+        # order, which can differ from what the user sees.
+        menu_items.sort(key=lambda item: int(item.get("dom_order", 10**9)))
+
+        # Reconstruct parent links from the rendered hierarchy after the
+        # global ordering is known.  The detector supplies a stable depth but
+        # not every framework exposes an explicit parent id; keeping the
+        # nearest preceding shallower item makes nested sidebar entries
+        # selectable and auditable without changing their visible order.
+        parent_stack: dict[int, dict[str, Any]] = {}
+        for item in menu_items:
+            level = max(0, int(item.get("hierarchy_level", 0) or 0))
+            parent = parent_stack.get(level - 1) if level else None
+            if not item.get("parent_module") and parent:
+                item["parent_module"] = parent.get("id")
+            parent_stack = {
+                depth: value for depth, value in parent_stack.items() if depth < level
+            }
+            parent_stack[level] = item
         return menu_items
 
     @staticmethod
@@ -532,9 +612,15 @@ class CrawlerEngine:
         container_selector = menu_item.get("container_selector", "")
         selector = menu_item.get("selector", "")
 
-        if url and self.route_tracker.is_visited(url):
+        if url and self.route_tracker.is_visited(url) and not menu_item.get("force_rescan"):
             logger.info(f"Skipping already-visited menu route: {label} ({url})")
             return
+
+        if url and menu_item.get("force_rescan"):
+            # A saved route selection was missing from the fresh navigation.
+            # Revisit it as a first-class module rather than completing it
+            # solely because an earlier module happened to discover the URL.
+            self.route_tracker.unmark_visited(url)
 
         logger.info(f"Visiting menu: {label} -> {url or '(click)'}")
 
@@ -1285,6 +1371,10 @@ class CrawlerEngine:
         total_elements = len(self.element_registry) if hasattr(self, "element_registry") else 0
         if total_elements == 0:
             total_elements = sum(len(d.get("automation_targets", [])) for d in self.page_intelligence.values())
+        manual_elements = sum(
+            1 for item in self.element_registry.get_all_elements()
+            if item.get("is_user_confirmed")
+        ) if hasattr(self, "element_registry") else 0
 
         safe_actions_explored = len(getattr(self, "_probed_action_identities", set()))
         parking_lot_actions = len(getattr(self, "parking_lot_actions", []))
@@ -1312,6 +1402,8 @@ class CrawlerEngine:
             "module_progress": {"current": mod_curr, "total": mod_total},
             "route_progress": {"scanned": routes_scanned, "pending": routes_pending, "total": route_total},
             "elements_found": total_elements,
+            "manual_interaction_count": len(getattr(self, "manual_interactions", [])),
+            "manual_element_count": manual_elements,
             "safe_actions_explored": safe_actions_explored,
             "parking_lot_actions": parking_lot_actions,
             "route_health": {
@@ -1473,11 +1565,28 @@ class CrawlerEngine:
 
         choice = self._capture_interactions(normalized, route_doc, summary=summary)
 
+        if choice == "timeout":
+            # A review timeout is not a crawler failure. Preserve automatic
+            # evidence and advance; Retry/End remain explicit user choices.
+            self._emit_event("module_review_timeout", {
+                "route": normalized,
+                "module_name": module_label,
+                "message": "No manual decision arrived before the review window; automatic evidence was preserved and the next module will start.",
+            })
+            choice = "continue"
+
         self._emit_event("module_review_completed", {
             "route": normalized,
             "module_name": module_label,
             "decision": choice,
             "interaction_count": len(route_doc.get("interactions", [])),
+            "manual_interaction_count": len(self.manual_interactions),
+            "manual_element_count": sum(
+                1 for item in self.element_registry.get_all_elements()
+                if item.get("is_user_confirmed")
+            ),
+            "elements_found": len(self.element_registry),
+            "interactions": route_doc.get("interactions", [])[-20:],
             "ended": self.scan_stop_requested,
         })
         return choice
@@ -1514,41 +1623,107 @@ class CrawlerEngine:
 
         if not interactions:
             logger.info(f"Interactive mode: no interactions captured on {normalized} (passive only)")
-            route_doc["interactions"] = []
-            route_doc["interaction_flow"] = []
+            # Do not erase evidence from an earlier retry of this module.
+            route_doc.setdefault("interactions", [])
+            route_doc.setdefault("interaction_flow", [])
             return choice
 
         logger.info(
             f"Interactive mode: {len(interactions)} interactions captured on {normalized}"
         )
-        route_doc["interactions"] = interactions
-        route_doc["interaction_flow"] = flow
+        existing_interactions = list(route_doc.get("interactions", []))
+        seen_interactions = {
+            (item.get("type"), item.get("selector"), item.get("page_url"), item.get("xpath"))
+            for item in existing_interactions
+        }
+        for interaction in interactions:
+            key = (
+                interaction.get("type"), interaction.get("selector"),
+                interaction.get("page_url"), interaction.get("xpath"),
+            )
+            if key not in seen_interactions:
+                existing_interactions.append(interaction)
+                seen_interactions.add(key)
+        route_doc["interactions"] = existing_interactions
+
+        existing_flow = list(route_doc.get("interaction_flow", []))
+        existing_flow_keys = {
+            (item.get("step"), item.get("selector"), item.get("page"), item.get("xpath"))
+            for item in existing_flow
+        }
+        for step in flow:
+            key = (step.get("step"), step.get("selector"), step.get("page"), step.get("xpath"))
+            if key not in existing_flow_keys:
+                existing_flow.append(step)
+                existing_flow_keys.add(key)
+        route_doc["interaction_flow"] = existing_flow
         user_targets = interactions_to_targets(
             interactions,
             framework=route_doc.get("framework", "unknown"),
         )
         for index, target in enumerate(user_targets, start=1):
-            target["element_xpath"] = self._xpath_for_selector(target, index)
+            # The capture script records the XPath at the instant of the user
+            # action.  Prefer that durable evidence over recalculating it from
+            # the current page, which may now be a different route.
+            target["element_xpath"] = interactions[index - 1].get("xpath") or self._xpath_for_selector(target, index)
+            target["source"] = interactions[index - 1].get("source", "interactive_learning")
+            target["source_page"] = interactions[index - 1].get("page_url", normalized)
+            target["source_html"] = interactions[index - 1].get("element_html", "")
             target["element_role"] = target.get("element_role") or self._role_for_target(target)
             target["element_index"] = int(target.get("element_index") or index)
+            target["is_user_confirmed"] = True
+            target["discovery_mechanism"] = "interactive_learning"
+            target["interaction_probability"] = 1.0
+            target["interaction_probability_method"] = "user_confirmed_interaction"
             ident, is_new = self.element_registry.register(normalized, target)
             target["id"] = ident
             target["hierarchy_level"] = 2
-            target["interaction_probability"] = 1.0
-            target["interaction_probability_method"] = "user_confirmed_interaction"
             if is_new:
                 route_doc["automation_targets"].append(target)
                 self._emit_event("element_found", {
                     "route": normalized, "id": ident,
                     "element_type": target.get("type", ""), "label": target.get("label", ""),
                 })
+            else:
+                # The registry may already contain the same element from the
+                # passive scan. Update the route document too, because some
+                # callers hold a copied target rather than the registry dict.
+                for existing_target in route_doc.get("automation_targets", []):
+                    existing_identity = existing_target.get("element_identity") or existing_target.get("id")
+                    if existing_identity == ident:
+                        existing_target.update({
+                            "is_user_confirmed": True,
+                            "discovery_mechanism": "interactive_learning",
+                            "source": target.get("source", "interactive_learning"),
+                            "source_page": target.get("source_page", normalized),
+                            "source_html": target.get("source_html", ""),
+                            "element_xpath": target.get("element_xpath", ""),
+                            "xpath": target.get("element_xpath", ""),
+                            "interaction_probability": 1.0,
+                            "interaction_probability_method": "user_confirmed_interaction",
+                            "interaction_type": target.get("interaction_type", "interact"),
+                        })
+                        break
 
-        route_doc["user_confirmed_elements"] = user_targets
+        existing_user_targets = list(route_doc.get("user_confirmed_elements", []))
+        known_user_targets = {
+            (item.get("selector", {}).get("primary", {}).get("value"), item.get("element_xpath"))
+            for item in existing_user_targets
+        }
+        for target in user_targets:
+            key = (target.get("selector", {}).get("primary", {}).get("value"), target.get("element_xpath"))
+            if key not in known_user_targets:
+                existing_user_targets.append(target)
+                known_user_targets.add(key)
+        route_doc["user_confirmed_elements"] = existing_user_targets
         route_doc["sections"] = _recount_sections(route_doc["automation_targets"])
         self.manual_interactions.extend(
             {**interaction, "route": normalized} for interaction in interactions
         )
         self.interaction_flow.extend({**step, "route": normalized} for step in flow)
+        # Persist immediately at the human checkpoint. This makes manual
+        # evidence durable even if the browser closes before Continue/End.
+        self._save_checkpoint()
         return choice
 
 
@@ -1711,6 +1886,18 @@ class CrawlerEngine:
             }
             self.parking_lot_actions = data.get("parking_lot_actions", [])
             self.scan_events = data.get("scan_events", [])
+            self.manual_interactions = list(data.get("manual_interactions", []))
+            self.interaction_flow = list(data.get("interaction_flow", []))
+            # The checkpoint keeps manual evidence separately from page docs
+            # so a restart cannot discard a human-taught locator.
+            for interaction in self.manual_interactions:
+                route = str(interaction.get("route") or interaction.get("page_url") or "")
+                if route in self.page_intelligence:
+                    self.page_intelligence[route].setdefault("interactions", []).append(interaction)
+            for step in self.interaction_flow:
+                route = str(step.get("route") or step.get("page") or "")
+                if route in self.page_intelligence:
+                    self.page_intelligence[route].setdefault("interaction_flow", []).append(step)
             if "route_graph" in data:
                 self.route_tracker.graph = RouteGraph.from_dict(data["route_graph"])
             self.menu_hierarchy = {}
@@ -1849,6 +2036,8 @@ class CrawlerEngine:
                 ],
                 "parking_lot_actions": self.parking_lot_actions,
                 "scan_events": self.scan_events,
+                "manual_interactions": self.manual_interactions,
+                "interaction_flow": self.interaction_flow,
                 "manual_checkpoint_state": {
                     "scan_stop_requested": self.scan_stop_requested,
                     "interactive_mode": self.interactive_mode,

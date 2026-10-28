@@ -12,7 +12,7 @@ from automation_framework.config.settings import PROJECT_ROOT
 
 _CONTEXT_DIR = PROJECT_ROOT / "scans" / "test_context"
 _MAX_TEXT_CHARS = 500_000
-_ALLOWED_SUFFIXES = {".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".xlsx", ".xls"}
+_ALLOWED_SUFFIXES = {".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".tsv", ".xlsx", ".xls"}
 
 
 def _clean_text(value: str | None, field: str) -> str:
@@ -72,13 +72,19 @@ def load_context(context_id: str | None) -> dict:
 
 
 def context_summary(payload: dict) -> dict:
+    from api.services.test_input_normalizer import TestInputNormalizer
+    normalized = TestInputNormalizer.normalize_all(
+        payload.get("requirements", ""),
+        payload.get("testcases", ""),
+        payload.get("user_prompt", ""),
+    )
     return {
         "context_id": payload["context_id"],
         "requirements_characters": len(payload.get("requirements", "")),
         "testcase_characters": len(payload.get("testcases", "")),
         "user_prompt_characters": len(payload.get("user_prompt", "")),
         "source_files": list(payload.get("source_files", [])),
-        "normalized_items": sum(1 for value in (payload.get("requirements", ""), payload.get("testcases", "")) if value.strip()),
+        "normalized_items": len(normalized),
     }
 
 

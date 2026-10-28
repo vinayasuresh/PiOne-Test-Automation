@@ -105,7 +105,7 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
   9. Bounded child route traversal (maximum depth: 5).
   10. Atomic checkpoint writing before and after every route.
 * **Outputs**: Real-time telemetry events (`scan_started`, `module_started`, `route_discovered`, `route_completed`, `scan_completed`).
-* **Acceptance Criteria**: The crawler isolates each module, restores scroll positions, and enforces a hard per-route timeout of 30 seconds.
+* **Acceptance Criteria**: The crawler isolates each module, restores scroll positions, and applies a configurable per-route timeout. A timeout must create a recoverable checkpoint and an explicit retry/resume decision; it must not mark unvisited modules as complete.
 
 ### FR-6: UI Intelligence Catalog & Route Health Scoring
 * **Description**: The system shall analyze discovered routes and interactive elements, computing deterministic health scores and element fingerprints.
@@ -170,7 +170,7 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
   * Auto-save state after every route and module.
   * Provide **Saved Runs** dashboard with Resume, Duplicate, Archive, and Discard actions.
 * **Outputs**: Persistent records in relational tables (`runs`, `modules`, `routes`, `elements`, `checkpoints`, etc.).
-* **Acceptance Criteria**: Server restart preserves partial runs; resuming an interrupted run resumes from the last completed checkpoint.
+* **Acceptance Criteria**: Server restart preserves partial runs; resuming an interrupted run resumes from the last completed checkpoint. The UI must distinguish **Resume** (continue saved work) from **Retry** (retest the current module) and require confirmation before a retry that restarts broader scope.
 
 ### FR-12: Regression Suites, Baselines & Replay Diff Engine
 * **Description**: The system shall enable creating named regression suites, saving baselines, and diffing test runs.
@@ -203,6 +203,7 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
 * **Atomic Checkpointing**: Checkpoints must be written to temporary files and atomically renamed (`.tmp` -> `.json`) to prevent corruption during unexpected shutdowns.
 * **Idempotent Telemetry**: Telemetry events must carry monotonic sequence numbers to prevent out-of-order rendering on client reconnects.
 * **Duplicate Run Prevention**: The API must return `HTTP 409 Conflict` if a duplicate start request is received for an already active run.
+* **Progress Truthfulness**: `100%` may be displayed only when every selected module has a terminal result and no route remains pending. A partial/stopped run must retain its last completed checkpoint and identify the next available recovery action.
 
 ### NFR-4: Usability & Accessibility (WCAG AA Compliance)
 * **Responsive Viewport Support**: The 8-step navigation stepper must render smoothly across desktop (1440px), tablet (1024px/768px), and mobile (375px) using single-row horizontal scrolling.
@@ -213,6 +214,9 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
 ### NFR-5: Auditability & Compliance
 * Every run context must capture timestamped audit events with millisecond precision, ISO-8601 UTC timestamps, and unique correlation IDs (`X-Correlation-ID`).
 * Workbooks must provide full traceability from initial URL input down to the exact CSS selector and screenshot file path.
+* Manually captured interactions must be represented both in the per-route
+  element inventory and in exported evidence, including page URL, CSS selector,
+  XPath fallback, action type, and capture source.
 
 ### NFR-6: Operating Environment & Portability
 * Operating Systems: Fully supported and verified on Windows, macOS, and Linux.

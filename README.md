@@ -124,7 +124,28 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 | **Verification** | Run the complete unit, integration, and Playwright suite locally; browser tests require normal local socket permissions. |
 | **Live Proof** | SauceDemo, DemoQA, and The Internet are supported test targets; each run is isolated by `run_id`. |
 
-## 3.1 Product Positioning & V3 Direction
+### 3.1 Verified V2 status — 2026-10-29
+
+PiOne Testmate is a **V2 baseline under active verification**, not an
+unqualified production certification. The following evidence is current:
+
+- deterministic planning was browser-verified to honour requested counts of
+  `1`, `3`, `10`, and `30` where enough grounded safe controls existed;
+- a rendered Mock Demo journey covered discovery, crawl, Analyze, planning,
+  execution, report downloads, baseline saving, and Saved Runs; the 30-case
+  execution recorded 82 passing step rows with no failure rows;
+- focused browser tests passed for manual-interaction capture and its
+  Continue / End-and-Save checkpoint decisions (`4 passed`);
+- component, planning, persistence, lifecycle, execution-reliability, and
+  security/boundary suites have been run in focused groups.
+
+The remaining V2 release evidence is a complete **live multi-module** journey
+that intentionally interrupts at a human checkpoint, retries from its saved
+checkpoint, resumes to the next checkpoint, and reaches Report in the same
+rendered browser session. Do not represent passive security review as active
+SQL injection/XSS testing or as full OWASP Top 10 coverage.
+
+## 3.2 Product Positioning & V3 Direction
 
 PiOne Testmate is currently a strong local/product foundation for **evidence-first
 functional assurance**. Its differentiator is not generic AI test generation. It is

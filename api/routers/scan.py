@@ -35,6 +35,7 @@ ALLOWED_ARTIFACT_TYPES = {
 }
 
 from api.models.scan_models import (
+    ModuleOption,
     ErrorResponse,
     ExecuteTestRequest,
     ExecuteTestResponse,
@@ -156,6 +157,15 @@ def _persist_execution_job_state(
     run_ctx.artifact_paths["async_execution_job"] = metadata
     if status == "running":
         run_ctx.status = "executing"
+    elif status == "failed":
+        # Execution is a later phase of an already completed crawl.  Leaving
+        # the run in ``executing`` after a terminal async failure makes Saved
+        # Runs, report downloads, and a browser reload look permanently busy.
+        # Preserve the valid crawl evidence and expose the failed job as a
+        # recoverable execution interruption instead.
+        run_ctx.status = "scanned" if run_ctx.scan_results else "failed"
+        if "authentication expired" in str(error or "").lower():
+            run_ctx.auth_status = "expired"
     save_run_context(run_ctx)
 
 
@@ -203,14 +213,21 @@ def _recover_execution_job(job_id: str) -> dict[str, Any] | None:
 
 
 async def _run_scan_in_background(request: ScanRequest) -> None:
+    run_id = request.run_id or request.resume_run_id or request.scan_id
+    logger.info(
+        "[BACKGROUND_SCAN] started | run_id={} | url={} | interactive={}",
+        run_id or "(pending)",
+        request.url,
+        bool(request.interactive_mode),
+    )
     try:
         await scan(request)
+        logger.info("[BACKGROUND_SCAN] completed | run_id={}", run_id or "(pending)")
     except Exception as exc:
         # The crawler service normally persists terminal/auth-required state.
         # If validation/browser setup fails before the crawler owns the run,
         # persist a terminal state so the remote client does not poll forever.
         try:
-            run_id = request.run_id or request.resume_run_id or request.scan_id
             if run_id:
                 run_ctx = get_run_context(run_id)
                 if not run_ctx:
@@ -221,16 +238,23 @@ async def _run_scan_in_background(request: ScanRequest) -> None:
                         auth_session_id=request.auth_session_id,
                         username=request.username,
                         display_name=request.session_name,
+                        is_mock=request.mock,
                     )
                 if run_ctx.status == "running":
                     run_ctx.status = "failed"
                     run_ctx.error_message = f"{type(exc).__name__}: {exc}"
                     save_run_context(run_ctx)
         except Exception:
-            logger.debug("Unable to persist background scan failure", exc_info=True)
+            # This is a terminal background-task failure and must remain visible
+            # at the console INFO threshold; DEBUG would hide it from operators.
+            logger.exception("[BACKGROUND_SCAN] unable to persist failure | run_id={}", run_id or "(pending)")
         # Prevent an unhandled task exception from being logged as an
         # application failure after the client has already received 202.
-        logger.debug("Background scan task ended for %s: %s", request.run_id or request.scan_id, exc)
+        logger.error(
+            "[BACKGROUND_SCAN] failed | run_id={} | error={}",
+            run_id or "(pending)",
+            exc,
+        )
 
 
 def _forget_background_task(task: asyncio.Task) -> None:
@@ -248,6 +272,7 @@ async def start_scan_async(request: ScanRequest) -> dict[str, Any]:
     run_id = request.run_id or request.resume_run_id or request.scan_id or uuid4().hex
     request.run_id = run_id
     request.scan_id = request.scan_id or run_id
+    logger.info("[BACKGROUND_SCAN] queued | run_id={} | url={}", run_id, request.url)
     task = asyncio.create_task(_run_scan_in_background(request))
     _BACKGROUND_SCAN_TASKS.add(task)
     task.add_done_callback(_forget_background_task)
@@ -262,6 +287,46 @@ async def start_scan_async(request: ScanRequest) -> dict[str, Any]:
 async def discover_modules(request: ModuleDiscoveryRequest) -> Any:
     """Return the live application's current menu modules without crawling them."""
     correlation_id = str(uuid4())
+    if request.mock:
+        mock_run_id = f"mock_{uuid4().hex[:12]}"
+        mock_auth_session_id = f"mock_auth_{uuid4().hex[:8]}"
+        mock_modules = [
+            ModuleOption(id="mod_inventory", module_id="mod_inventory", label="Product Inventory", route="/inventory.html", hierarchy_level=0),
+            ModuleOption(id="mod_cart", module_id="mod_cart", label="Shopping Cart", route="/cart.html", hierarchy_level=1),
+            ModuleOption(id="mod_checkout", module_id="mod_checkout", label="Checkout Flow", route="/checkout-step-one.html", hierarchy_level=1),
+        ]
+        try:
+            run_ctx = create_run_context(
+                target_origin=request.url,
+                allowed_path_namespace="/",
+                run_id=mock_run_id,
+                auth_session_id=mock_auth_session_id,
+                display_name=request.session_name or "Mock Demo Session",
+                is_mock=True,
+            )
+            run_ctx.selected_modules = ["mod_inventory", "mod_cart", "mod_checkout"]
+            run_ctx.status = "discovered"
+            save_run_context(run_ctx)
+            # RunContext is already saved to file and synced to DB by save_run_context
+        except Exception as exc:
+            logger.debug("[API] Failed to initialize mock discovery run context: %s", exc)
+
+        message = (
+            "Choose one or more modules to scan. Only those modules and their "
+            "safe in-module navigation will be explored."
+        )
+        resp = ModuleDiscoveryResponse(
+            run_id=mock_run_id,
+            auth_session_id=mock_auth_session_id,
+            modules=mock_modules,
+            message=message,
+            correlation_id=correlation_id,
+        )
+        return JSONResponse(
+            status_code=200,
+            content=resp.model_dump(mode="json"),
+            headers={"X-Correlation-ID": correlation_id},
+        )
     browser_status = browser_readiness.check_browser_readiness()
     if not browser_status.get("ready"):
         msg = browser_status.get("error") or f"Playwright Chromium executable is missing. {browser_readiness.BROWSER_INSTALL_HINT}"
@@ -581,12 +646,23 @@ async def scan(request: ScanRequest) -> ScanResponse:
         mock_run_id = request.run_id or request.scan_id or f"mock_{uuid4().hex[:12]}"
         mock_resp.run_id = mock_run_id
 
+        # Publish scan_started telemetry so UI connects seamlessly
+        get_channel(mock_run_id)
+        publish(mock_run_id, {
+            "type": "scan_started",
+            "scan_id": mock_run_id,
+            "run_id": mock_run_id,
+            "url": request.url,
+            "mode": "mock_demo",
+        })
+
         # Build page_intelligence dictionary for mock export
         page_intelligence = {}
         for r in mock_resp.routes:
+            route_url = f"{request.url.rstrip('/')}{r.path}"
             page_intelligence[r.path] = {
                 "route": r.path,
-                "url": f"{request.url.rstrip('/')}{r.path}",
+                "url": route_url,
                 "route_path": r.path,
                 "menu_name": r.menu_name,
                 "route_status": "WORKING",
@@ -598,6 +674,23 @@ async def scan(request: ScanRequest) -> ScanResponse:
                 "charts": r.components.charts,
                 "interactions": [i.model_dump() for i in r.interactions],
             }
+            publish(mock_run_id, {
+                "type": "route_discovered",
+                "scan_id": mock_run_id,
+                "run_id": mock_run_id,
+                "route": r.path,
+                "url": route_url,
+            })
+            publish(mock_run_id, {
+                "type": "route_completed",
+                "scan_id": mock_run_id,
+                "run_id": mock_run_id,
+                "route": r.path,
+                "url": route_url,
+                "status": "WORKING",
+            })
+
+        selected = request.selected_module_ids or ["mod_inventory", "mod_cart", "mod_checkout"]
         crawl_data = {
             "run_id": mock_run_id,
             "target_url": request.url,
@@ -606,11 +699,17 @@ async def scan(request: ScanRequest) -> ScanResponse:
             "parking_lot_actions": [],
             "scan_events": [],
             "summary": mock_resp.summary.model_dump() if mock_resp.summary else {},
+            "visited_routes": [r.path for r in mock_resp.routes],
+            "pending_routes": [],
+            "selected_modules": selected,
+            "completed_modules": selected,
         }
         try:
             crawler_service.export_crawl_results(crawl_data, run_id=mock_run_id)
             checkpoint_file = REPORT_PATH / f"checkpoint_{mock_run_id}.json"
             checkpoint_file.write_text(json.dumps(crawl_data, indent=2), encoding="utf-8")
+            from automation_framework.storage.checkpoint_store import save_checkpoint
+            save_checkpoint(mock_run_id, crawl_data)
         except Exception as exc:
             logger.debug("[API] Mock export note: %s", exc)
 
@@ -623,15 +722,41 @@ async def scan(request: ScanRequest) -> ScanResponse:
                     run_id=mock_run_id,
                     auth_session_id=request.auth_session_id or f"mock_auth_{uuid4().hex[:8]}",
                     display_name=request.session_name,
+                    is_mock=True,
                 )
+            run_ctx.is_mock = True
+            run_ctx.scan_id = mock_run_id
             run_ctx.scan_results = mock_resp.model_dump()
-            run_ctx.selected_modules = request.selected_module_ids or ["mod_inventory", "mod_cart", "mod_checkout"]
+            run_ctx.selected_modules = selected
+            run_ctx.completed_modules = list(selected)
+            run_ctx.pending_modules = []
+            run_ctx.current_module = ""
+            run_ctx.current_route = None
             run_ctx.status = "scanned"
+            run_ctx.route_progress = {"scanned": len(mock_resp.routes), "pending": 0, "total": len(mock_resp.routes)}
+            run_ctx.elements_found = mock_resp.summary.total_automation_targets if mock_resp.summary else len(mock_resp.routes)
+            run_ctx.checkpoint_version = 1
+            if mock_run_id not in run_ctx.checkpoints:
+                run_ctx.checkpoints.append(mock_run_id)
             save_run_context(run_ctx)
-            from api.db.repository import DBRepository
-            DBRepository.save_run(run_ctx.model_dump())
+            # RunContext is already saved to file and synced to DB by save_run_context
         except Exception as exc:
             logger.debug("[API] Failed to initialize mock run context: %s", exc)
+
+        publish(mock_run_id, {
+            "type": "crawl_completed",
+            "scan_id": mock_run_id,
+            "run_id": mock_run_id,
+            "status": "scanned",
+            "routes_scanned": len(mock_resp.routes),
+            "selected_modules": list(selected),
+            "completed_modules": list(selected),
+            "completed_module_count": len(selected),
+            "pending_modules": [],
+            "pending_module_count": 0,
+            "total_targets": mock_resp.summary.total_automation_targets if mock_resp.summary else 0,
+            "message": "Mock crawl completed successfully",
+        })
         return mock_resp
 
     if not request.mock:
@@ -670,10 +795,13 @@ async def scan(request: ScanRequest) -> ScanResponse:
             auth_session_id=effective_auth_session_id,
             username=request.username,
             display_name=request.session_name,
+            is_mock=request.mock,
         )
+        run_ctx.is_mock = bool(request.mock)
         run_ctx.scan_id = scan_id
         if effective_auth_session_id:
             run_ctx.auth_session_id = effective_auth_session_id
+        run_ctx.interactive_mode = bool(request.interactive_mode)
         run_ctx.selected_modules = request.selected_module_ids or run_ctx.selected_modules
         run_ctx.status = "running"
         save_run_context(run_ctx)
@@ -889,6 +1017,47 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         represented.add(item_id)
         upload_gaps.append({"item_id": item_id, "reason": "No grounded provider testcase matched the uploaded row; executed as a safe route check."})
 
+    # Provider responses and uploaded rows are untrusted inputs. Enforce the
+    # requested count after merging both sources and remove exact duplicate
+    # cases before exposing the plan. Previously the provider cap ran before
+    # uploaded-row retention, allowing 21 requested cases to become 43 with
+    # repeated case content/IDs.
+    uploaded_case_ids = set(uploaded_by_id)
+    test_cases = sorted(
+        test_cases,
+        key=lambda case: 0 if case.tc_id in uploaded_case_ids else 1,
+    )
+    deduped_cases: list[TestCase] = []
+    seen_case_fingerprints: set[str] = set()
+    for case in test_cases:
+        fingerprint = json.dumps({
+            "route": case.route,
+            "module": case.module,
+            "test_type": case.test_type,
+            "steps": [step.model_dump(mode="json") for step in case.steps],
+        }, sort_keys=True, default=str)
+        if fingerprint in seen_case_fingerprints:
+            continue
+        seen_case_fingerprints.add(fingerprint)
+        deduped_cases.append(case)
+    test_cases = deduped_cases
+    if request.testcase_count:
+        test_cases = test_cases[:request.testcase_count]
+
+    used_ids: set[str] = set()
+    for ordinal, case in enumerate(test_cases, start=1):
+        proposed_id = str(case.tc_id or "").strip() or f"TC_{ordinal:03d}"
+        if proposed_id in used_ids:
+            proposed_id = f"TC_{ordinal:03d}"
+        while proposed_id in used_ids:
+            ordinal += 1
+            proposed_id = f"TC_{ordinal:03d}"
+        used_ids.add(proposed_id)
+        if proposed_id != case.tc_id:
+            case.tc_id = proposed_id
+            for step_number, step in enumerate(case.steps, start=1):
+                step.step_id = f"{proposed_id}_S{step_number:02d}"
+
     script = _build_pytest_script(
         base_url=request.base_url,
         scan=request.scan,
@@ -947,6 +1116,8 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         model=plan_result.get("model", metadata.get("model", "")),
         fallback_used=plan_result.get("fallback_used", metadata.get("fallback_used", False)),
         warnings=plan_result.get("warnings", []),
+        shortfall_explanation=plan_result.get("shortfall_explanation"),
+        evidence_revision=plan_result.get("evidence_revision"),
     )
 
 
@@ -1477,22 +1648,51 @@ async def get_run_state(run_id: str) -> dict[str, Any]:
         "scan_results": data.get("scan_results") or {},
     })
     data["elements_found"] = int(effective_event.get("elements_found", data.get("elements_found", 0)) or 0)
+    # Manual learning evidence lives in the durable checkpoint alongside the
+    # automatic element map. Expose it on reload/polling as well as live SSE;
+    # otherwise the UI resets the manual count to zero after a refresh.
+    try:
+        from automation_framework.storage.checkpoint_store import load_checkpoint
+        checkpoint = load_checkpoint(run_id) or {}
+    except Exception:
+        checkpoint = {}
+    data["manual_interaction_count"] = int(
+        effective_event.get("manual_interaction_count", data.get("manual_interaction_count", 0))
+        or len(checkpoint.get("manual_interactions", []) or [])
+    )
+    data["manual_element_count"] = int(
+        effective_event.get("manual_element_count", data.get("manual_element_count", 0))
+        or sum(
+            1 for item in (checkpoint.get("element_map_snapshot", []) or [])
+            if item.get("is_user_confirmed")
+        )
+    )
     data["safe_actions_explored"] = int(effective_event.get("safe_actions_explored", data.get("safe_actions_explored", 0)) or 0)
     data["parking_lot_actions"] = int(effective_event.get("parking_lot_actions", data.get("parking_lot_actions", 0)) or 0)
     data["retry_count"] = int(effective_event.get("retry_count", data.get("retry_count", 0)) or 0)
     data["last_event_sequence"] = int(effective_event.get("last_event_sequence", data.get("last_event_sequence", 0)) or 0)
     module_progress = calculate_module_progress({
-        "selected_modules": data.get("selected_modules") or [],
-        "completed_modules": data.get("completed_modules") or [],
+        "selected_modules": effective_event.get("selected_modules") or data.get("selected_modules") or [],
+        "completed_modules": effective_event.get("completed_modules") or data.get("completed_modules") or [],
     })
     data["module_progress"] = {"current": module_progress["current"], "total": module_progress["total"]}
     data["completed_module_count"] = module_progress["completed_count"]
     data["pending_module_count"] = module_progress["pending_count"]
     data["completed_modules"] = module_progress["completed_modules"]
     data["pending_modules"] = module_progress["pending_modules"]
+    route_pct = float(data["route_progress"].get("percentage", 0) or 0)
+    module_pct = (
+        100.0 if module_progress["total"] and module_progress["pending_count"] == 0
+        else (module_progress["completed_count"] * 100.0 / module_progress["total"] if module_progress["total"] else route_pct)
+    )
+    # A route queue can be empty while selected modules remain. The persisted
+    # percentage must reflect the unfinished dimension instead of advertising
+    # 100% prematurely.
+    data["progress_percentage"] = round(min(route_pct, module_pct), 1)
     if data.get("status") == "scanned" and module_progress["pending_count"] == 0 and int(data["route_progress"]["pending"]) == 0:
         data["current_module"] = ""
         data["current_route"] = ""
+    data["active_route"] = data.get("current_route") or None
     data["checkpoint_version"] = int((latest_checkpoint or {}).get("version", data.get("checkpoint_version", 0)) or 0)
     data["is_paused"] = is_scan_paused(run_id)
     return data
@@ -1597,6 +1797,11 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         artifacts=artifacts_ready,
         download_urls=download_urls,
     )
+
+
+@router.api_route("/download-artifact/{run_id}", methods=["GET", "HEAD"], summary="Download specific artifact alias")
+async def download_artifact_alias(run_id: str, artifact_type: str = "excel"):
+    return await download_artifact(run_id=run_id, artifact_type=artifact_type)
 
 
 @router.api_route("/reports/{run_id}/download/{artifact_type}", methods=["GET", "HEAD"], summary="Download specific artifact by stable run ID URL")
@@ -1825,6 +2030,7 @@ async def create_run_endpoint(request: CreateRunRequest) -> dict[str, Any]:
         run_id=run_id,
         username=request.username,
         url=request.url,
+        is_mock=request.mock,
     )
     if request.selected_module_ids:
         ctx.selected_modules = request.selected_module_ids
@@ -1894,7 +2100,11 @@ async def resume_run_endpoint(run_id: str, request: ResumeRunRequest) -> dict[st
             )
 
     if run_ctx.auth_session_id:
-        valid = check_auth_session_validity(run_ctx.auth_session_id)
+        valid, _reason = check_auth_session_validity(
+            run_ctx.target_origin,
+            run_ctx.auth_session_id,
+            run_id,
+        )
         if not valid and not (request.username and request.password):
             return {
                 "status": "auth_required",
@@ -1902,9 +2112,35 @@ async def resume_run_endpoint(run_id: str, request: ResumeRunRequest) -> dict[st
                 "message": "Authentication session expired. Explicit credentials or re-login required to resume."
             }
 
+    if run_ctx.status == "running" and is_scan_active(run_id):
+        return {
+            "status": "already_running",
+            "run_id": run_id,
+            "message": "This run is already active. Reconnect to its live progress view.",
+        }
+
+    # A saved checkpoint is durable state, not a background worker.  The old
+    # endpoint only cleared the paused flag, leaving a saved run that looked
+    # resumed but never launched a crawler.  Restart the worker explicitly
+    # with the original run id so the crawler loads the same checkpoint.
     resume_scan(run_id)
     run_ctx.status = "running"
+    run_ctx.error_message = None
     save_run_context(run_ctx)
+
+    resume_request = ScanRequest(
+        url=run_ctx.target_origin,
+        run_id=run_id,
+        scan_id=run_ctx.scan_id or run_id,
+        resume_run_id=run_id,
+        selected_module_ids=list(run_ctx.selected_modules),
+        auth_session_id=run_ctx.auth_session_id,
+        interactive_mode=bool(run_ctx.interactive_mode),
+        mock=bool(str(run_ctx.auth_session_id or "").startswith("mock_")),
+    )
+    task = asyncio.create_task(_run_scan_in_background(resume_request))
+    _BACKGROUND_SCAN_TASKS.add(task)
+    task.add_done_callback(_forget_background_task)
 
     return {
         "status": "resumed",
@@ -1929,6 +2165,7 @@ async def pause_run_endpoint(run_id: str) -> dict[str, Any]:
 
 
 @router.post("/runs/{run_id}/save-progress", summary="Explicitly save current progress and checkpoint")
+@router.post("/run/{run_id}/save-progress", summary="Explicitly save current progress and checkpoint")
 async def save_progress_endpoint(run_id: str, request: SaveProgressRequest) -> dict[str, Any]:
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
@@ -1941,9 +2178,22 @@ async def save_progress_endpoint(run_id: str, request: SaveProgressRequest) -> d
     curr_state["run_id"] = run_id
     curr_state["base_url"] = run_ctx.target_origin
     curr_state["schema_version"] = "2.0"
-    save_checkpoint(run_id, curr_state)
+    if not save_checkpoint(run_id, curr_state):
+        raise HTTPException(status_code=500, detail="Checkpoint could not be persisted")
+    try:
+        latest_checkpoint = DBRepository.get_latest_checkpoint(run_id) or {}
+        run_ctx.checkpoint_version = int(latest_checkpoint.get("version", run_ctx.checkpoint_version or 0) or 0)
+    except Exception:
+        run_ctx.checkpoint_version = int(run_ctx.checkpoint_version or 0) + 1
+    if run_id not in run_ctx.checkpoints:
+        run_ctx.checkpoints.append(run_id)
     save_run_context(run_ctx)
-    return {"status": "saved", "run_id": run_id, "message": f"Progress for run '{run_id}' saved successfully."}
+    return {
+        "status": "saved",
+        "run_id": run_id,
+        "checkpoint_version": run_ctx.checkpoint_version,
+        "message": f"Progress for run '{run_id}' saved successfully.",
+    }
 
 
 @router.post("/runs/{run_id}/end-and-save", summary="End scanning and save current state")
@@ -1987,6 +2237,7 @@ async def duplicate_run_endpoint(run_id: str) -> dict[str, Any]:
             allowed_path_namespace=run_ctx.allowed_path_namespace,
             run_id=new_id,
             username=run_ctx.username,
+            is_mock=run_ctx.is_mock,
         )
         new_ctx.selected_modules = list(run_ctx.selected_modules)
         new_ctx.discovered_modules = list(run_ctx.discovered_modules)
@@ -2259,6 +2510,20 @@ async def execute_selected_regression(request: ExecuteSelectedRegressionRequest)
             detail="No test cases match the selection criteria. Zero tests executed.",
         )
 
+    # Database retrieval and provider/upload merges are not guaranteed to
+    # preserve plan order.  Execute and export in the user's requested order
+    # when IDs were supplied, otherwise use the stable numeric TC order.  This
+    # keeps the execution matrix, JSON, and Excel rows aligned.
+    requested_order = {tc_id: index for index, tc_id in enumerate(request.selected_test_case_ids)}
+
+    def _test_case_sort_key(case: TestCase) -> tuple[int, int, str]:
+        tc_id = str(case.tc_id or "")
+        suffix = tc_id.rsplit("_", 1)[-1]
+        numeric = int(suffix) if suffix.isdigit() else 10**9
+        return (requested_order.get(tc_id, 10**8), numeric, tc_id)
+
+    selected_cases.sort(key=_test_case_sort_key)
+
     effective_session_id = request.auth_session_id or (run_ctx.auth_session_id if run_ctx else None)
 
     try:
@@ -2366,6 +2631,7 @@ async def get_selected_execution_status(job_id: str = "") -> dict[str, Any]:
 # --- Baseline Endpoints ---
 
 @router.post("/baselines/save", summary="Save scan and test plan as reusable baseline")
+@router.post("/baseline/save", summary="Save scan and test plan as reusable baseline")
 async def save_baseline_endpoint(request: SaveBaselineRequest) -> dict[str, Any]:
     run_id = request.run_id
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
@@ -2384,7 +2650,7 @@ async def save_baseline_endpoint(request: SaveBaselineRequest) -> dict[str, Any]
             overwrite=request.confirmed_overwrite,
             test_cases=raw_cases,
         )
-        return {"status": "saved", "baseline": res}
+        return {"status": "saved", "baseline_id": res["plan_id"], "plan_id": res["plan_id"], "baseline": res}
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
@@ -2395,8 +2661,10 @@ async def list_baselines_endpoint(base_url: str | None = None) -> list[dict[str,
 
 
 @router.post("/baselines/compare", summary="Compare current scan/execution against baseline")
+@router.post("/baseline/compare", summary="Compare current scan/execution against baseline")
 async def compare_baseline_endpoint(request: CompareBaselineRequest) -> dict[str, Any]:
+    target_baseline = request.baseline_run_id or request.baseline_id or ""
     return DBRepository.compare_baseline(
         current_run_id=request.current_run_id,
-        baseline_run_id=request.baseline_run_id,
+        baseline_run_id=target_baseline,
     )

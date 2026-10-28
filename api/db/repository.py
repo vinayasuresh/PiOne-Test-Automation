@@ -828,8 +828,12 @@ class DBRepository:
     def compare_baseline(current_run_id: str, baseline_run_id: str) -> dict[str, Any]:
         """Compare current scan/execution against a baseline run."""
         def _op(session: Session) -> dict[str, Any]:
-            base_plan = session.query(TestPlan).filter(TestPlan.run_id == baseline_run_id, TestPlan.is_baseline == True).first()
-            base_cases = session.query(TestCaseModel).filter(TestCaseModel.run_id == baseline_run_id).all()
+            base_plan = (
+                session.query(TestPlan).filter(TestPlan.run_id == baseline_run_id, TestPlan.is_baseline == True).first()
+                or session.query(TestPlan).filter(TestPlan.id == baseline_run_id).first()
+            )
+            actual_baseline_run_id = base_plan.run_id if base_plan else baseline_run_id
+            base_cases = session.query(TestCaseModel).filter(TestCaseModel.run_id == actual_baseline_run_id).all()
             curr_cases = session.query(TestCaseModel).filter(TestCaseModel.run_id == current_run_id).all()
 
             base_by_tcid = {c.tc_id: c for c in base_cases}
@@ -861,9 +865,11 @@ class DBRepository:
             curr_elements = {e.element_identity for e in session.query(ScanElement).filter(ScanElement.run_id == current_run_id).all()}
             removed_elements = sorted(base_elements - curr_elements)
 
+            added_cases = sorted(set(curr_by_tcid) - set(base_by_tcid))
+            removed_cases = sorted(set(base_by_tcid) - set(curr_by_tcid))
             return {
                 "current_run_id": current_run_id,
-                "baseline_run_id": baseline_run_id,
+                "baseline_run_id": actual_baseline_run_id,
                 "baseline_plan_id": base_plan.id if base_plan else None,
                 "newly_passing": newly_passing,
                 "newly_failing": newly_failing,
@@ -871,6 +877,16 @@ class DBRepository:
                 "removed_elements": removed_elements,
                 "changed_locators": changed_locators,
                 "changed_expected": changed_expected,
+                "added_cases": added_cases,
+                "removed_cases": removed_cases,
+                "differences": {
+                    "added_cases": added_cases,
+                    "removed_cases": removed_cases,
+                    "changed_locators": changed_locators,
+                    "changed_expected": changed_expected,
+                    "newly_passing": newly_passing,
+                    "newly_failing": newly_failing,
+                },
                 "unchanged_count": len(set(base_by_tcid) & set(curr_by_tcid)) - len(newly_failing) - len(newly_passing),
             }
 

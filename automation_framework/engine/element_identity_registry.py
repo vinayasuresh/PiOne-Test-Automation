@@ -99,6 +99,20 @@ class ElementIdentityRegistry:
                 for fb in new_fallbacks:
                     if fb not in curr_fallbacks:
                         curr_fallbacks.append(fb)
+            # A manual learning capture is authoritative evidence about an
+            # existing DOM element. Enrich the canonical registry record even
+            # when the passive scanner already registered the same identity;
+            # otherwise the UI/export continues to show it as auto-only.
+            if element.get("is_user_confirmed") or element.get("source") == "interactive_learning":
+                for key in (
+                    "is_user_confirmed", "source", "source_page", "source_html",
+                    "element_xpath", "xpath", "interaction_probability",
+                    "interaction_probability_method", "interaction_type",
+                ):
+                    if key in element and element.get(key) not in (None, ""):
+                        existing[key] = element[key]
+                existing["is_user_confirmed"] = True
+                existing["discovery_mechanism"] = "interactive_learning"
             return identity, False
 
         self._registry[identity] = element

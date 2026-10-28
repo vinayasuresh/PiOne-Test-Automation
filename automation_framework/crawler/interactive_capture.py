@@ -62,6 +62,28 @@ _CAPTURE_SCRIPT = r"""
     return parts.join(' > ');
   }
 
+  function getXPath(el) {
+    if (!el || el.nodeType !== 1) return '';
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1) {
+      if (node.id && !/\d{4,}/.test(node.id)) {
+        parts.unshift(`*[@id=${JSON.stringify(node.id)}]`);
+        break;
+      }
+      const tag = node.tagName.toLowerCase();
+      const parent = node.parentElement;
+      if (!parent) {
+        parts.unshift(tag);
+        break;
+      }
+      const sameTag = Array.from(parent.children).filter(child => child.tagName === node.tagName);
+      parts.unshift(`${tag}[${sameTag.indexOf(node) + 1}]`);
+      node = parent;
+    }
+    return '/' + parts.join('/');
+  }
+
   function closestMeaningfulElement(target) {
     if (!target || !target.closest) return target;
     const standard = target.closest(
@@ -129,7 +151,7 @@ _CAPTURE_SCRIPT = r"""
     const text = describe(target);
     if (!selector && !text) return;
 
-    window.__events.push({
+    const record = {
       type: eventType,
       detected_type: detectType(target, eventType),
       tag: target.tagName.toLowerCase(),
@@ -137,10 +159,22 @@ _CAPTURE_SCRIPT = r"""
       framework_type: frameworkType(target),
       text,
       selector,
+      xpath: getXPath(target),
       value: hasValue ? '<dynamic>' : '',
       page_url: location.href,
+      page_title: document.title || '',
+      source: 'interactive_learning',
+      element_html: String(target.outerHTML || '').replace(/\s+/g, ' ').slice(0, 500),
       ts: Date.now(),
-    });
+    };
+    window.__events.push(record);
+    // A navigation replaces window.__events.  The Playwright binding sends a
+    // copy to Python immediately, so evidence survives clicks that change page.
+    try {
+      if (typeof window.__testmateRecordInteraction === 'function') {
+        window.__testmateRecordInteraction(record);
+      }
+    } catch (_) {}
   }
 
   document.addEventListener('mouseover', (event) => {
@@ -256,9 +290,48 @@ _EVENT_TO_COMPONENT = {
 }
 
 
+_PAGE_EVENT_BUFFERS: dict[int, list[dict[str, Any]]] = {}
+_CAPTURE_BINDING = "__testmateRecordInteraction"
+
+
+def _install_persistent_capture(page: Page) -> list[dict[str, Any]]:
+    """Install a cross-navigation event bridge and return this page's buffer.
+
+    ``page.evaluate`` listeners disappear on a page navigation.  Interactive
+    learning intentionally lets a human click navigation controls, so keeping
+    the evidence only in ``window`` lost precisely the most valuable clicks.
+    An init script is applied to every later document and the exposed binding
+    copies each record to Python before navigation can discard it.
+    """
+    key = id(page)
+    buffer = _PAGE_EVENT_BUFFERS.setdefault(key, [])
+
+    if not getattr(page, "_testmate_capture_binding_installed", False):
+        def record_from_page(_source: Any, record: Any) -> None:
+            if isinstance(record, dict):
+                buffer.append(dict(record))
+
+        try:
+            page.expose_binding(_CAPTURE_BINDING, record_from_page)
+            setattr(page, "_testmate_capture_binding_installed", True)
+        except Exception as exc:
+            # A mocked Page and an already-installed binding are both safe
+            # fallbacks: current-document extraction still works.
+            logger.debug("Interactive capture binding unavailable: %s", exc)
+
+    try:
+        if not getattr(page, "_testmate_capture_init_script_installed", False):
+            page.add_init_script(_CAPTURE_SCRIPT)
+            setattr(page, "_testmate_capture_init_script_installed", True)
+    except Exception as exc:
+        logger.debug("Interactive capture init script unavailable: %s", exc)
+    return buffer
+
+
 def inject_capture(page: Page, summary: dict[str, Any] | None = None) -> None:
     """Install the page overlay, highlighter, and event listeners."""
     try:
+        _install_persistent_capture(page).clear()
         if summary:
             page.evaluate("(s) => { window.__reviewSummary = s; }", summary)
         page.evaluate(_CAPTURE_SCRIPT)
@@ -298,6 +371,7 @@ def wait_for_user(page: Page, timeout_seconds: int = 45, run_id: str | None = No
 
 def extract_events(page: Page) -> list[dict[str, Any]]:
     """Read recorded DOM events and remove the overlay."""
+    bridged_events = list(_PAGE_EVENT_BUFFERS.get(id(page), []))
     try:
         events = page.evaluate("() => Array.isArray(window.__events) ? window.__events : []")
     except Exception as exc:
@@ -307,7 +381,7 @@ def extract_events(page: Page) -> list[dict[str, Any]]:
         page.evaluate(_REMOVE_BANNER_SCRIPT)
     except Exception:
         pass
-    return events or []
+    return bridged_events + (events or [])
 
 
 def events_to_interactions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -347,6 +421,11 @@ def events_to_interactions(events: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "framework_type": event.get("framework_type") or "native",
                 "component_tag": event.get("component_tag") or tag,
                 "page_url": event.get("page_url") or "",
+                "page_title": event.get("page_title") or "",
+                "xpath": event.get("xpath") or "",
+                "source": event.get("source") or "interactive_learning",
+                "element_html": event.get("element_html") or "",
+                "timestamp": event.get("ts") or 0,
                 "value": event.get("value") or "",
             }
         )
@@ -374,6 +453,8 @@ def interactions_to_flow(interactions: list[dict[str, Any]]) -> list[dict[str, A
             "page": interaction.get("page_url", ""),
             "element_type": interaction.get("detected_type") or interaction.get("component", ""),
             "text": interaction.get("label", ""),
+            "xpath": interaction.get("xpath", ""),
+            "source": interaction.get("source", "interactive_learning"),
         }
         if step in {"fill", "select"}:
             item["value"] = "<dynamic>"

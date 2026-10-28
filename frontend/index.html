@@ -95,7 +95,7 @@
         <span class="flex items-center gap-1.5 font-bold text-slate-300">
           <i class="fa-solid fa-satellite-dish text-blue-400"></i> Active Session:
         </span>
-        <span id="active-bar-run-id" class="text-amber-300 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700" title="Internal run ID is hidden from normal workflow use">--</span>
+        <span id="active-bar-run-id" class="text-blue-200 font-bold bg-slate-900/80 px-2 py-0.5 rounded border border-slate-700" title="Internal run ID is hidden from normal workflow use">--</span>
         <span id="active-bar-mode" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700">LIVE SCAN</span>
         <span id="active-bar-url" class="font-mono text-blue-300 truncate max-w-xs" title="Target URL">--</span>
         <span class="text-slate-600">|</span>
@@ -105,7 +105,7 @@
       </div>
       <div class="flex items-center gap-2.5 flex-wrap">
         <span id="active-bar-status" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700">IDLE</span>
-        <span class="text-slate-400 text-[11px]">Prog: <strong id="active-bar-progress" class="text-emerald-400 font-bold">0%</strong></span>
+        <span class="text-slate-400 text-[11px]" aria-live="polite"><strong id="active-bar-progress" class="text-emerald-400 font-bold">Step 1 of 8</strong></span>
         <span id="active-bar-db" class="text-slate-400 text-[11px]">DB: --</span>
         <span id="active-bar-auth" class="text-slate-400 text-[11px]"><i class="fa-solid fa-lock text-[10px]"></i> Auth: --</span>
         <button id="btn-return-current-run" type="button" class="hidden bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-3 py-1 rounded shadow-sm flex items-center gap-1.5 transition">
@@ -176,14 +176,14 @@
       <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
-          <input id="url-input" type="url" value="https://www.saucedemo.com" placeholder="https://app.enterprise.com"
+          <input id="url-input" type="url" placeholder="https://your-app.example.com"
             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-          <p class="text-[11px] text-slate-500 mt-1">SSRF protection enforced: private IPv4, loopback, AWS/cloud metadata, and localhost rejected in production.</p>
+          <p class="text-[11px] text-slate-500 mt-1">Enter an application you are authorized to test. SSRF protection blocks private IPv4, loopback, cloud metadata, and localhost in live mode.</p>
         </div>
 
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="session-name-input">Test Session Name</label>
-          <input id="session-name-input" type="text" placeholder="e.g. SauceDemo checkout regression" maxlength="120" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+          <input id="session-name-input" type="text" placeholder="e.g. Checkout regression – staging" maxlength="120" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
           <p class="text-[11px] text-slate-500 mt-1">This friendly name labels history, reports, artifacts and regression baselines. The internal run ID remains hidden.</p>
         </div>
 
@@ -197,12 +197,12 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="username-input">Username</label>
-              <input id="username-input" type="text" value="standard_user" placeholder="standard_user" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
+              <input id="username-input" type="text" placeholder="Enter username (if required)" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm" />
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="password-input">Password</label>
               <div class="relative">
-                <input id="password-input" type="password" value="secret_sauce" placeholder="••••••••" class="w-full px-3.5 py-2.5 pr-10 border border-slate-300 rounded-lg text-sm" />
+                <input id="password-input" type="password" placeholder="Enter password (if required)" class="w-full px-3.5 py-2.5 pr-10 border border-slate-300 rounded-lg text-sm" />
                 <button id="btn-toggle-password" type="button" aria-label="Toggle password visibility" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 px-1.5 py-1">
                   <i id="password-toggle-icon" class="fa-regular fa-eye"></i>
                 </button>
@@ -325,7 +325,7 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-xs font-bold text-blue-900 uppercase tracking-wide">Review decision</h3>
-            <p class="text-[11px] text-blue-800 mt-1">Only checked modules will enter the crawl. Your decision is saved with this session.</p>
+            <p class="text-[11px] text-blue-800 mt-1">Only checked modules will enter the crawl. Uncheck anything out of scope now; this is the final scope decision before deep crawl and is saved with the session.</p>
           </div>
           <button id="btn-review-save" type="button" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Save Review</button>
         </div>
@@ -370,10 +370,13 @@
             <i class="fa-solid fa-floppy-disk mr-1"></i> End Scan &amp; Save
           </button>
           <button id="btn-view-analysis" type="button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
-            <i class="fa-solid fa-chart-pie mr-1"></i> View Analysis
+            <i class="fa-solid fa-arrow-right mr-1"></i> Continue to Analyze Results
           </button>
           <button id="btn-scan-retry" type="button" class="hidden bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition">
             <i class="fa-solid fa-rotate-right mr-1"></i> Retry Crawl
+          </button>
+          <button id="btn-scan-retry-full" type="button" class="hidden bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-lg shadow-sm transition">
+            <i class="fa-solid fa-arrows-rotate mr-1"></i> Retry Entire Scan
           </button>
           <button id="btn-scan-download-log" type="button" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-slate-300 transition">
             <i class="fa-solid fa-file-lines mr-1"></i> Download Failure Log
@@ -385,9 +388,16 @@
             <button type="button" data-crawl-download="excel" class="crawl-download-btn bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[10px] px-2 py-1 rounded">Excel</button>
             <button type="button" data-crawl-download="markdown" class="crawl-download-btn bg-white hover:bg-slate-50 text-slate-700 font-semibold text-[10px] px-2 py-1 rounded border border-slate-300">MD</button>
           </div>
-          <button id="btn-scan-discard" type="button" class="bg-rose-100 hover:bg-rose-200 text-rose-800 font-semibold text-xs px-3.5 py-1.5 rounded-lg border border-rose-300 transition">
-            <i class="fa-solid fa-trash-can mr-1"></i> Discard Run
-          </button>
+          <details class="relative">
+            <summary class="list-none cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3 py-1.5 rounded-lg border border-slate-300 transition" aria-label="More crawl options">
+              <i class="fa-solid fa-ellipsis mr-1"></i> More
+            </summary>
+            <div class="absolute right-0 mt-1 z-20 min-w-48 bg-white border border-slate-200 rounded-lg shadow-lg p-1.5">
+              <button id="btn-scan-discard" type="button" class="w-full text-left text-rose-700 hover:bg-rose-50 font-semibold text-xs px-3 py-2 rounded transition">
+                <i class="fa-solid fa-trash-can mr-1"></i> Discard run…
+              </button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -400,6 +410,15 @@
         <span id="autosave-timestamp" class="text-slate-400 font-mono">Last checkpoint: Just now</span>
       </div>
       <div id="live-terminal-note" class="hidden text-xs rounded-lg border px-3 py-2"></div>
+      <div id="next-step-cta" class="hidden bg-indigo-50 border-2 border-indigo-300 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" role="status">
+        <div>
+          <p class="font-bold text-indigo-950 text-sm">Scan complete — next, review the findings in Analyze.</p>
+          <p class="text-xs text-indigo-800">Routes, captured manual interactions, selectors, XPath evidence, and safe-action results are ready.</p>
+        </div>
+        <button id="btn-continue-analysis" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">
+          Go to Step 5: Analyze <i class="fa-solid fa-arrow-right ml-1"></i>
+        </button>
+      </div>
 
       <!-- Live Metric Cards -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -414,6 +433,7 @@
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span class="text-[10px] font-bold text-slate-500 uppercase">Elements Found</span>
           <p id="live-elements-found" class="text-base font-bold text-purple-600 mt-0.5">0</p>
+          <p class="text-[10px] text-slate-500 mt-0.5">Manual: <span id="live-manual-elements">0</span></p>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
           <span class="text-[10px] font-bold text-slate-500 uppercase">Safe Actions</span>
@@ -450,8 +470,11 @@
       </div>
 
       <!-- Progress Bar -->
-      <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
-        <div id="scan-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 w-1/12 animate-pulse"></div>
+      <div class="flex items-center gap-2" aria-label="Crawl progress">
+        <div class="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+          <div id="scan-progress-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300 w-1/12 animate-pulse"></div>
+        </div>
+        <span id="scan-progress-label" class="font-mono text-[11px] font-bold text-slate-600 min-w-10 text-right" aria-live="polite">Connecting</span>
       </div>
 
       <!-- Interactive Checkpoint Decision Banner (visible when waiting_approval) -->
@@ -463,7 +486,11 @@
           </div>
           <span id="checkpoint-module-label" class="bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded text-[11px]">Module</span>
         </div>
-        <p class="text-xs text-blue-800">The crawler has completed exploration of this module. Choose an explicit action to proceed:</p>
+        <p class="text-xs text-blue-800">Automatic exploration for this module is complete. Use the visible target-application browser to try the controls you want to teach. Every click, input, or selection is recorded with its page URL, CSS selector, XPath, and safe source snippet. Then choose an explicit action below.</p>
+        <div id="checkpoint-capture-status" class="rounded bg-white/80 border border-blue-200 px-3 py-2 text-[11px] text-blue-900">
+          Waiting for target-browser interactions. You may also continue without adding manual evidence.
+        </div>
+        <div id="checkpoint-capture-list" class="hidden max-h-32 overflow-auto rounded border border-blue-100 bg-white text-[11px]"></div>
         <div class="flex items-center gap-2 flex-wrap pt-1">
           <button id="btn-checkpoint-continue" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm">
             <i class="fa-solid fa-forward mr-1"></i> Continue to Next Module
@@ -490,7 +517,7 @@
     </section>
 
     <!-- STEP 5: Analyze (Scan Intelligence Overview) -->
-    <section id="panel-5" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+    <section id="panel-5" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5 flex flex-col">
       <div class="border-b border-slate-100 pb-4">
         <div class="flex items-center gap-2">
           <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">5</span>
@@ -499,8 +526,9 @@
         <p class="text-xs text-slate-500 mt-1">Review captured routes, UI element maps, route health classifications, and deferred parking-lot items.</p>
       </div>
 
-      <div class="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3" id="security-review-panel">
-        <h3 class="font-bold text-slate-900">VAPT Assessment — authorized, bounded security testing</h3>
+      <details class="border border-blue-200 bg-blue-50 rounded-lg p-4 space-y-3 order-10" id="security-review-panel">
+        <summary class="cursor-pointer font-bold text-slate-900">Security Assessment <span class="font-normal text-xs text-slate-600">(optional — authorized, bounded review of discovered routes)</span></summary>
+        <div class="pt-3 space-y-3">
         <p class="text-xs text-slate-700">VAPT mode inventories same-origin routes and APIs and runs safe evidence-based checks. It never performs destructive actions, brute force, denial of service, payment/deletion, or mutation requests.</p>
         <div class="border border-blue-200 bg-white rounded-md p-3 space-y-1.5">
           <label for="assessment-mode" class="block text-xs font-bold text-slate-700">Assessment mode</label>
@@ -513,7 +541,8 @@
           <p id="assessment-mode-help" class="text-[11px] text-slate-600">Run the normal test-planning/execution flow and start the security review separately when ready.</p>
         </div>
         <label class="block text-xs"><input type="checkbox" id="security-authorized"> I have permission to assess this run's application.</label>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" aria-label="VAPT checks">
+        <p id="security-permission-help" class="text-[11px] text-slate-600">Confirm authorization to enable security checks. Server-side authorization is enforced too.</p>
+        <div id="security-checks-group" class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs" aria-label="VAPT checks">
           <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="headers" checked> Headers</label>
           <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="cookies" checked> Cookies</label>
           <label class="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 hover:bg-blue-50 cursor-pointer"><input type="checkbox" name="security-check" value="mixed_content" checked> Mixed content</label>
@@ -536,7 +565,8 @@
         </div>
         <p id="security-status" class="text-xs font-semibold" aria-live="polite">Not started for this run.</p>
         <div id="security-findings" class="space-y-2 text-xs max-h-96 overflow-auto"></div>
-      </div>
+        </div>
+      </details>
 
       <!-- Overview Cards -->
       <div id="analyze-cards" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
@@ -663,7 +693,7 @@
           <div>
             <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Requested Testcases</label>
             <input id="testcase-count" type="number" min="0" max="100" value="0" inputmode="numeric" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" />
-            <p class="text-[10px] text-slate-500 mt-1">0 = automatic grounded coverage. A positive value caps the generated catalogue; uploaded rows are retained first.</p>
+            <p class="text-[10px] text-slate-500 mt-1">0 = automatic grounded coverage. A positive value requests that many grounded cases; the planner adds safe focused checks when evidence allows, otherwise it explains the shortfall. Uploaded rows are retained first.</p>
           </div>
 
           <div>
@@ -693,6 +723,11 @@
             <div class="flex items-center justify-between mb-2">
               <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Derived Test Cases</h3>
               <span id="plan-case-count" class="text-xs font-bold text-blue-600">0 test cases</span>
+            </div>
+            <div id="plan-shortfall-notice" class="hidden mb-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950" role="status" aria-live="polite">
+              <div class="font-bold flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> Grounded coverage shortfall</div>
+              <p id="plan-shortfall-reason" class="mt-1"></p>
+              <p id="plan-shortfall-evidence" class="mt-1 text-[11px] text-amber-800"></p>
             </div>
             <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
               <table class="min-w-full text-xs">
@@ -760,6 +795,22 @@
         </div>
       </div>
 
+      <!-- A failed execution must have a visible, non-destructive recovery path. -->
+      <div id="execution-recovery-inline" class="hidden border border-amber-300 bg-amber-50 rounded-xl p-4" role="status" aria-live="polite">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-rotate-right text-amber-600 mt-0.5"></i>
+            <div>
+              <p class="font-bold text-sm text-amber-950">Execution was interrupted</p>
+              <p id="execution-recovery-inline-copy" class="text-xs text-amber-900 mt-0.5">Refresh authentication, then restart the selected tests from a clean browser state.</p>
+            </div>
+          </div>
+          <button id="btn-inline-restart-execution" type="button" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">
+            <i class="fa-solid fa-play mr-1"></i> Restart Selected Tests
+          </button>
+        </div>
+      </div>
+
       <!-- Selectable Regression Execution Scope & Filter Bar -->
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -769,10 +820,7 @@
             </h3>
             <p class="text-[11px] text-slate-500 mt-0.5">Filter and check specific test cases. Unselected tests are never executed.</p>
           </div>
-          <!-- Live Count Badge -->
-          <div id="exec-selection-badge" class="font-bold text-xs bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-2" aria-live="polite">
-            <i class="fa-solid fa-list-check"></i> <span id="exec-selection-text">Execute 0 tests / 0 steps?</span>
-          </div>
+          <p id="exec-selection-text" class="font-bold text-xs text-slate-600" aria-live="polite">Select one or more tests to execute.</p>
         </div>
 
         <!-- Filter Buttons & Controls -->
@@ -865,7 +913,7 @@
             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">8</span>
             <h2 class="text-lg font-bold text-slate-900">Audit-Ready Report &amp; Artifact Downloads</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Executive summaries, downloadable artifact packages via stable run ID endpoints, and regression baseline replay.</p>
+          <p class="text-xs text-slate-500 mt-1">Scan and planning evidence are available first; execution evidence appears after Step 7. A checkpoint is the redacted resume snapshot for this Saved Run.</p>
         </div>
         <div class="flex flex-col lg:flex-row items-start lg:items-center gap-3">
           <!-- Primary Audit Package -->
@@ -883,6 +931,9 @@
             <button id="btn-dl-markdown" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-brands fa-markdown text-slate-800 mr-1"></i> Markdown
             </button>
+            <button id="btn-dl-checkpoint" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm" title="Download the latest redacted crawl-resume snapshot for this Saved Run">
+              <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
+            </button>
           </div>
           <span class="hidden lg:inline text-slate-300">|</span>
           <!-- Technical Execution Evidence -->
@@ -894,15 +945,44 @@
             <button id="btn-dl-source-excel" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-file-excel text-emerald-600 mr-1"></i> Uploaded Excel + Results
             </button>
-            <button id="btn-dl-checkpoint" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
-              <i class="fa-solid fa-floppy-disk text-slate-600 mr-1"></i> Checkpoint
-            </button>
             <button id="btn-dl-screenshots" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-images text-rose-600 mr-1"></i> Screenshots
             </button>
           </div>
         </div>
       </div>
+
+      <div id="execution-recovery-card" class="hidden border border-amber-300 bg-amber-50 rounded-xl p-4" role="status" aria-live="polite">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-rotate-right text-amber-600 mt-0.5"></i>
+            <div>
+              <h3 class="text-sm font-bold text-amber-950">Test execution was interrupted</h3>
+              <p class="text-xs text-amber-900 mt-1">Refresh authentication if needed, then restart the selected test cases. Restarting reruns the selected cases from the beginning; it does not silently skip unfinished steps.</p>
+            </div>
+          </div>
+          <button id="btn-report-restart-execution" type="button" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">
+            <i class="fa-solid fa-play mr-1.5"></i> Restart Execution
+          </button>
+        </div>
+      </div>
+
+      <div id="report-execution-cta" class="hidden border border-indigo-200 bg-indigo-50 rounded-xl p-4" role="status">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-list-check text-indigo-600 mt-0.5"></i>
+            <div>
+              <h3 class="text-sm font-bold text-indigo-950">Test plan is ready, but has not been executed</h3>
+              <p class="text-xs text-indigo-900 mt-1">This report contains scan and planning evidence. Run the selected test cases to add pass, fail, skipped, screenshot, and execution-result evidence.</p>
+            </div>
+          </div>
+          <button id="btn-report-open-execution" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm whitespace-nowrap">
+            <i class="fa-solid fa-play mr-1.5"></i> Go to Execution
+          </button>
+        </div>
+      </div>
+
+      <div id="report-lifecycle-summary" class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-700" aria-live="polite"></div>
 
       <!-- Top-Level Executive Metric Cards -->
       <div id="report-metric-cards" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-4"></div>
@@ -994,14 +1074,23 @@
           </summary>
           <div id="report-planning-container" class="p-4 text-xs space-y-3 bg-slate-50"></div>
         </details>
+
+        <!-- 6. Visible Artifact Manifest & Lineage -->
+        <details id="report-artifact-manifest-details" class="bg-white border border-slate-200 rounded-lg overflow-hidden group" open>
+          <summary class="bg-slate-50 px-4 py-3 cursor-pointer font-bold text-xs text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-list-check text-teal-600"></i> Artifact Manifest &amp; Run Lineage</span>
+            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition"></i>
+          </summary>
+          <div id="report-artifact-manifest-container" class="p-4 text-xs space-y-3 bg-white"></div>
+        </details>
       </div>
 
       <!-- Regression Replay & Baseline Section -->
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 class="text-sm font-bold text-slate-900">Regression Baseline &amp; Diff Comparison</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Replay the approved test plan against the application, save reusable baselines, and compare diffs.</p>
+            <h3 class="text-sm font-bold text-slate-900">Regression Baseline &amp; Execution Comparison</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Save Baseline freezes this run's test plan. Compare Baseline performs a plan diff. Re-run Latest Execution runs the most recently saved execution plan and compares its step results with the prior execution.</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button id="btn-open-save-baseline" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
@@ -1011,7 +1100,7 @@
               <i class="fa-solid fa-code-compare"></i> Compare Baseline
             </button>
             <button id="btn-run-regression" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
-              <i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay
+              <i class="fa-solid fa-clock-rotate-left"></i> Re-run Latest Execution
             </button>
           </div>
         </div>
@@ -1051,7 +1140,7 @@
             <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
               <i class="fa-solid fa-clock-rotate-left text-blue-600"></i> Saved Runs &amp; Resumable Sessions
             </h2>
-            <p class="text-xs text-slate-500 mt-1">Review, resume paused scans, open results, execute regression suites, or duplicate previous runs.</p>
+            <p class="text-xs text-slate-500 mt-1">A Saved Run keeps the complete scan-to-report lifecycle. Its latest redacted checkpoint is used only to resume an interrupted crawl; it is not a separate test report or regression baseline.</p>
           </div>
           <button id="btn-refresh-saved-runs" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300 transition flex items-center gap-1.5">
             <i class="fa-solid fa-arrows-rotate"></i> Refresh
@@ -1212,11 +1301,11 @@
       <div class="space-y-3">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Username</label>
-          <input id="refresh-username" type="text" value="standard_user" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+          <input id="refresh-username" type="text" placeholder="Enter username (if required)" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Password</label>
-          <input id="refresh-password" type="password" value="secret_sauce" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
+          <input id="refresh-password" type="password" placeholder="Enter password (if required)" class="w-full px-3 py-2 border border-slate-300 rounded text-xs" />
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2">
@@ -1281,7 +1370,7 @@
         <button id="btn-close-danger-confirm" type="button" class="text-slate-400 hover:text-slate-700 text-lg" aria-label="Close confirmation">&times;</button>
       </div>
       <p id="danger-confirm-message" class="text-xs text-slate-600">This action cannot be undone.</p>
-      <label for="danger-confirm-input" class="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">Type <span class="text-rose-700">DELETE</span> to continue</label>
+      <label for="danger-confirm-input" class="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">Type <span id="danger-confirm-token" class="text-rose-700">DELETE</span> to continue</label>
       <input id="danger-confirm-input" type="text" autocomplete="off" class="w-full px-3 py-2 border border-slate-300 rounded text-xs font-mono" aria-describedby="danger-confirm-message" />
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
         <button id="btn-cancel-danger-confirm" type="button" class="text-xs font-semibold px-4 py-2 text-slate-600 hover:text-slate-800">Cancel</button>
@@ -1523,9 +1612,12 @@
       maxUnlockedStep: 1,
       assessmentMode: "both",
       isGeneratingPlan: false,
+      isExecuting: false,
+      executionRecoveryNeeded: false,
+      pendingCrawlResumeRunId: "",
       runId: "",
       sessionName: "",
-      targetUrl: "https://www.saucedemo.com",
+      targetUrl: "",
       authSessionId: "",
       isLive: true,
       modules: [],
@@ -1560,6 +1652,7 @@
       lastCompletedRoute: ""
     };
     let pendingDangerAction = null;
+    let pendingDangerToken = "DELETE";
 
     function normalizeRouteStatus(status) {
       if (!status) return "WORKING";
@@ -1601,7 +1694,7 @@
       // Some fast/mock scans persist the final scan document before emitting
       // per-module telemetry.  A terminal run is still complete; do not show
       // a contradictory 0/N progress indicator.
-      if (isTerminalStatus(runContext?.status) && !completed.length && selected.length) {
+      if (String(runContext?.status || "").toLowerCase() === "scanned" && !completed.length && selected.length) {
         completed = [...selected];
       }
       const pending = selected.filter(m => !completed.includes(m));
@@ -1649,37 +1742,71 @@
       const endBtn = document.getElementById("btn-scan-end-save");
       const viewBtn = document.getElementById("btn-view-analysis");
       const retryBtn = document.getElementById("btn-scan-retry");
+      const retryFullBtn = document.getElementById("btn-scan-retry-full");
       const logBtn = document.getElementById("btn-scan-download-log");
       const note = document.getElementById("live-terminal-note");
       const normalized = String(status || "").toLowerCase();
 
-      if (!pauseBtn || !resumeBtn || !endBtn || !viewBtn || !retryBtn || !logBtn || !note) return;
+      if (!pauseBtn || !resumeBtn || !endBtn || !viewBtn || !retryBtn || !retryFullBtn || !logBtn || !note) return;
       const completed = normalized === "scanned";
       const partial = normalized === "partial_scanned";
       const failed = normalized === "failed";
+      const exportingAllowed = completed || partial || failed;
+      document.querySelectorAll(".crawl-download-btn").forEach(button => {
+        button.disabled = !exportingAllowed;
+        button.classList.toggle("opacity-40", !exportingAllowed);
+        button.classList.toggle("cursor-not-allowed", !exportingAllowed);
+        button.title = exportingAllowed ? "Download available export" : "Full export is available after the crawl completes. Save Progress preserves a partial checkpoint.";
+        button.setAttribute("aria-disabled", String(!exportingAllowed));
+      });
+
+      const paused = normalized === "paused";
+      if (paused) {
+        pauseBtn.classList.add("hidden");
+        resumeBtn.classList.remove("hidden");
+        resumeBtn.disabled = false;
+        endBtn.disabled = false;
+        retryBtn.classList.add("hidden");
+        retryFullBtn.classList.add("hidden");
+        viewBtn.classList.add("hidden");
+        logBtn.classList.add("hidden");
+        note.className = "text-xs rounded-lg border px-3 py-2 bg-blue-50 border-blue-200 text-blue-800";
+        note.textContent = "Crawl is paused. Click Resume Crawl to continue or End & Save to preserve current progress.";
+        note.classList.remove("hidden");
+        document.getElementById("next-step-cta")?.classList.add("hidden");
+        return;
+      }
 
       pauseBtn.disabled = completed || partial || failed;
       endBtn.disabled = completed || partial || failed;
       resumeBtn.classList.add("hidden");
       pauseBtn.classList.remove("hidden");
       viewBtn.classList.toggle("hidden", failed);
-      retryBtn.classList.toggle("hidden", !failed);
+      retryBtn.classList.toggle("hidden", !(failed || partial));
+      retryFullBtn.classList.toggle("hidden", !(failed || partial));
+      retryBtn.innerHTML = partial
+        ? '<i class="fa-solid fa-rotate-right mr-1"></i> Resume Crawl'
+        : '<i class="fa-solid fa-rotate-right mr-1"></i> Retry from Checkpoint';
       logBtn.classList.toggle("hidden", !failed);
 
       if (completed) {
         note.className = "text-xs rounded-lg border px-3 py-2 bg-emerald-50 border-emerald-200 text-emerald-800";
         note.textContent = "Crawl complete. Review results or continue to analysis.";
         note.classList.remove("hidden");
+        document.getElementById("next-step-cta")?.classList.remove("hidden");
       } else if (partial) {
         note.className = "text-xs rounded-lg border px-3 py-2 bg-amber-50 border-amber-200 text-amber-800";
-        note.textContent = `Crawl partial / stopped${reason ? `: ${reason}` : "."}`;
+        note.textContent = `Crawl partial / stopped${reason ? `: ${reason}` : "."} Resume / Retry Crawl continues from the saved checkpoint.`;
         note.classList.remove("hidden");
+        document.getElementById("next-step-cta")?.classList.add("hidden");
       } else if (failed) {
         note.className = "text-xs rounded-lg border px-3 py-2 bg-rose-50 border-rose-200 text-rose-800";
         note.textContent = `Crawl failed${reason ? `: ${reason}` : ". Refresh credentials if requested, then retry the crawl."}`;
         note.classList.remove("hidden");
+        document.getElementById("next-step-cta")?.classList.add("hidden");
       } else {
         note.classList.add("hidden");
+        document.getElementById("next-step-cta")?.classList.add("hidden");
       }
     }
 
@@ -1699,7 +1826,12 @@
       const isFailed = status === "failed";
 
       localState.scanStatus = isComplete ? "COMPLETED" : (isPartial ? "PARTIAL" : (isFailed ? "FAILED" : String(snapshot.status || "IDLE").toUpperCase()));
-      localState.scanProgressPct = isComplete ? 100 : routeProgress.percentage;
+      const modulePct = moduleProgress.total
+        ? Math.round((moduleProgress.completed_count / moduleProgress.total) * 100)
+        : routeProgress.percentage;
+      localState.scanProgressPct = isComplete && moduleProgress.pending_count === 0
+        ? 100
+        : Math.min(routeProgress.percentage, modulePct);
       if (snapshot.current_route) localState.lastCompletedRoute = snapshot.current_route;
       localState.currentModuleName = (isComplete && moduleProgress.pending_count === 0) ? "" : (snapshot.current_module || localState.currentModuleName || "");
       localState.currentRoute = (isComplete && routeProgress.pending === 0) ? "" : (snapshot.current_route || localState.currentRoute || "");
@@ -1709,6 +1841,9 @@
       const observedTargets = Number(resultSummary.total_automation_targets || 0)
         || resultRoutes.reduce((total, route) => total + routeTargetCount(route), 0);
       document.getElementById("live-elements-found").textContent = Number(snapshot.elements_found || observedTargets || 0);
+      const manualElementCount = Number(snapshot.manual_element_count || 0);
+      const manualElementEl = document.getElementById("live-manual-elements");
+      if (manualElementEl) manualElementEl.textContent = manualElementCount;
       document.getElementById("live-safe-actions").textContent = Number(snapshot.safe_actions_explored || 0);
       document.getElementById("live-parking-lot").textContent = Number(snapshot.parking_lot_actions || 0);
       document.getElementById("live-retry-count").textContent = Number(snapshot.retry_count || 0);
@@ -1727,6 +1862,8 @@
         progressBar.style.width = `${pct}%`;
         progressBar.classList.remove("animate-pulse");
       }
+      const progressLabel = document.getElementById("scan-progress-label");
+      if (progressLabel) progressLabel.textContent = isComplete ? "100%" : `${Math.max(0, Math.min(100, Number(localState.scanProgressPct || 0)))}%`;
 
       const pill = document.getElementById("live-scan-status-pill");
       if (pill) {
@@ -1784,8 +1921,14 @@
         statusElem.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/60 text-blue-300 border border-blue-700";
       }
 
-      const pct = state.scanProgressPct || (state.currentStep >= 5 ? 100 : Math.round((state.currentStep / 8) * 100));
-      document.getElementById("active-bar-progress").textContent = `${pct}%`;
+      let progressLabel;
+      if (state.currentStep <= 3) progressLabel = `Step ${state.currentStep} of 8`;
+      else if (state.currentStep === 4) progressLabel = st.includes("COMPLET") ? "Crawl complete" : `Crawl: ${Math.max(0, state.scanProgressPct || 0)}%`;
+      else if (state.currentStep === 5) progressLabel = "Analysis ready";
+      else if (state.currentStep === 6) progressLabel = state.isGeneratingPlan ? "Generating test plan…" : "Test planning";
+      else if (state.currentStep === 7) progressLabel = state.executionResults ? "Execution complete" : "Ready to execute";
+      else progressLabel = "Report ready";
+      document.getElementById("active-bar-progress").textContent = progressLabel;
 
       const dbTxt = document.getElementById("nav-db-text")?.textContent || "DB: Connected";
       document.getElementById("active-bar-db").textContent = dbTxt;
@@ -1942,7 +2085,8 @@
             runId: state.runId,
             targetUrl: state.targetUrl,
             currentStep: state.currentStep,
-            assessmentMode: state.assessmentMode || "both"
+            assessmentMode: state.assessmentMode || "both",
+            executionRecoveryNeeded: Boolean(state.executionRecoveryNeeded)
           }));
         } catch (_) {}
       }
@@ -1961,14 +2105,26 @@
         const restoredName = document.getElementById("session-name-input");
         if (restoredName && state.sessionName) restoredName.value = state.sessionName;
         state.targetUrl = runCtx.target_origin || state.targetUrl;
+        state.isLive = !Boolean(runCtx.is_mock);
+        setMode(state.isLive);
         state.authSessionId = runCtx.auth_session_id || "";
         state.modules = runCtx.discovered_modules || [];
         state.selectedModuleIds = runCtx.selected_modules || [];
         let savedMode = null;
+        let savedExecutionRecovery = false;
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) savedMode = JSON.parse(raw).assessmentMode;
+          if (raw) {
+            const saved = JSON.parse(raw);
+            if (saved.runId === runCtx.run_id) {
+              savedMode = saved.assessmentMode;
+              savedExecutionRecovery = Boolean(saved.executionRecoveryNeeded);
+            }
+          }
         } catch (_) {}
+        const asyncExecution = runCtx.artifact_paths?.async_execution_job || {};
+        const asyncExecutionFailed = asyncExecution.status === "failed";
+        state.executionRecoveryNeeded = savedExecutionRecovery || asyncExecutionFailed;
         state.assessmentMode = runCtx.assessment_mode || savedMode || state.assessmentMode || "both";
         const firstAssessmentEl = document.getElementById("assessment-mode-first");
         const detailAssessmentEl = document.getElementById("assessment-mode");
@@ -1996,6 +2152,10 @@
             rows: runCtx.execution_results,
             summary: runCtx.execution_summary || { total: runCtx.execution_results.length, passed: 0, failed: 0 }
           };
+          // A prior successful result set must remain visible, but it cannot
+          // erase a later failed async execution that the user needs to
+          // restart after refresh.
+          if (!asyncExecutionFailed) state.executionRecoveryNeeded = false;
           unlockStep(8);
         }
 
@@ -2136,18 +2296,9 @@
       };
 
       // Interactive Checkpoint Buttons
-      document.getElementById("btn-checkpoint-continue").onclick = () => {
-        sendScanControl("continue");
-        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
-      };
-      document.getElementById("btn-checkpoint-retry").onclick = () => {
-        sendScanControl("retry");
-        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
-      };
-      document.getElementById("btn-checkpoint-end").onclick = () => {
-        sendScanControl("end");
-        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
-      };
+      document.getElementById("btn-checkpoint-continue").onclick = () => submitCheckpointDecision("continue");
+      document.getElementById("btn-checkpoint-retry").onclick = () => submitCheckpointDecision("retry");
+      document.getElementById("btn-checkpoint-end").onclick = () => submitCheckpointDecision("end");
 
       // Step 5 (Analyze)
       document.getElementById("btn-analyze-back").onclick = () => switchStep(4);
@@ -2208,6 +2359,7 @@
       document.getElementById("btn-exec-select-all").onclick = () => selectAllExecutionTests(true);
       document.getElementById("btn-exec-clear-all").onclick = () => selectAllExecutionTests(false);
       document.getElementById("btn-run-execution").onclick = openExecConfirmModal;
+      document.getElementById("btn-inline-restart-execution").onclick = restartInterruptedExecution;
       document.getElementById("btn-exec-back").onclick = () => switchStep(6);
       document.getElementById("btn-exec-proceed").onclick = () => {
         unlockStep(8);
@@ -2239,6 +2391,8 @@
       document.getElementById("btn-run-compare").onclick = handleRunCompareBaseline;
 
       document.getElementById("btn-run-regression").onclick = handleRunRegression;
+      document.getElementById("btn-report-restart-execution").onclick = restartInterruptedExecution;
+      document.getElementById("btn-report-open-execution").onclick = openReportExecution;
       document.getElementById("btn-dl-json").onclick = () => downloadArtifact("json");
       document.getElementById("btn-dl-yaml").onclick = () => downloadArtifact("yaml");
       document.getElementById("btn-dl-excel").onclick = () => downloadArtifact("excel");
@@ -2273,7 +2427,9 @@
       document.getElementById("danger-confirm-input").oninput = updateDangerConfirmState;
       document.getElementById("btn-submit-danger-confirm").onclick = confirmDangerAction;
       document.getElementById("btn-view-analysis").onclick = () => switchStep(5);
-      document.getElementById("btn-scan-retry").onclick = () => handleStartScan();
+      document.getElementById("btn-continue-analysis").onclick = () => switchStep(5);
+      document.getElementById("btn-scan-retry").onclick = () => handleStartScan({ resume: true });
+      document.getElementById("btn-scan-retry-full").onclick = handleRetryEntireScan;
       document.getElementById("btn-scan-download-log").onclick = () => downloadArtifact("log");
       document.querySelectorAll("[data-crawl-download]").forEach(btn => {
         btn.onclick = () => downloadArtifact(btn.dataset.crawlDownload);
@@ -2306,6 +2462,11 @@
         btnLive.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
         btnDemo.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-700 shadow-sm";
         if (credsBlock) credsBlock.classList.add("hidden");
+        const urlInput = document.getElementById("url-input");
+        if (urlInput && (!urlInput.value || urlInput.value.includes("saucedemo.com"))) {
+          urlInput.value = "https://example.test";
+          state.targetUrl = "https://example.test";
+        }
         if (banner) {
           banner.className = "flex items-start gap-3 p-3.5 rounded-lg text-xs bg-emerald-50/70 border border-emerald-200 text-emerald-900";
           bannerIcon.className = "fa-solid fa-flask text-emerald-600 mt-0.5";
@@ -2333,14 +2494,35 @@
 
       try {
         if (!state.isLive) {
-          // Mock mode
-          state.modules = [
-            { id: "mod_inventory", label: "Product Inventory", route: "/inventory.html", hierarchy_level: 0 },
-            { id: "mod_cart", label: "Shopping Cart", route: "/cart.html", hierarchy_level: 1 },
-            { id: "mod_checkout", label: "Checkout Flow", route: "/checkout-step-one.html", hierarchy_level: 1 }
-          ];
-          state.runId = "mock_" + Date.now();
-          state.authSessionId = "mock_auth_" + Date.now();
+          try {
+            const res = await fetch(`${API_BASE}/discover-modules`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                url,
+                mock: true,
+                username: username || "demo_user",
+                password: password || "demo_pass",
+                session_name: document.getElementById("session-name-input")?.value.trim() || "Mock Demo Session"
+              })
+            });
+            if (res.ok) {
+              const data = await res.json();
+              state.runId = data.run_id;
+              state.authSessionId = data.auth_session_id;
+              state.modules = data.modules || [];
+            } else {
+              throw new Error("Mock discovery response status " + res.status);
+            }
+          } catch (e) {
+            state.modules = [
+              { id: "mod_inventory", label: "Product Inventory", route: "/inventory.html", hierarchy_level: 0 },
+              { id: "mod_cart", label: "Shopping Cart", route: "/cart.html", hierarchy_level: 1 },
+              { id: "mod_checkout", label: "Checkout Flow", route: "/checkout-step-one.html", hierarchy_level: 1 }
+            ];
+            state.runId = "mock_" + Date.now();
+            state.authSessionId = "mock_auth_" + Date.now();
+          }
         } else {
           let res;
           try {
@@ -2411,6 +2593,13 @@
       document.getElementById("module-count-badge").textContent = `${state.modules.length} discovered`;
 
       state.modules.forEach(m => {
+        const depth = Number(m.hierarchy_level || 0);
+        const depthLabel = depth === 0 ? "Top-level" : depth === 1 ? "Nested" : "Deep";
+        const depthHelp = depth === 0
+          ? "Top-level module discovered from the application entry route"
+          : depth === 1
+            ? "Nested module reached from a top-level workflow"
+            : "Deep module reached through nested navigation";
         const label = document.createElement("label");
         label.className = "flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition";
         label.innerHTML = `
@@ -2418,7 +2607,7 @@
           <div class="flex-grow">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-800">${escapeHtml(m.label)}</span>
-              <span class="text-[10px] text-slate-400 font-mono">L${m.hierarchy_level || 0}</span>
+              <span class="text-[10px] text-slate-500 font-semibold" title="${depthHelp}">${depthLabel}</span>
             </div>
             <p class="text-[11px] font-mono text-slate-500 mt-0.5 truncate">${escapeHtml(m.route || m.source || "/")}</p>
           </div>
@@ -2534,14 +2723,42 @@
       if (src) src.textContent = state.testContextId ? "Uploaded requirements/testcases are linked to this same planning context." : "No uploaded document yet; you can attach requirements or existing testcases above.";
     }
 
-    async function handleStartScan() {
-      const resumeRunId = (state.scanStatus === "FAILED" || state.scanStatus === "PAUSED") ? state.runId : null;
+    function handleRetryEntireScan() {
+      const confirmed = window.confirm(
+        "Retry the entire scan from the beginning?\n\n" +
+        "This creates a new run and retests every selected module. The current partial run and its checkpoint remain available in Saved Runs."
+      );
+      if (!confirmed) return;
+
+      // A full retry must use a new run identity. Reusing the old ID causes
+      // the crawler to load its checkpoint and silently behave like Resume.
+      const previousRunId = state.runId;
+      state.runId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID().replaceAll("-", "")
+        : `retry_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      state.scanData = null;
+      state.lastEventSequence = 0;
+      state.terminalStateProcessed = false;
+      state.scanStatus = "IN_PROGRESS";
+      state.currentModuleName = "";
+      state.currentRoute = "";
+      updateRunUI();
+      showToast(`Starting a full retry; previous run ${previousRunId ? previousRunId.slice(0, 8) : ""} remains saved.`, "info");
+      handleStartScan({ resume: false });
+    }
+
+    async function handleStartScan(options = {}) {
+      const resumeRunId = (options.resume || ["FAILED", "PAUSED", "PARTIAL"].includes(state.scanStatus))
+        ? state.runId
+        : null;
       unlockStep(4);
       switchStep(4);
       state.terminalStateProcessed = false;
       state.scanStatus = "IN_PROGRESS";
       const retryButton = document.getElementById("btn-scan-retry");
       if (retryButton) retryButton.classList.add("hidden");
+      const retryFullButton = document.getElementById("btn-scan-retry-full");
+      if (retryFullButton) retryFullButton.classList.add("hidden");
 
       const log = document.getElementById("scan-event-log");
       log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
@@ -2573,7 +2790,7 @@
             auth_session_id: state.authSessionId || null,
             selected_module_ids: state.selectedModuleIds,
             interactive_mode: isInteractive,
-            interactive_timeout: 300
+            interactive_timeout: 900
           })
         });
 
@@ -2614,6 +2831,7 @@
 
         if (state.durationTimer) clearInterval(state.durationTimer);
         const completedNormally = terminalState.status === "scanned";
+        state.scanStatus = completedNormally ? "COMPLETED" : "PARTIAL";
         document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full ${completedNormally ? "bg-emerald-500" : "bg-amber-500"}"></span> ${completedNormally ? "Completed" : "Partial / Stopped"}`;
         document.getElementById("live-scan-status-pill").className = completedNormally
           ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
@@ -2715,6 +2933,10 @@
       if (event.elements_found !== undefined) {
         document.getElementById("live-elements-found").textContent = event.elements_found;
       }
+      if (event.manual_element_count !== undefined) {
+        const manualElementEl = document.getElementById("live-manual-elements");
+        if (manualElementEl) manualElementEl.textContent = event.manual_element_count;
+      }
       if (event.safe_actions_explored !== undefined) {
         document.getElementById("live-safe-actions").textContent = event.safe_actions_explored;
       }
@@ -2739,7 +2961,14 @@
         state.currentModuleName = event.module_name;
       }
       if (event.route_progress && event.route_progress.total) {
-        state.scanProgressPct = Math.round((event.route_progress.scanned / event.route_progress.total) * 100);
+        const routePct = Math.round((event.route_progress.scanned / event.route_progress.total) * 100);
+        const moduleProgress = event.module_progress || {};
+        const moduleTotal = Number(moduleProgress.total || 0);
+        // The route queue can be empty while selected modules remain. Never
+        // display 100% until both dimensions are complete.
+        const completedModules = Math.max(0, Number(moduleProgress.current || 1) - 1);
+        const modulePct = moduleTotal ? Math.round((completedModules / moduleTotal) * 100) : routePct;
+        state.scanProgressPct = Math.min(routePct, modulePct);
       }
       if (event.type === "scan_started") state.scanStatus = "IN_PROGRESS";
       if (event.type === "scan_paused") state.scanStatus = "PAUSED";
@@ -2761,11 +2990,31 @@
       // Checkpoint approval
       if (event.type === "module_review_started") {
         document.getElementById("interactive-checkpoint-box").classList.remove("hidden");
+        ["btn-checkpoint-continue", "btn-checkpoint-retry", "btn-checkpoint-end"].forEach(id => {
+          const button = document.getElementById(id); if (button) button.disabled = false;
+        });
         document.getElementById("checkpoint-module-label").textContent = event.module_name || "Module Complete";
+        const captureStatus = document.getElementById("checkpoint-capture-status");
+        const captureList = document.getElementById("checkpoint-capture-list");
+        if (captureStatus) captureStatus.textContent = "Manual learning is active in the target-application browser. Interact there, then continue this checkpoint.";
+        if (captureList) { captureList.classList.add("hidden"); captureList.innerHTML = ""; }
+      }
+      if (event.type === "module_review_completed") {
+        const interactions = Array.isArray(event.interactions) ? event.interactions : [];
+        const captureStatus = document.getElementById("checkpoint-capture-status");
+        const captureList = document.getElementById("checkpoint-capture-list");
+        if (captureStatus) captureStatus.textContent = interactions.length
+          ? `${interactions.length} manual interaction(s) are saved in this run's JSON, YAML, Excel element map, and checkpoint. ${event.decision === "continue" ? "Starting the next module now." : "Decision saved."}`
+          : `No manual interactions were recorded for this checkpoint; automatic scan evidence was preserved. ${event.decision === "continue" ? "Starting the next module now." : "Decision saved."}`;
+        if (captureList && interactions.length) {
+          captureList.innerHTML = interactions.map(item => `<div class="border-b border-blue-50 px-2 py-1.5"><strong>${escapeHtml(item.type || "interaction")}</strong> · ${escapeHtml(item.label || item.selector || "target")}<br><span class="font-mono text-[10px] text-slate-500">${escapeHtml(item.page_url || "")} · ${escapeHtml(item.selector || "")} · ${escapeHtml(item.xpath || "")}</span></div>`).join("");
+          captureList.classList.remove("hidden");
+        }
       }
 
       const isTerminalEvent = event.type === "scan_completed" || event.type === "scan_stopped" || event.type === "scan_budget_exceeded" || event.type === "scan_failed";
       if (isTerminalEvent) {
+        document.getElementById("interactive-checkpoint-box").classList.add("hidden");
         state.terminalStateProcessed = true;
         if (state.durationTimer) clearInterval(state.durationTimer);
         closeTelemetryStream();
@@ -2811,6 +3060,7 @@
           body: JSON.stringify({ run_id: state.runId, action })
         });
         const data = await readApiResponse(res, "Scan control");
+        if (!res.ok) throw new Error(formatApiError(data, "Scan control failed"));
         if (action === "pause") {
           state.isPaused = true;
           document.getElementById("btn-scan-pause").classList.add("hidden");
@@ -2832,8 +3082,29 @@
             stoppingPill.className = "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
           }
         }
+        return data;
       } catch (err) {
         showActionableError("Scan Control", state.runId, "CONTROL_SIGNAL_FAILED", err.message, "Verify active scan status.");
+        throw err;
+      }
+    }
+
+    async function submitCheckpointDecision(action) {
+      const labels = {
+        continue: "Decision saved — automatic scanning is moving to the next selected module…",
+        retry: "Decision saved — the current module is being scanned again…",
+        end: "Decision saved — the crawl is stopping and exporting the captured evidence…",
+      };
+      const status = document.getElementById("checkpoint-capture-status");
+      const buttons = ["btn-checkpoint-continue", "btn-checkpoint-retry", "btn-checkpoint-end"]
+        .map(id => document.getElementById(id)).filter(Boolean);
+      buttons.forEach(button => button.disabled = true);
+      if (status) status.textContent = labels[action] || "Saving checkpoint decision…";
+      try {
+        await sendScanControl(action);
+      } catch (_) {
+        buttons.forEach(button => button.disabled = false);
+        if (status) status.textContent = "The decision was not accepted. Check the error message and try again.";
       }
     }
 
@@ -3085,6 +3356,7 @@
         }
 
         const generationPayload = {
+          mock: !state.isLive,
           base_url: state.targetUrl,
           scan: state.scanData,
           provider,
@@ -3102,10 +3374,22 @@
         );
 
         state.generatedPlan = data;
+        // A newly generated plan is a new execution contract.  Carrying the
+        // previous run's checked IDs forward silently executes only the cases
+        // whose IDs happen to overlap (for example six old base cases out of
+        // a newly generated ten-case plan).  Start with every new case
+        // selected and remove stale execution evidence from the prior run.
+        state.selectedExecutionTestIds = (data.test_cases || [])
+          .map(testCase => testCase.tc_id)
+          .filter(Boolean);
+        state.executionResults = null;
+        state.executionRecoveryNeeded = false;
+        renderExecutionResults([]);
         const meta = data.planning_metadata || {};
         document.getElementById("planning-context-status").textContent = `Attached: scan (${meta.scan_routes || 0} routes, ${meta.scan_targets || 0} targets)${(meta.uploaded_sources || []).length ? " + " + meta.uploaded_sources.join(", ") : ""}`;
         document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
         renderPlanCases(data.test_cases || []);
+        renderPlanShortfall(data.shortfall_explanation || meta.shortfall_explanation || null);
 
         // Grounding status & fallback warnings
         const isFallback = data.fallback_used || false;
@@ -3134,6 +3418,29 @@
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
       }
+    }
+
+    function renderPlanShortfall(shortfall) {
+      const notice = document.getElementById("plan-shortfall-notice");
+      const reason = document.getElementById("plan-shortfall-reason");
+      const evidence = document.getElementById("plan-shortfall-evidence");
+      if (!notice || !reason || !evidence) return;
+
+      if (!shortfall || !Number.isFinite(Number(shortfall.shortfall)) || Number(shortfall.shortfall) <= 0) {
+        notice.classList.add("hidden");
+        reason.textContent = "";
+        evidence.textContent = "";
+        return;
+      }
+
+      const requested = Number(shortfall.requested_count || 0);
+      const generated = Number(shortfall.generated_count || 0);
+      reason.textContent = shortfall.reason || `Requested ${requested} test cases; generated ${generated} grounded cases.`;
+      const routes = Array.isArray(shortfall.available_routes) ? shortfall.available_routes.filter(Boolean) : [];
+      evidence.textContent = routes.length
+        ? `Evidence considered: ${routes.join("; ")}`
+        : "The planner did not invent extra tests without verified UI evidence.";
+      notice.classList.remove("hidden");
     }
 
     function renderPlanCases(testCases) {
@@ -3226,6 +3533,7 @@
           `${API_BASE}/execute-test/start`,
           `${API_BASE}/execute-test/status`,
           {
+            mock: !state.isLive,
             base_url: state.targetUrl,
             scan: state.scanData,
             script: state.generatedPlan.script,
@@ -3238,10 +3546,13 @@
         );
 
         state.executionResults = data;
+        state.executionRecoveryNeeded = false;
         renderExecutionResults(data.rows || []);
         showToast("Execution saved to this session. Use Report → Excel for scan + execution results, or Save as Baseline for regression.", "success");
         unlockStep(8);
       } catch (err) {
+        state.executionRecoveryNeeded = true;
+        saveActiveState();
         showActionableError("Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect browser network connectivity or refresh authentication session.");
       } finally {
         btn.disabled = false;
@@ -3329,6 +3640,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            mock: !state.isLive,
             base_url: state.targetUrl,
             test_case: tc,
             step_id: stepId,
@@ -3350,6 +3662,17 @@
     }
 
     function renderReportView() {
+      const recoveryCard = document.getElementById("execution-recovery-card");
+      if (recoveryCard) {
+        recoveryCard.classList.toggle("hidden", !state.executionRecoveryNeeded || !state.generatedPlan);
+      }
+      const hasExecution = Array.isArray(state.executionResults?.rows) && state.executionResults.rows.length > 0;
+      const executionCta = document.getElementById("report-execution-cta");
+      if (executionCta) {
+        executionCta.classList.toggle("hidden", !state.generatedPlan || hasExecution || state.executionRecoveryNeeded);
+      }
+      renderReportLifecycleSummary(hasExecution);
+      refreshReportArtifactStatus();
       const metricsContainer = document.getElementById("report-metric-cards");
       metricsContainer.innerHTML = "";
 
@@ -3363,7 +3686,9 @@
         { title: "Total Routes Scanned", val: counts.total, sub: `${counts.working} Working | ${counts.partial} Partial | ${counts.nonWorking} Non-Working`, color: "text-blue-600" },
         { title: "Elements Mapped", val: totalDiscoveredTargets(routes, scanSummary), sub: "Complete crawler evidence across targeted modules", color: "text-purple-600" },
         { title: "Generated Test Cases", val: (state.generatedPlan?.test_cases || []).length, sub: "100% Grounded against UI scan", color: "text-indigo-600" },
-        { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
+        hasExecution
+          ? { title: "Execution Status", val: `${execSummary.passed || 0} Passed`, sub: `${execSummary.failed || 0} Failed | ${execSummary.skipped || 0} Skipped`, color: "text-emerald-600" }
+          : { title: "Execution Status", val: "Not run", sub: state.generatedPlan?.test_cases?.length ? "Go to Execution to create result evidence" : "Generate a test plan first", color: "text-amber-600" }
       ];
 
       cards.forEach(c => {
@@ -3453,16 +3778,86 @@
       `;
     }
 
+    function renderReportLifecycleSummary(hasExecution) {
+      const summary = document.getElementById("report-lifecycle-summary");
+      if (!summary) return;
+      const scanState = state.scanData ? "Scan evidence saved" : "No completed scan evidence";
+      const planState = state.generatedPlan?.test_cases?.length
+        ? `${state.generatedPlan.test_cases.length} generated test cases saved`
+        : "No generated test plan";
+      const executionState = hasExecution ? "Execution evidence saved" : "Execution not yet recorded";
+      summary.innerHTML = `<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+        <p><strong>Run lifecycle:</strong> ${scanState} → ${planState} → ${executionState}.</p>
+        <p class="text-slate-500"><strong>Checkpoint:</strong> a redacted crawl-resume snapshot belongs to this Saved Run; download it here or resume it from Saved Runs.</p>
+      </div>`;
+    }
+
+    async function refreshReportArtifactStatus() {
+      if (!state.runId) return;
+      const buttonMap = {
+        json: "btn-dl-json", yaml: "btn-dl-yaml", excel: "btn-dl-excel", markdown: "btn-dl-markdown",
+        execution_results: "btn-dl-execution", source_excel: "btn-dl-source-excel",
+        checkpoint: "btn-dl-checkpoint", screenshots: "btn-dl-screenshots"
+      };
+      try {
+        const res = await fetch(`${API_BASE}/reports/${encodeURIComponent(state.runId)}/status`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        Object.entries(buttonMap).forEach(([artifact, buttonId]) => {
+          const button = document.getElementById(buttonId);
+          if (!button) return;
+          const available = Boolean(data.artifacts?.[artifact]);
+          button.disabled = !available;
+          button.classList.toggle("opacity-40", !available);
+          button.classList.toggle("cursor-not-allowed", !available);
+          button.title = available ? `Download ${artifact.replace(/_/g, " ")}` : "Not available for this run yet.";
+          button.setAttribute("aria-disabled", String(!available));
+        });
+      } catch (_) {
+        // Existing download handlers still provide the server's actionable error.
+      }
+    }
+
+    function openReportExecution() {
+      if (!state.generatedPlan?.test_cases?.length) {
+        showToast("Generate a test plan before execution.", "warning");
+        return;
+      }
+      unlockStep(7);
+      switchStep(7);
+      renderExecutionSelectionTable();
+    }
+
+    function restartInterruptedExecution() {
+      if (!state.generatedPlan?.test_cases?.length) {
+        showToast("The test plan is unavailable. Regenerate it before execution.", "warning");
+        return;
+      }
+      if (!state.authSessionId) {
+        showToast("Refresh the authentication session before restarting execution.", "warning");
+        triggerSessionExpired();
+        return;
+      }
+      unlockStep(7);
+      switchStep(7);
+      renderExecutionSelectionTable();
+      if (!state.selectedExecutionTestIds?.length) {
+        selectAllExecutionTests(true);
+      }
+      openExecConfirmModal();
+    }
+
     async function handleRunRegression() {
       const btn = document.getElementById("btn-run-regression");
       btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Replaying Baseline...`;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Re-running Latest Plan...`;
 
       try {
         const res = await fetch(`${API_BASE}/regression-run`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            mock: !state.isLive,
             base_url: state.targetUrl,
             run_id: state.runId
           })
@@ -3478,11 +3873,16 @@
 
         state.regressionResults = data;
         renderRegressionDiff(data.diff || {});
+        // The server persists the replay as the newest execution evidence.
+        // Rehydrate before rendering the report so its metrics and downloads
+        // cannot remain stale after a successful replay.
+        await restoreActiveRunState(state.runId, 8);
+        showToast("Latest execution replay completed and report evidence was refreshed.", "success");
       } catch (err) {
         showActionableError("Regression Replay", state.runId, "REGRESSION_FAILED", err.message, "Inspect baseline test cases.");
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Run Regression Replay`;
+        btn.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> Re-run Latest Execution`;
       }
     }
 
@@ -3531,6 +3931,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             run_id: state.runId,
+            mock: !state.isLive,
             url: state.targetUrl,
             username,
             password
@@ -3546,11 +3947,31 @@
         document.getElementById("nav-session-badge").classList.remove("hidden");
         closeRefreshModal();
         refreshSucceeded = true;
+        if (state.executionRecoveryNeeded) {
+          saveActiveState();
+          // Do not silently execute again after authentication changes. Return
+          // to the actual recovery control with the user's selected cases
+          // intact, so they can explicitly confirm the restart.
+          unlockStep(7);
+          switchStep(7);
+          renderExecutionSelectionTable();
+        }
+        const pendingResumeRunId = state.pendingCrawlResumeRunId;
+        state.pendingCrawlResumeRunId = "";
+        if (pendingResumeRunId) {
+          await handleResumeSavedRun(pendingResumeRunId, true);
+          return;
+        }
         // Credentials are only needed for this request; never retain them in
         // the refresh form after a successful re-authentication.
         document.getElementById("refresh-password").value = "";
         try {
-          window.showToast("Session refreshed successfully. You can now continue.", "success");
+          window.showToast(
+            state.executionRecoveryNeeded
+              ? "Session refreshed. Use Restart Execution to rerun the interrupted selected tests."
+              : "Session refreshed successfully. You can now continue.",
+            "success"
+          );
         } catch (_) {
           // A notification must never change a successful refresh into an
           // AUTH_REFRESH_FAILED result.
@@ -3588,13 +4009,17 @@
         "PROVIDER_FALLBACK"
       ]);
 
-      if (!knownCategories.has(displayCategory)) {
-        const combined = (displayMessage + " " + displayCategory).toLowerCase();
-        if (combined.includes("401") || combined.includes("auth expired") || combined.includes("session expired")) {
-          displayCategory = "AUTHENTICATION_EXPIRED";
-          displayMessage = displayMessage || "Your authentication session has expired or the session cookies are no longer valid.";
-          displaySuggestion = displaySuggestion || "Click 'Refresh Session' to renew without restarting.";
-        } else if (combined.includes("422") || combined.includes("login fail") || combined.includes("credentials")) {
+      const combined = (displayMessage + " " + displayCategory).toLowerCase();
+      // Authentication expiry must take precedence over a generic wrapper
+      // category such as EXECUTION_INTERRUPTED. Otherwise the UI hides the
+      // only useful recovery action and incorrectly recommends connectivity
+      // investigation.
+      if (combined.includes("401") || combined.includes("authentication expired") || combined.includes("auth expired") || combined.includes("session expired")) {
+        displayCategory = "AUTHENTICATION_EXPIRED";
+        displayMessage = displayMessage || "Your authentication session has expired or the session cookies are no longer valid.";
+        displaySuggestion = "Click 'Refresh Session' to preserve this run and then restart the selected tests.";
+      } else if (!knownCategories.has(displayCategory)) {
+        if (combined.includes("422") || combined.includes("login fail") || combined.includes("credentials")) {
           displayCategory = "LOGIN_FAILED";
           displaySuggestion = displaySuggestion || "Verify username and password and try again.";
         } else if (combined.includes("failed to fetch") || combined.includes("networkerror") || combined.includes("connection refused") || combined.includes("backend unavailable") || combined.includes("502") || combined.includes("bad gateway") || combined.includes("localtunnel")) {
@@ -3726,6 +4151,12 @@
       state.testContextId = "";
       state.executionResults = null;
       state.regressionResults = null;
+      state.selectedExecutionTestIds = [];
+      state.currentExecutionFilter = "all";
+      state.currentTagFilter = "";
+      state.currentModuleFilter = "";
+      state.executionRecoveryNeeded = false;
+      state.pendingCrawlResumeRunId = "";
       state.currentModuleName = "";
       state.currentRoute = "";
       state.scanStatus = "IDLE";
@@ -3761,6 +4192,17 @@
       const detailAssessmentMode = document.getElementById("assessment-mode");
       if (firstAssessmentMode) firstAssessmentMode.value = "both";
       if (detailAssessmentMode) detailAssessmentMode.value = "both";
+
+      const sessionNameInput = document.getElementById("session-name-input");
+      if (sessionNameInput) sessionNameInput.value = "";
+      const usernameInput = document.getElementById("username-input");
+      if (usernameInput) usernameInput.value = "";
+      const passwordInput = document.getElementById("password-input");
+      if (passwordInput) passwordInput.value = "";
+      const interactiveInput = document.getElementById("interactive-input");
+      if (interactiveInput) interactiveInput.checked = false;
+      const urlInput = document.getElementById("url-input");
+      if (urlInput && state.isLive) urlInput.value = "";
 
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
       updateActiveRunBar();
@@ -3845,9 +4287,13 @@
           body: JSON.stringify({ run_id: state.runId })
         });
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || data.message || "Checkpoint save failed.");
+        }
+        const version = Number(data.checkpoint_version || 0);
         const ts = document.getElementById("autosave-timestamp");
-        if (ts) ts.textContent = `Last checkpoint: ${new Date().toLocaleTimeString()}`;
-        showToast(`Progress for run ${state.runId.substring(0, 8)} saved successfully.`, "success");
+        if (ts) ts.textContent = `Checkpoint v${version || "?"}: ${new Date().toLocaleTimeString()}`;
+        showToast(`Checkpoint v${version || "?"} saved. Saved Runs can resume this crawl from its latest checkpoint.`, "success");
       } catch (err) {
         showActionableError("Save Progress", state.runId, "SAVE_FAILED", err.message, "Retry save progress.");
       }
@@ -3862,7 +4308,8 @@
             await fetch(`${API_BASE}/runs/${encodeURIComponent(state.runId)}/discard`, { method: "POST" });
           } catch (_) {}
           resetRun();
-        }
+        },
+        "DISCARD"
       );
     }
 
@@ -3872,6 +4319,8 @@
 
     async function loadSavedRuns() {
       const body = document.getElementById("saved-runs-table-body");
+      const badge = document.getElementById("saved-runs-count-badge");
+      if (badge) badge.textContent = "Loading…";
       body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-slate-500 py-6"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading saved runs...</td></tr>`;
       try {
         const res = await fetch(`${API_BASE}/runs`);
@@ -3880,6 +4329,7 @@
         state.allSavedRuns = runs || [];
         filterSavedRuns();
       } catch (err) {
+        if (badge) badge.textContent = "Unavailable";
         body.innerHTML = `<tr><td colspan="9" class="table-cell text-center text-rose-500 py-6">Failed to load saved runs: ${escapeHtml(err.message)}</td></tr>`;
       }
     }
@@ -3910,13 +4360,14 @@
       runs.forEach(r => {
         const tr = document.createElement("tr");
         const isPaused = r.status === "paused";
-        const canResume = isPaused || r.status === "scanning" || r.status === "waiting_approval";
+        const canResume = isPaused || ["scanning", "waiting_approval", "partial_scanned", "failed"].includes(r.status);
         const pct = Math.round(r.progress_percentage || 0);
 
         const statusBadge =
           r.status === "executed" ? "bg-emerald-100 text-emerald-800" :
           r.status === "completed" ? "bg-blue-100 text-blue-800" :
-          r.status === "paused" ? "bg-amber-100 text-amber-800" :
+          r.status === "paused" || r.status === "partial_scanned" ? "bg-amber-100 text-amber-800" :
+          r.status === "failed" ? "bg-rose-100 text-rose-800" :
           r.status === "discarded" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-700";
 
         const execSum = r.execution_summary || {};
@@ -3950,7 +4401,7 @@
             <div class="flex items-center justify-center gap-1 flex-wrap">
               ${canResume ? `
                 <button class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-semibold" onclick="handleResumeSavedRun('${escapeHtml(r.run_id)}')">
-                  <i class="fa-solid fa-play mr-0.5"></i> Resume
+                  <i class="fa-solid fa-play mr-0.5"></i> Resume Crawl
                 </button>
               ` : ""}
               <button class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded text-[10px] font-semibold" onclick="openSavedRun('${escapeHtml(r.run_id)}', 5)">
@@ -3958,6 +4409,9 @@
               </button>
               <button class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2 py-1 rounded text-[10px] font-semibold" onclick="openSavedRun('${escapeHtml(r.run_id)}', 7)">
                 Execute
+              </button>
+              <button class="bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 px-2 py-1 rounded text-[10px] font-semibold" onclick="openSavedRun('${escapeHtml(r.run_id)}', 8)" title="View Artifact Manifest">
+                Manifest
               </button>
               <button class="text-slate-400 hover:text-slate-700 p-1" title="Duplicate" onclick="handleDuplicateRun('${escapeHtml(r.run_id)}')">
                 <i class="fa-solid fa-copy"></i>
@@ -3980,8 +4434,12 @@
       await restoreActiveRunState(runId, step);
     }
 
-    async function handleResumeSavedRun(runId) {
+    async function handleResumeSavedRun(runId, alreadyRestored = false) {
       try {
+        if (!alreadyRestored) {
+          switchView("workflow");
+          await restoreActiveRunState(runId, 4);
+        }
         const res = await fetch(`${API_BASE}/runs/${encodeURIComponent(runId)}/resume`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3990,11 +4448,15 @@
         const data = await res.json();
         if (data.status === "auth_required") {
           state.runId = runId;
+          state.pendingCrawlResumeRunId = runId;
+          triggerSessionExpired();
           openRefreshModal();
           return;
         }
+        if (!res.ok) throw new Error(formatApiError(data, "Resume run failed"));
         switchView("workflow");
         await restoreActiveRunState(runId, 4);
+        showToast(data.status === "already_running" ? "Reconnected to the active crawl." : "Crawl resumed from its latest saved checkpoint.", "success");
       } catch (err) {
         showActionableError("Resume Run", runId, "RESUME_FAILED", err.message, "Inspect run state and checkpoint.");
       }
@@ -4157,7 +4619,7 @@
           await fetch(`${API_BASE}/regression/suites`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, base_url, environment, description, baseline_run_id, filter_tags: tags })
+            body: JSON.stringify({ name, mock: !state.isLive, base_url, environment, description, baseline_run_id, filter_tags: tags })
           });
         }
         closeSuiteModal();
@@ -4217,10 +4679,34 @@
     // Selectable Execution Scope & Confirmation Functions
     // =========================================================================
 
+    // Execution rows are persisted independently from the generated plan.  Do
+    // not rely only on a planner-time `latest_result`: after a Saved Run is
+    // reopened, that value is absent even though step evidence is available.
+    // Summarise the current persisted rows for each case so the selection
+    // table, filters, and report all describe the same execution truth.
+    function executionStatusByTestCase(rows = state.executionResults?.rows || []) {
+      const grouped = new Map();
+      rows.forEach(row => {
+        const id = row?.TC_ID;
+        if (!id) return;
+        if (!grouped.has(id)) grouped.set(id, []);
+        grouped.get(id).push(String(row.Status || "").toLowerCase());
+      });
+
+      const statuses = new Map();
+      grouped.forEach((values, id) => {
+        if (values.some(value => value === "fail")) statuses.set(id, "Fail");
+        else if (values.some(value => value === "skip" || value === "skipped")) statuses.set(id, "Skip");
+        else if (values.length && values.every(value => value === "pass")) statuses.set(id, "Pass");
+      });
+      return statuses;
+    }
+
     function renderExecutionSelectionTable(customCases) {
       const cases = customCases || state.generatedPlan?.test_cases || [];
       const body = document.getElementById("exec-selection-table-body");
       const moduleSelect = document.getElementById("select-filter-module");
+      const resultByCase = executionStatusByTestCase();
       if (!body) return;
       body.innerHTML = "";
 
@@ -4237,10 +4723,11 @@
       }
 
       let filtered = cases.filter(c => {
+        const latestResult = resultByCase.get(c.tc_id) || c.latest_result || "";
         if (state.currentModuleFilter && (c.module || "General") !== state.currentModuleFilter) return false;
         if (state.currentTagFilter && !(c.tags || []).includes(state.currentTagFilter)) return false;
-        if (state.currentExecutionFilter === "failed" && c.latest_result !== "Fail") return false;
-        if (state.currentExecutionFilter === "never" && c.latest_result) return false;
+        if (state.currentExecutionFilter === "failed" && latestResult !== "Fail") return false;
+        if (state.currentExecutionFilter === "never" && latestResult) return false;
         if (state.currentExecutionFilter === "review" && c.safety_classification !== "parking_lot") return false;
         return true;
       });
@@ -4254,8 +4741,10 @@
       filtered.forEach(tc => {
         const tr = document.createElement("tr");
         const isChecked = state.selectedExecutionTestIds.length === 0 || state.selectedExecutionTestIds.includes(tc.tc_id);
-        const resBadge = tc.latest_result === "Pass" ? "bg-emerald-100 text-emerald-800" :
-                         tc.latest_result === "Fail" ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-500";
+        const latestResult = resultByCase.get(tc.tc_id) || tc.latest_result || "";
+        const resBadge = latestResult === "Pass" ? "bg-emerald-100 text-emerald-800" :
+                         latestResult === "Fail" ? "bg-rose-100 text-rose-800" :
+                         latestResult === "Skip" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-500";
         tr.innerHTML = `
           <td class="table-cell text-center">
             <label class="inline-flex items-center justify-center cursor-pointer"><input type="checkbox" id="exec-cb-${escapeHtml(tc.tc_id)}" value="${escapeHtml(tc.tc_id)}" ${isChecked ? "checked" : ""} class="exec-case-cb h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedTestsCounter()" aria-label="Select test case ${escapeHtml(tc.tc_id)}" /><span class="sr-only">Select test case ${escapeHtml(tc.tc_id)}</span></label>
@@ -4268,12 +4757,39 @@
             <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-100 text-slate-600">${escapeHtml((tc.tags || ["regression"]).join(", "))}</span>
           </td>
           <td class="table-cell text-center font-mono">${(tc.steps || []).length}</td>
-          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${resBadge}">${escapeHtml(tc.latest_result || "Never")}</span></td>
+          <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${resBadge}">${escapeHtml(latestResult || "Never")}</span></td>
         `;
         body.appendChild(tr);
       });
 
       updateSelectedTestsCounter();
+      renderExecutionRecoveryBanner();
+    }
+
+    function renderExecutionRecoveryBanner() {
+      const banner = document.getElementById("execution-recovery-inline");
+      const copy = document.getElementById("execution-recovery-inline-copy");
+      const restart = document.getElementById("btn-inline-restart-execution");
+      if (!banner) return;
+      const selected = state.selectedExecutionTestIds || [];
+      // Once the user explicitly starts the retry, the old interruption
+      // notice must disappear. Keeping it visible during an active execution
+      // incorrectly suggests that the new run has already failed.
+      const showRecovery = state.executionRecoveryNeeded && !state.isExecuting;
+      banner.classList.toggle("hidden", !showRecovery);
+      if (!showRecovery) return;
+      const count = selected.length;
+      if (copy) {
+        copy.textContent = count
+          ? `${count} selected test${count === 1 ? "" : "s"} were not completed. Refresh authentication if required, then explicitly restart them from a clean browser state.`
+          : "Refresh authentication if required, choose the cases to retry, then explicitly restart them from a clean browser state.";
+      }
+      if (restart) {
+        restart.disabled = count === 0;
+        restart.classList.toggle("opacity-50", count === 0);
+        restart.classList.toggle("cursor-not-allowed", count === 0);
+        restart.innerHTML = `<i class="fa-solid fa-play mr-1"></i> Restart ${count || "Selected"} Test${count === 1 ? "" : "s"}`;
+      }
     }
 
     function setExecutionFilter(type) {
@@ -4303,10 +4819,22 @@
         }
       });
 
-      const badgeText = document.getElementById("exec-selection-text");
-      if (badgeText) {
-        badgeText.textContent = `Execute ${checked.length} tests / ${stepCount} steps?`;
+      const selectionText = document.getElementById("exec-selection-text");
+      const executeButton = document.getElementById("btn-run-execution");
+      if (selectionText) selectionText.textContent = checked.length
+        ? `${checked.length} selected test${checked.length === 1 ? "" : "s"} · ${stepCount} steps`
+        : "Select one or more tests to execute.";
+      if (executeButton && !state.isExecuting) {
+        executeButton.disabled = checked.length === 0;
+        executeButton.classList.toggle("opacity-50", checked.length === 0);
+        executeButton.classList.toggle("cursor-not-allowed", checked.length === 0);
+        executeButton.title = checked.length ? "Execute selected tests" : "Select at least one test case above.";
+        const executeLabel = checked.length
+          ? `Execute ${checked.length} Selected Test${checked.length === 1 ? "" : "s"} (${stepCount} steps)`
+          : "Execute Selected Tests";
+        executeButton.innerHTML = `<i class="fa-solid fa-play"></i> ${executeLabel}`;
       }
+      renderExecutionRecoveryBanner();
     }
 
     function openExecConfirmModal() {
@@ -4342,6 +4870,8 @@
     async function handleConfirmAndExecute() {
       closeExecConfirmModal();
       const btn = document.getElementById("btn-run-execution");
+      state.isExecuting = true;
+      renderExecutionRecoveryBanner();
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Selected (${state.selectedExecutionTestIds.length})...`;
 
@@ -4351,6 +4881,7 @@
           `${API_BASE}/regression/execute-selected/status`,
           {
             run_id: state.runId,
+            mock: !state.isLive,
             base_url: state.targetUrl,
             selected_test_case_ids: state.selectedExecutionTestIds,
             confirmed: true,
@@ -4364,14 +4895,27 @@
         );
 
         state.executionResults = data;
+        state.executionRecoveryNeeded = false;
         renderExecutionResults(data.rows || []);
         showToast("Selected execution saved. The regression suite can reuse these results.", "success");
         unlockStep(8);
       } catch (err) {
-        showActionableError("Selective Execution", state.runId, "EXECUTION_INTERRUPTED", err.message, "Inspect target connectivity.");
+        state.executionRecoveryNeeded = true;
+        saveActiveState();
+        const message = String(err?.message || err || "Execution was interrupted.");
+        const authExpired = /(?:authentication|auth|session)\s+expired|\b401\b/i.test(message);
+        showActionableError(
+          "Selective Execution",
+          state.runId,
+          authExpired ? "AUTHENTICATION_EXPIRED" : "EXECUTION_INTERRUPTED",
+          message,
+          authExpired
+            ? "Click 'Refresh Session' to preserve this run and then restart the selected tests."
+            : "Inspect target connectivity, then use Restart Selected Tests."
+        );
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-play"></i> Execute Selected Tests`;
+        state.isExecuting = false;
+        updateSelectedTestsCounter();
       }
     }
 
@@ -4528,9 +5072,11 @@
       });
     }
 
-    function openDangerConfirm(message, action) {
+    function openDangerConfirm(message, action, token = "DELETE") {
       pendingDangerAction = action;
+      pendingDangerToken = token;
       document.getElementById("danger-confirm-message").textContent = message;
+      document.getElementById("danger-confirm-token").textContent = token;
       const input = document.getElementById("danger-confirm-input");
       input.value = "";
       document.getElementById("danger-confirm-modal").classList.remove("hidden");
@@ -4541,7 +5087,7 @@
     function updateDangerConfirmState() {
       const input = document.getElementById("danger-confirm-input");
       const btn = document.getElementById("btn-submit-danger-confirm");
-      const valid = input.value.trim().toUpperCase() === "DELETE";
+      const valid = input.value.trim().toUpperCase() === pendingDangerToken;
       btn.disabled = !valid;
       btn.className = valid
         ? "bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs px-5 py-2 rounded-lg shadow-sm"
@@ -4552,12 +5098,13 @@
       document.getElementById("danger-confirm-modal").classList.add("hidden");
       document.getElementById("danger-confirm-input").value = "";
       pendingDangerAction = null;
+      pendingDangerToken = "DELETE";
       updateDangerConfirmState();
     }
 
     async function confirmDangerAction() {
       const action = pendingDangerAction;
-      if (document.getElementById("danger-confirm-input").value.trim().toUpperCase() !== "DELETE" || !action) return;
+      if (document.getElementById("danger-confirm-input").value.trim().toUpperCase() !== pendingDangerToken || !action) return;
       closeDangerConfirm();
       await action();
     }
@@ -4641,7 +5188,7 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
-  <script src="/ui/js/security_review.js?v=assessment-mode-sync-2"></script>
+  <script src="/ui/js/security_review.js?v=security-authorization-gate-3"></script>
   <!-- Floating Toast Notifications -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 

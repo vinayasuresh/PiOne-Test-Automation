@@ -26,12 +26,14 @@ from __future__ import annotations
 import io
 import json
 import os
+import socket
 from pathlib import Path
 import pytest
 import httpx
+from pydantic import ValidationError
 
 from api.main import app, MAX_REQUEST_BODY_SIZE
-from api.models.scan_models import ScanRequest
+from api.models.scan_models import RegressionRunRequest, RouteReplayRequest, ScanRequest
 from api.services.llm_provider_gateway import (
     MAX_RESPONSE_BYTES,
     ProviderResponseSizeError,
@@ -53,6 +55,29 @@ from automation_framework.config.settings import REPORT_PATH
 from automation_framework.crawler.url_filter import AppBoundaryGuard, is_within_app_path
 from automation_framework.utils.logger import logger
 from automation_framework.utils.redactor import redact_sensitive_data, redact_text
+
+
+def test_mock_dns_bypass_requires_explicit_request_flag(monkeypatch):
+    """Synthetic-looking hosts never bypass SSRF/DNS checks by themselves."""
+    def unresolved(*_args, **_kwargs):
+        raise socket.gaierror("test DNS resolution must not be skipped")
+
+    monkeypatch.setattr("api.utils.security_guard.socket.getaddrinfo", unresolved)
+
+    for factory, kwargs in (
+        (ScanRequest, {"url": "https://untrusted.test", "mock": False}),
+        (RouteReplayRequest, {
+            "base_url": "https://untrusted.test",
+            "route": "/",
+            "checkpoint_id": "checkpoint_001",
+            "mock": False,
+        }),
+        (RegressionRunRequest, {"base_url": "https://untrusted.test", "mock": False}),
+    ):
+        with pytest.raises(ValidationError):
+            factory(**kwargs)
+
+    assert ScanRequest(url="https://example.test", mock=True).url == "https://example.test"
 
 
 # ---------------------------------------------------------------------------
@@ -135,8 +160,15 @@ def test_ssrf_metadata_endpoint_rejection():
 # ---------------------------------------------------------------------------
 # 5. Unsafe Redirect Rejection
 # ---------------------------------------------------------------------------
-def test_unsafe_redirect_rejection():
+def test_unsafe_redirect_rejection(monkeypatch):
     """Verify that redirects outside origin, to private targets, or changing schemes are rejected."""
+    # Keep the test deterministic even when the runner has no external DNS.
+    def public_example_dns(host, *_args, **_kwargs):
+        if host == "example.com":
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 0))]
+        raise socket.gaierror("unexpected hostname")
+
+    monkeypatch.setattr("api.utils.security_guard.socket.getaddrinfo", public_example_dns)
     base = "https://example.com/portal"
 
     # Cross-domain

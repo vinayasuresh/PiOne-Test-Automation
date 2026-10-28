@@ -17,19 +17,24 @@ from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 
-def normalize_route_url(url: str) -> str:
-    """Normalize URLs by stripping fragments, query parameters, and trailing slashes."""
+def normalize_route_url(url: str, preserve_query: bool = True, preserve_fragment: bool = True) -> str:
+    """Normalize URLs by stripping trailing slashes while preserving canonical query params and hash routes."""
     if not url:
         return ""
     parsed = urlparse(url)
-    normalized_path = parsed.path.rstrip("/") or "/"
+    if preserve_fragment and parsed.fragment.startswith("/") and parsed.path.endswith("/"):
+        normalized_path = parsed.path
+    else:
+        normalized_path = parsed.path.rstrip("/") or "/"
+    query = parsed.query if preserve_query else ""
+    fragment = parsed.fragment if preserve_fragment else ""
     return urlunparse((
         parsed.scheme.lower(),
         parsed.netloc.lower(),
         normalized_path,
         "",
-        "",
-        "",
+        query,
+        fragment,
     ))
 
 
@@ -173,6 +178,16 @@ class RouteGraph:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> RouteGraph:
         graph = cls()
+        if not isinstance(data, dict):
+            return graph
         for route, node_dict in data.items():
-            graph.nodes[route] = RouteNode.from_dict(node_dict)
+            # Older checkpoints may contain an individual redacted or malformed
+            # entry.  Preserve all valid routes rather than discarding the whole
+            # checkpoint and silently restarting the crawl from scratch.
+            if not isinstance(route, str) or not isinstance(node_dict, dict):
+                continue
+            try:
+                graph.nodes[normalize_route_url(route)] = RouteNode.from_dict(node_dict)
+            except (TypeError, ValueError):
+                continue
         return graph

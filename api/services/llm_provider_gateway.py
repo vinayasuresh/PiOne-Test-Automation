@@ -19,6 +19,7 @@ import re
 import socket
 import time
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
@@ -628,6 +629,167 @@ class BaseLLMAdapter(ABC):
 # Provider Adapters
 # ---------------------------------------------------------------------------
 
+def _expand_grounded_cases_to_requested_count(
+    cases: list[dict[str, Any]], requested_count: int, scan_context: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    """Create focused cases from existing grounded steps without inventing UI.
+
+    The original deterministic plan intentionally creates a route-level smoke
+    case first.  When a user asks for more cases than routes, split real safe
+    interactions already present in those cases into independently executable
+    focused checks.  Every copied selector, route, and action is therefore
+    still backed by the scan and passes the same grounding validation.
+    """
+    expanded = [deepcopy(case) for case in cases if isinstance(case, dict)]
+    if requested_count <= len(expanded):
+        return expanded, 0
+
+    existing_ids = {str(case.get("tc_id") or "") for case in expanded}
+    seen_focuses: set[tuple[str, str, str, str]] = set()
+    candidates: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]] = []
+
+    for base in expanded:
+        steps = [step for step in base.get("steps", []) if isinstance(step, dict)]
+        navigation = next((step for step in steps if step.get("action") == "navigate"), None)
+        for index, step in enumerate(steps):
+            action = str(step.get("action") or "")
+            if not action or action == "navigate":
+                continue
+            label = str(step.get("target_label") or step.get("route") or "UI evidence").strip()
+            selector = step.get("selector") if isinstance(step.get("selector"), dict) else {}
+            selector_key = json.dumps(selector, sort_keys=True, default=str)
+            focus_key = (str(step.get("route") or base.get("route") or ""), action, label.casefold(), selector_key)
+            if focus_key in seen_focuses:
+                continue
+            seen_focuses.add(focus_key)
+
+            # Keep an immediately following assertion with its action where
+            # possible; a standalone assertion remains a valid evidence check.
+            follow_up = None
+            if action in {"click", "type", "select"} and index + 1 < len(steps):
+                next_step = steps[index + 1]
+                if str(next_step.get("action") or "").startswith("assert_"):
+                    follow_up = next_step
+            candidates.append((base, step, follow_up))
+
+    # A route-level case deliberately caps its embedded steps so the generated
+    # script stays readable.  That cap must *not* also cap the catalogue: a
+    # user who asks for more cases is entitled to every additional safe target
+    # that the crawler actually captured.  Add remaining targets as
+    # independently executable visibility checks.  They use real route and
+    # selector evidence, never invented controls or mutating actions.
+    routes = (scan_context or {}).get("routes", [])
+    bases_by_route = {
+        str(base.get("route") or ""): base
+        for base in expanded
+        if isinstance(base, dict) and base.get("route")
+    }
+    unsafe_words = {"delete", "remove", "drop", "purge", "logout", "log out", "signout", "pay", "purchase", "destroy"}
+    for route_data in routes if isinstance(routes, list) else []:
+        if not isinstance(route_data, dict):
+            continue
+        route = str(route_data.get("path") or route_data.get("route") or "")
+        if not route:
+            continue
+        base = bases_by_route.get(route)
+        if not base:
+            base = {
+                "route": route,
+                "module": route_data.get("menu_name") or route.strip("/") or "Route",
+                "title": f"Verify {route_data.get('menu_name') or route} route and controls",
+                "source_references": [f"scan:{route}"],
+                "steps": [{
+                    "action": "navigate",
+                    "route": route,
+                    "target_label": route_data.get("menu_name") or route,
+                    "expected_result": "Route loads safely within app boundary",
+                    "safety_classification": "safe_navigation",
+                }],
+            }
+        for target in route_data.get("automation_targets", []):
+            if not isinstance(target, dict):
+                continue
+            label = str(target.get("label") or target.get("text") or "").strip()
+            if not label:
+                continue
+            safety = str(target.get("safety_classification") or "").lower()
+            label_lower = label.casefold()
+            if safety in {"destructive", "blocked_destructive", "mutating_form", "requires_manual_confirmation"}:
+                continue
+            if any(re.search(rf"\b{re.escape(word)}\b", label_lower) for word in unsafe_words):
+                continue
+            selector = target.get("selector") if isinstance(target.get("selector"), dict) else {}
+            selector_key = json.dumps(selector, sort_keys=True, default=str)
+            focus_key = (route, "assert_visible", label.casefold(), selector_key)
+            # Existing candidates may use a different action (for example
+            # `type`) for the same target, but a visibility assertion is still
+            # a valid, non-mutating independent check.  Deduplicate by route,
+            # label and selector instead of by action.
+            duplicate_target = any(
+                prior_route == route and prior_label == label.casefold() and prior_selector == selector_key
+                for prior_route, _prior_action, prior_label, prior_selector in seen_focuses
+            )
+            if duplicate_target:
+                continue
+            seen_focuses.add(focus_key)
+            candidates.append((
+                base,
+                {
+                    "action": "assert_visible",
+                    "route": route,
+                    "target_label": label,
+                    "selector": selector,
+                    "expected_result": f"{label} remains visible in the scanned route.",
+                    "element_identity": target.get("element_identity") or target.get("id") or "",
+                    "safety_classification": "safe_assertion",
+                },
+                None,
+            ))
+
+    added = 0
+    for base, focus_step, follow_up in candidates:
+        if len(expanded) >= requested_count:
+            break
+        ordinal = len(expanded) + 1
+        tc_id = f"TC_{ordinal:03d}"
+        while tc_id in existing_ids:
+            ordinal += 1
+            tc_id = f"TC_{ordinal:03d}"
+        existing_ids.add(tc_id)
+
+        label = str(focus_step.get("target_label") or focus_step.get("route") or "UI evidence").strip()
+        focused_steps = []
+        navigation = next(
+            (step for step in base.get("steps", []) if isinstance(step, dict) and step.get("action") == "navigate"),
+            None,
+        )
+        if navigation:
+            focused_steps.append(deepcopy(navigation))
+        focused_steps.append(deepcopy(focus_step))
+        if follow_up:
+            focused_steps.append(deepcopy(follow_up))
+        for step_number, step in enumerate(focused_steps, start=1):
+            step["step_id"] = f"{tc_id}_S{step_number:02d}"
+
+        clone = deepcopy(base)
+        clone.update({
+            "tc_id": tc_id,
+            "title": f"{base.get('title') or 'Verify UI behavior'}: {label}",
+            "testcase": f"Focused grounded check for {label}",
+            "purpose": f"Independently verify the scanned {label} control.",
+            "steps": focused_steps,
+            "steps_to_execute": "\n".join(
+                f"{number}. {step.get('action')} {step.get('target_label') or step.get('route') or ''}".strip()
+                for number, step in enumerate(focused_steps, start=1)
+            ),
+            "source_references": list(base.get("source_references", [])) + ["planner:focused-grounded-action"],
+        })
+        expanded.append(clone)
+        added += 1
+
+    return expanded, added
+
+
 class DeterministicAdapter(BaseLLMAdapter):
     """Built-in deterministic planner with zero external network or model dependency."""
 
@@ -700,7 +862,7 @@ class DeterministicAdapter(BaseLLMAdapter):
                     continue
                 if lbl_lower in parking_labels:
                     continue
-                sel_val = (target.get("selector") or {}).get("primary", {}).get("value") or (target.get("selector") or {}).get("value")
+                sel_val = _extract_selector_value(target.get("selector"))
                 if sel_val and str(sel_val).strip() in parking_selectors:
                     continue
 
@@ -1346,6 +1508,38 @@ class LLMProviderGateway:
         planned_cases = result.get("test_cases", [])
         if not isinstance(planned_cases, list):
             planned_cases = []
+        count_warning = ""
+        if requested_count and len(planned_cases) < requested_count:
+            expanded_cases, focused_added = _expand_grounded_cases_to_requested_count(
+                planned_cases, requested_count, safe_context,
+            )
+            result["test_cases"] = expanded_cases
+            planned_cases = expanded_cases
+            if focused_added:
+                note = (
+                    f"Added {focused_added} focused, grounded action checks to honor the requested "
+                    f"testcase count ({len(planned_cases)}/{requested_count})."
+                )
+                notes = result.get("planning_notes", [])
+                result["planning_notes"] = ([*notes, note] if isinstance(notes, list) else [str(notes), note])
+        shortfall_explanation = None
+        if requested_count and len(planned_cases) < requested_count:
+            routes_in_scan = safe_context.get("routes", [])
+            route_stats = [
+                f"{r.get('path') or r.get('url') or '/'}: {len(r.get('automation_targets') or [])} targets"
+                for r in routes_in_scan if isinstance(r, dict)
+            ]
+            shortfall_explanation = {
+                "requested_count": requested_count,
+                "generated_count": len(planned_cases),
+                "shortfall": requested_count - len(planned_cases),
+                "available_routes": route_stats,
+                "reason": (
+                    f"Requested {requested_count} test cases, but the scanned evidence yielded {len(planned_cases)} "
+                    f"grounded, safe checks across {len(routes_in_scan)} routes without hallucinating UI targets."
+                ),
+            }
+            count_warning = shortfall_explanation["reason"]
         if requested_count and len(planned_cases) > requested_count:
             # Enforce the user-visible cap after provider validation as a
             # final safety boundary.  Truncation never fabricates coverage.
@@ -1363,6 +1557,8 @@ class LLMProviderGateway:
         if fallback_used:
             warn_msg = f"Provider '{chosen_provider}' failed ({error_category}): {fallback_reason}. Used deterministic fallback."
             warnings.append(warn_msg)
+        if count_warning:
+            warnings.append(count_warning)
 
         is_scenario_proposal = (len(safe_reqs) == 0 and len(safe_tcs) == 0)
 
@@ -1380,6 +1576,8 @@ class LLMProviderGateway:
             "fallback_reason": fallback_reason,
             "error_category": error_category,
             "coverage_gaps": result.get("coverage_gaps", []),
+            "shortfall_explanation": shortfall_explanation,
+            "evidence_revision": safe_context.get("checkpoint_version") or safe_context.get("revision") or 1,
             "planning_metadata": {
                 "provider": "deterministic" if fallback_used else chosen_provider,
                 "requested_provider": chosen_provider,
@@ -1395,6 +1593,8 @@ class LLMProviderGateway:
                 "plan_type": "scenario_proposal" if is_scenario_proposal else "requirement_verified_suite",
                 "requested_testcases": requested_count,
                 "actual_testcases": len(result.get("test_cases", [])),
+                "shortfall_explanation": shortfall_explanation,
+                "evidence_revision": safe_context.get("checkpoint_version") or safe_context.get("revision") or 1,
             },
         }
         health_status = "fallback" if fallback_used else "ok"

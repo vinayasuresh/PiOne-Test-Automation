@@ -64,6 +64,7 @@ def create_run_context(
     url: str | None = None,
     display_name: str | None = None,
     assessment_mode: str = "both",
+    is_mock: bool = False,
 ) -> RunContext:
     origin = target_origin or url or ""
     rid = validate_run_id_safe(run_id) if run_id else generate_run_id()
@@ -72,6 +73,7 @@ def create_run_context(
         display_name=(display_name or "").strip()[:120] or None,
         scan_id=rid,
         target_origin=origin,
+        is_mock=bool(is_mock),
         allowed_path_namespace=allowed_path_namespace,
         auth_session_id=auth_session_id,
         username=username,
@@ -147,11 +149,18 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
                 if ctx:
                     graph = ctx.route_graph if isinstance(ctx.route_graph, dict) else {}
                     graph_nodes = graph.get("nodes")
-                    route_count = (
+                    graph_route_count = (
                         len(graph_nodes)
                         if isinstance(graph_nodes, list)
                         else len(graph)
                     )
+                    scan_results = ctx.scan_results if isinstance(ctx.scan_results, dict) else {}
+                    scanned_routes = scan_results.get("routes") if isinstance(scan_results.get("routes"), list) else []
+                    route_count = graph_route_count or len(scanned_routes)
+                    # A plan can be generated only after a completed crawl.
+                    # Keep that distinction in the status label, but do not
+                    # regress the Saved Runs progress display to 0% / 0 routes.
+                    scan_complete = ctx.status in {"scanned", "planned", "executing", "executed"}
                     row = {
                         **row,
                         "display_name": ctx.display_name or row.get("display_name") or run_id,
@@ -161,11 +170,11 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
                         "pending_modules": list(ctx.pending_modules),
                         "progress_percentage": (
                             100.0
-                            if ctx.status in {"scanned", "executed"}
+                            if scan_complete
                             else row.get("progress_percentage", 0.0)
                         ),
                         "route_count": (
-                            route_count if graph else row.get("route_count", 0)
+                            route_count or row.get("route_count", 0)
                         ),
                         "updated_at": ctx.updated_at or row.get("updated_at"),
                     }
@@ -184,16 +193,22 @@ def list_saved_runs(base_url: str | None = None, is_archived: bool = False, skip
                 continue
             if base_url and base_url.lower() not in (data.get("target_origin") or "").lower():
                 continue
+            status = data.get("status", "initialized")
+            scan_results = data.get("scan_results") if isinstance(data.get("scan_results"), dict) else {}
+            graph_nodes = data.get("route_graph", {}).get("nodes", [])
+            route_count = len(graph_nodes) if isinstance(graph_nodes, list) else 0
+            route_count = route_count or len(scan_results.get("routes", []) if isinstance(scan_results.get("routes"), list) else [])
+            scan_complete = status in {"scanned", "planned", "executing", "executed"}
             results.append({
                 "run_id": data.get("run_id"),
                 "application_url": data.get("target_origin"),
-                "status": data.get("status", "initialized"),
+                "status": status,
                 "auth_status": data.get("auth_status", "none"),
-                "progress_percentage": 100.0 if data.get("status") in {"scanned", "executed"} else 50.0,
+                "progress_percentage": 100.0 if scan_complete else 50.0,
                 "selected_modules": data.get("selected_modules", []),
-                "completed_modules": data.get("selected_modules", []) if data.get("status") in {"scanned", "executed"} else [],
-                "pending_modules": [] if data.get("status") in {"scanned", "executed"} else data.get("selected_modules", []),
-                "route_count": len(data.get("route_graph", {}).get("nodes", [])),
+                "completed_modules": data.get("selected_modules", []) if scan_complete else [],
+                "pending_modules": [] if scan_complete else data.get("selected_modules", []),
+                "route_count": route_count,
                 "execution_summary": data.get("execution_summary", {}),
                 "is_archived": bool(data.get("is_archived")),
                 "created_at": data.get("created_at"),

@@ -7,6 +7,30 @@
   const el = id => document.getElementById(`security-${id}`);
   const active = status => ['running', 'paused', 'stopping'].includes(status);
 
+  function syncAuthorization() {
+    const authorized = Boolean(el('authorized')?.checked);
+    const functionalOnly = (document.getElementById('assessment-mode-first')?.value || 'both') === 'functional_only';
+    const locked = !authorized || functionalOnly;
+    document.querySelectorAll('[name="security-check"], #security-active').forEach(control => {
+      control.disabled = locked;
+      control.closest('label')?.classList.toggle('opacity-50', locked);
+      control.closest('label')?.classList.toggle('cursor-not-allowed', locked);
+      control.title = locked ? 'Confirm authorization above to enable security checks.' : '';
+    });
+    const start = el('start');
+    if (start) {
+      start.disabled = locked || busy || active(currentStatus);
+      start.title = functionalOnly
+        ? 'Select Security review only or both to enable this scan.'
+        : !authorized ? 'Confirm authorization to enable security review.' : '';
+    }
+    const help = document.getElementById('security-permission-help');
+    if (help) help.textContent = functionalOnly
+      ? 'Security controls are unavailable in Functional testing only mode.'
+      : authorized ? 'Authorization confirmed. Security checks are enabled and remain bounded.'
+      : 'Confirm authorization to enable security checks. Server-side authorization is enforced too.';
+  }
+
   function clear() {
     currentStatus = 'not_started';
     cachedData = null;
@@ -65,11 +89,9 @@
       // intelligence, but remove the optional security controls entirely.
       securityPanel.classList.toggle('hidden', functionalOnly);
       securityPanel.setAttribute('aria-hidden', functionalOnly ? 'true' : 'false');
+      securityPanel.open = securityOnly;
     }
-    if (start) {
-      start.disabled = functionalOnly || busy || active(currentStatus);
-      start.title = functionalOnly ? 'Select Security review only or both to enable this scan.' : '';
-    }
+    syncAuthorization();
     if (proceed) {
       proceed.disabled = securityOnly;
       proceed.classList.toggle('opacity-50', securityOnly);
@@ -81,7 +103,7 @@
     cachedData = data;
     const status = data.status;
     currentStatus = status;
-    el('start').disabled = active(status) || busy;
+    syncAuthorization();
     el('pause').disabled = status !== 'running';
     el('resume').disabled = status !== 'paused';
     el('stop').disabled = !['running', 'paused'].includes(status);
@@ -324,6 +346,7 @@
       if (mode) mode.value = firstMode.value;
       applyMode();
     };
+    el('authorized').onchange = syncAuthorization;
     applyMode();
     el('start').onclick = async () => {
       const checks = [...document.querySelectorAll('[name="security-check"]:checked')].map(x => x.value);

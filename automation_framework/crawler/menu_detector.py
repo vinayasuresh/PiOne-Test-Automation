@@ -27,6 +27,8 @@ TRIGGERS = (
     "[aria-haspopup='listbox'], [aria-haspopup='true'], [role='combobox'], "
     "mat-select, ng-select, .p-dropdown, .mat-mdc-select, "
     "[class*='dropdown-toggle' i], [class*='submenu' i]"
+    ", aside button:not([type='submit']), mat-sidenav button:not([type='submit']), "
+    "[class*='sidebar' i] button:not([type='submit']), [class*='sidenav' i] button:not([type='submit'])"
 )
 OVERLAY_SELECTOR = (
     "[role='menu'], [role='menubar'], [role='listbox'], .mat-mdc-select-panel, "
@@ -48,7 +50,7 @@ def _clean_text(text: str) -> str:
 def _snapshot(page: Page) -> list[dict[str, str]]:
     """Read rendered nav and overlay entries with element-specific locators."""
     script = """
-    (items) => items.map(el => {
+    (items) => items.map((el, domOrder) => {
       const style = getComputedStyle(el), box = el.getBoundingClientRect();
       const nativeOption = el.tagName === 'OPTION';
       const optionParent = nativeOption ? el.closest('select') : null;
@@ -77,7 +79,7 @@ def _snapshot(page: Page) -> list[dict[str, str]]:
         }
         selector = `xpath=/html/body/${parts.join('/')}`;
       }
-      return {text, href: el.getAttribute('href') || '', selector,
+      return {text, href: el.getAttribute('href') || '', selector, domOrder,
         container: side ? side.tagName.toLowerCase() : parent.tagName.toLowerCase(),
         parentTag: parent.tagName.toLowerCase(), parentRole: parent.getAttribute('role') || '',
         parentClass: typeof parent.className === 'string' ? parent.className : '', hierarchyLevel};
@@ -105,6 +107,41 @@ def _is_dropdown_trigger(trigger: Any) -> bool:
         return bool(trigger.evaluate(
             "el => el.matches('[aria-haspopup=listbox], [role=combobox], mat-select, ng-select, .p-dropdown, .mat-mdc-select') "
             "|| !!el.closest('.p-dropdown, .mat-mdc-select, .mat-select, ng-select')"
+        ))
+    except Exception:
+        return False
+
+
+def _is_expanded(trigger: Any) -> bool:
+    """Return whether a navigation trigger is now open.
+
+    Enterprise sidebars frequently expose a disclosure button without an
+    overlay and without a useful DOM-count change.  In those cases the
+    expanded/data-state/class attribute is the reliable signal that the
+    click succeeded; relying only on overlay detection caused us to click the
+    same disclosure again and close it before taking the final snapshot.
+    """
+    try:
+        return bool(trigger.evaluate(
+            """el => el.getAttribute('aria-expanded') === 'true' ||
+                el.getAttribute('data-state') === 'open' ||
+                /(?:expanded|opened|open)/i.test(String(el.className || ''))"""
+        ))
+    except Exception:
+        return False
+
+
+def _is_safe_sidebar_disclosure(trigger: Any) -> bool:
+    """Limit broad sidebar-button matching to disclosure-like controls."""
+    try:
+        return bool(trigger.evaluate(
+            """el => {
+              if (el.matches('[aria-expanded], [aria-haspopup], [role="combobox"]')) return true;
+              if (el.closest('a[href]')) return false;
+              const raw = [el.className || '', el.innerHTML || '',
+                el.getAttribute('aria-label') || '', el.getAttribute('title') || ''].join(' ');
+              return /chevron|caret|expand|collapse|submenu|sub-menu|accordion|disclosure/i.test(raw);
+            }"""
         ))
     except Exception:
         return False
@@ -156,6 +193,8 @@ def _expand_triggers(page: Page, event_callback: Any = None) -> list[dict[str, s
             try:
                 if not trigger.is_visible() or not (_in_navigation_context(trigger) or _is_dropdown_trigger(trigger)):
                     continue
+                if not _is_safe_sidebar_disclosure(trigger):
+                    continue
                 label = _trigger_label(trigger)
                 if any(word in label.lower() for word in UNSAFE_LABELS):
                     continue
@@ -179,6 +218,10 @@ def _expand_triggers(page: Page, event_callback: Any = None) -> list[dict[str, s
                             trigger.click(timeout=MENU_EXPANSION_TIMEOUT)
                         page.wait_for_timeout(70)
                         opened = _wait_for_overlay_or_mutation(page, before)
+                        # A sidebar disclosure can update only aria-expanded or
+                        # a class/data-state attribute, so overlay/DOM-count
+                        # detection alone is insufficient.
+                        opened = opened or _is_expanded(trigger)
                         if opened:
                             if event_callback:
                                 event_callback("submenu_opened", {
@@ -208,7 +251,12 @@ def detect_menus(page: Page, event_callback: Any = None) -> dict[str, list[dict[
     sidebar: list[dict[str, str | None]] = []
     top: list[dict[str, str | None]] = []
     overlays: list[dict[str, str | None]] = []
-    for item in [*captured_dropdown_items, *_snapshot(page)]:
+    # The DOM query order is the application's rendered order.  Do not let
+    # transient overlay capture order move a dropdown ahead of earlier menu
+    # entries; this is especially important for authenticated sidebars.
+    snapshot_items = [*captured_dropdown_items, *_snapshot(page)]
+    snapshot_items.sort(key=lambda item: int(item.get("domOrder", 10**9)))
+    for item in snapshot_items:
         label = _clean_text(item.get("text", ""))
         if not label:
             continue
@@ -218,6 +266,7 @@ def detect_menus(page: Page, event_callback: Any = None) -> dict[str, list[dict[
         seen.add(key)
         entry = {"text": label, "href": item.get("href") or None,
                  "selector": item.get("selector", ""),
+                 "dom_order": int(item.get("domOrder", 10**9)),
                  "container_selector": item.get("container", ""),
                  "hierarchy_level": int(item.get("hierarchyLevel", 0))}
         parent_role = item.get("parentRole", "")
