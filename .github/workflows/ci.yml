@@ -78,28 +78,3 @@ jobs:
           name: pione-testmate-source-${{ github.sha }}
           path: release/
           retention-days: 30
-
-  deploy-staging:
-    name: Trigger staging deployment
-    needs: release-source
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    environment: staging
-    env:
-      STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
-
-    steps:
-      - name: Skip when deployment is not configured
-        if: ${{ env.STAGING_DEPLOY_WEBHOOK_URL == '' }}
-        run: echo "No STAGING_DEPLOY_WEBHOOK_URL secret is configured; staging deployment skipped."
-
-      - name: Trigger approved deployment webhook
-        if: ${{ env.STAGING_DEPLOY_WEBHOOK_URL != '' }}
-        env:
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          curl --fail --show-error --silent \
-            --request POST \
-            --header "Content-Type: application/json" \
-            --data "{\"repository\":\"${{ github.repository }}\",\"sha\":\"${COMMIT_SHA}\",\"environment\":\"staging\"}" \
-            "$STAGING_DEPLOY_WEBHOOK_URL"

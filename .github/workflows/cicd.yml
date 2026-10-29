@@ -1,0 +1,126 @@
+name: PiOne Testmate Docker CD
+
+on:
+  workflow_run:
+    workflows: ["PiOne Testmate CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref or commit SHA to deploy
+        required: false
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pione-testmate-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Deploy tested main to staging server
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+      SERVER_KNOWN_HOSTS: ${{ secrets.SERVER_KNOWN_HOSTS }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+
+    steps:
+      - name: Validate deployment secrets
+        id: config
+        shell: bash
+        run: |
+          if [[ -z "$SERVER_HOST" || -z "$SERVER_USER" || -z "$SERVER_SSH_KEY" || -z "$SERVER_KNOWN_HOSTS" || -z "$DEPLOY_PATH" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment skipped: configure SERVER_HOST, SERVER_USER, SERVER_SSH_KEY, SERVER_KNOWN_HOSTS, and DEPLOY_PATH."
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out tested source
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Package exact source release
+        if: steps.config.outputs.enabled == 'true'
+        id: release
+        shell: bash
+        run: |
+          release_sha="$(git rev-parse HEAD)"
+          echo "sha=$release_sha" >> "$GITHUB_OUTPUT"
+          git archive --format=tar.gz --prefix=pione-testmate/ HEAD > "pione-testmate-$release_sha.tar.gz"
+
+      - name: Configure trusted SSH connection
+        if: steps.config.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SERVER_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Copy release to server
+        if: steps.config.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          scp -i ~/.ssh/id_ed25519 -o BatchMode=yes \
+            "pione-testmate-${{ steps.release.outputs.sha }}.tar.gz" \
+            "$SERVER_USER@$SERVER_HOST:/tmp/pione-testmate-${{ steps.release.outputs.sha }}.tar.gz"
+
+      - name: Build with Docker and verify health
+        if: steps.config.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "$SERVER_USER@$SERVER_HOST" \
+            "DEPLOY_PATH='$DEPLOY_PATH' RELEASE_SHA='${{ steps.release.outputs.sha }}' bash -s" <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          : "${DEPLOY_PATH:?DEPLOY_PATH is required}"
+          : "${RELEASE_SHA:?RELEASE_SHA is required}"
+
+          release_root="$DEPLOY_PATH/releases"
+          release_dir="$release_root/$RELEASE_SHA"
+          archive="/tmp/pione-testmate-$RELEASE_SHA.tar.gz"
+
+          test -f "$archive"
+          test -f "$DEPLOY_PATH/.env" || {
+            echo "Missing $DEPLOY_PATH/.env. Create it on the server before deployment."
+            exit 1
+          }
+
+          mkdir -p "$release_root"
+          rm -rf "$release_dir"
+          mkdir -p "$release_dir"
+          tar -xzf "$archive" -C "$release_dir"
+          cp "$DEPLOY_PATH/.env" "$release_dir/pione-testmate/.env"
+
+          cd "$release_dir/pione-testmate"
+          docker compose -f docker-compose.prod.yml --project-name pione-testmate up -d --build --remove-orphans
+
+          for attempt in $(seq 1 20); do
+            if docker compose -f docker-compose.prod.yml --project-name pione-testmate exec -T app \
+              python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"; then
+              ln -sfn "$release_dir/pione-testmate" "$DEPLOY_PATH/current"
+              rm -f "$archive"
+              exit 0
+            fi
+            sleep 3
+          done
+
+          docker compose -f docker-compose.prod.yml --project-name pione-testmate ps
+          exit 1
+          REMOTE_SCRIPT

@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pione-testmate:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/automation_framework/reports/pione_testmate.db}
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    shm_size: "1gb"
+    volumes:
+      - pione_reports:/app/automation_framework/reports
+      - pione_logs:/app/automation_framework/logs
+      - pione_scans:/app/scans
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  pione_reports:
+  pione_logs:
+  pione_scans:
