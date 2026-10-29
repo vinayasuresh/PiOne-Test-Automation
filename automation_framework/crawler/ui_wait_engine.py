@@ -1,3 +1,6 @@
+import time
+from typing import Any
+
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
 from automation_framework.config.settings import STABILIZATION_TIMEOUT
@@ -19,6 +22,71 @@ DATA_REGION_SELECTOR = (
     "table, [role='table'], [role='grid'], canvas, svg, [class*='mapbox' i], "
     "[class*='leaflet' i], [class*='chart' i], [class*='analytics' i]"
 )
+
+
+def wait_for_spa_readiness(page: Page, timeout: int = STABILIZATION_TIMEOUT) -> dict[str, Any]:
+    """Wait for SPA readiness and collect page readiness metrics.
+
+    Checks:
+    1. DOM content loaded.
+    2. Meaningful content in application root/body (DOM count >= 5).
+    3. Visible controls or bounded timeout.
+    4. Loaders disappear & DOM mutation settling.
+    """
+    logger.info(f"Waiting for SPA readiness on page: {page.url}")
+
+    try:
+        page.wait_for_load_state("domcontentloaded", timeout=min(timeout, 3000))
+    except PlaywrightTimeoutError:
+        pass
+
+    deadline = time.monotonic() + (timeout / 1000.0)
+    ready = False
+    readiness_timeout_reached = False
+    dom_count = 0
+    visible_count = 0
+
+    while time.monotonic() < deadline:
+        try:
+            stats = page.evaluate("""() => {
+                const domCount = document.body ? document.body.querySelectorAll('*').length : 0;
+                const controls = document.body ? document.body.querySelectorAll(
+                    "a[href], button, input:not([type='hidden']), select, textarea, [role='button'], [role='link']"
+                ) : [];
+                let visibleControls = 0;
+                for (let i = 0; i < controls.length; i++) {
+                    const el = controls[i];
+                    const box = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    if (style.display !== 'none' && style.visibility !== 'hidden' && (box.width > 0 || box.height > 0)) {
+                        visibleControls++;
+                    }
+                }
+                return { domCount, visibleControls };
+            }""")
+            dom_count = stats.get("domCount", 0)
+            visible_count = stats.get("visibleControls", 0)
+
+            if dom_count >= 5:
+                ready = True
+                break
+        except Exception:
+            pass
+        time.sleep(0.15)
+
+    if time.monotonic() >= deadline and not ready:
+        readiness_timeout_reached = True
+
+    _wait_for_loaders_to_disappear(page, min(timeout, 2000))
+    _wait_for_dom_to_settle(page, min(timeout, 2000))
+
+    return {
+        "ready": ready and not readiness_timeout_reached,
+        "readiness_timeout_reached": readiness_timeout_reached,
+        "dom_element_count": dom_count,
+        "visible_control_count": visible_count,
+        "final_url": page.url,
+    }
 
 
 def wait_for_ui_stability(page: Page, timeout: int = STABILIZATION_TIMEOUT) -> None:

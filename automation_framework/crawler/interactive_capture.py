@@ -21,12 +21,16 @@ _CAPTURE_SCRIPT = r"""
   if (window.__captureInstalled) {
     window.__events = [];
     window.__continueScan = false;
+    window.__retryScan = false;
+    window.__endScan = false;
     const old = document.getElementById('__capture_banner');
     if (old) old.remove();
   }
   window.__captureInstalled = true;
   window.__events = [];
   window.__continueScan = false;
+  window.__retryScan = false;
+  window.__endScan = false;
   window.__lastHighlight = null;
 
   function cssEscape(value) {
@@ -58,13 +62,34 @@ _CAPTURE_SCRIPT = r"""
     return parts.join(' > ');
   }
 
+  function getXPath(el) {
+    if (!el || el.nodeType !== 1) return '';
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1) {
+      if (node.id && !/\d{4,}/.test(node.id)) {
+        parts.unshift(`*[@id=${JSON.stringify(node.id)}]`);
+        break;
+      }
+      const tag = node.tagName.toLowerCase();
+      const parent = node.parentElement;
+      if (!parent) {
+        parts.unshift(tag);
+        break;
+      }
+      const sameTag = Array.from(parent.children).filter(child => child.tagName === node.tagName);
+      parts.unshift(`${tag}[${sameTag.indexOf(node) + 1}]`);
+      node = parent;
+    }
+    return '/' + parts.join('/');
+  }
+
   function closestMeaningfulElement(target) {
     if (!target || !target.closest) return target;
     const standard = target.closest(
       "button, [role='button'], input, textarea, select, [role='combobox'], "
       + "[contenteditable='true'], mat-select, mat-form-field, mat-table, "
-      + "[aria-haspopup='listbox'], [onclick], [tabindex]:not([tabindex='-1']), "
-      + "[class*='button' i], [class*='btn' i], [class*='select' i], [class*='dropdown' i]"
+      + "[aria-haspopup='listbox'], [onclick], [ng-click], [tabindex]:not([tabindex='-1'])"
     );
     if (standard) return standard;
 
@@ -126,7 +151,7 @@ _CAPTURE_SCRIPT = r"""
     const text = describe(target);
     if (!selector && !text) return;
 
-    window.__events.push({
+    const record = {
       type: eventType,
       detected_type: detectType(target, eventType),
       tag: target.tagName.toLowerCase(),
@@ -134,10 +159,22 @@ _CAPTURE_SCRIPT = r"""
       framework_type: frameworkType(target),
       text,
       selector,
+      xpath: getXPath(target),
       value: hasValue ? '<dynamic>' : '',
       page_url: location.href,
+      page_title: document.title || '',
+      source: 'interactive_learning',
+      element_html: String(target.outerHTML || '').replace(/\s+/g, ' ').slice(0, 500),
       ts: Date.now(),
-    });
+    };
+    window.__events.push(record);
+    // A navigation replaces window.__events.  The Playwright binding sends a
+    // copy to Python immediately, so evidence survives clicks that change page.
+    try {
+      if (typeof window.__testmateRecordInteraction === 'function') {
+        window.__testmateRecordInteraction(record);
+      }
+    } catch (_) {}
   }
 
   document.addEventListener('mouseover', (event) => {
@@ -177,27 +214,57 @@ _CAPTURE_SCRIPT = r"""
     pushEvent('select', target, true);
   }, true);
 
+  let summaryText = 'Automatic scan is complete for this module. Choose an action:';
+  if (window.__reviewSummary && window.__reviewSummary.module_name) {
+    const s = window.__reviewSummary;
+    summaryText = `Module <b>${s.module_name}</b> complete:<br/>` +
+      `• Routes: <b>${s.routes_scanned || s.route_count || 1}</b> | ` +
+      `• Elements: <b>${s.elements_found || s.element_count || 0}</b> | ` +
+      `• Safe actions: <b>${s.safe_actions_explored || 0}</b> | ` +
+      `• Parking lot: <b>${s.parking_lot_count || 0}</b> | ` +
+      `• Health: <b>${s.route_health || 'HEALTHY'}</b>` +
+      (s.errors_count ? ` | • Errors: <b style="color:#ef4444">${s.errors_count}</b>` : '');
+  }
+
   const banner = document.createElement('div');
   banner.id = '__capture_banner';
   banner.style.cssText = [
     'position:fixed', 'bottom:20px', 'right:20px', 'z-index:2147483647',
-    'background:#0f172a', 'color:#fff', 'padding:12px 16px', 'border-radius:10px',
-    'box-shadow:0 8px 24px rgba(0,0,0,.35)', 'font:600 13px system-ui,sans-serif',
-    'display:flex', 'align-items:center', 'gap:12px', 'max-width:560px',
+    'background:#0f172a', 'color:#fff', 'padding:14px 18px', 'border-radius:10px',
+    'box-shadow:0 8px 24px rgba(0,0,0,.35)', 'font:500 13px system-ui,sans-serif',
+    'display:flex', 'align-items:center', 'gap:14px', 'max-width:750px',
   ].join(';');
   banner.innerHTML = `
-    <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.35;">
+    <span style="display:inline-flex;align-items:center;gap:8px;line-height:1.4;">
       <span style="width:8px;height:8px;background:#10b981;border-radius:50%;box-shadow:0 0 0 4px rgba(16,185,129,.25);"></span>
-      Confirm this page elements: click important controls, fill/select sample fields, then continue.
+      <span>${summaryText}</span>
     </span>
     <button id="__capture_continue"
             style="background:#2563eb;color:#fff;border:none;border-radius:8px;
                    padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
-      Confirm & Continue
+      Continue Next
+    </button>
+    <button id="__capture_retry"
+            style="background:#d97706;color:#fff;border:none;border-radius:8px;
+                   padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
+      Retry Module
+    </button>
+    <button id="__capture_end"
+            style="background:#334155;color:#fff;border:1px solid #64748b;border-radius:8px;
+                   padding:7px 12px;font:600 12px system-ui;cursor:pointer;white-space:nowrap;">
+      End & Save
     </button>`;
   document.body.appendChild(banner);
   document.getElementById('__capture_continue').addEventListener('click', () => {
     window.__continueScan = true;
+    banner.style.opacity = '0.55';
+  });
+  document.getElementById('__capture_retry').addEventListener('click', () => {
+    window.__retryScan = true;
+    banner.style.opacity = '0.55';
+  });
+  document.getElementById('__capture_end').addEventListener('click', () => {
+    window.__endScan = true;
     banner.style.opacity = '0.55';
   });
 })();
@@ -223,34 +290,88 @@ _EVENT_TO_COMPONENT = {
 }
 
 
-def inject_capture(page: Page) -> None:
+_PAGE_EVENT_BUFFERS: dict[int, list[dict[str, Any]]] = {}
+_CAPTURE_BINDING = "__testmateRecordInteraction"
+
+
+def _install_persistent_capture(page: Page) -> list[dict[str, Any]]:
+    """Install a cross-navigation event bridge and return this page's buffer.
+
+    ``page.evaluate`` listeners disappear on a page navigation.  Interactive
+    learning intentionally lets a human click navigation controls, so keeping
+    the evidence only in ``window`` lost precisely the most valuable clicks.
+    An init script is applied to every later document and the exposed binding
+    copies each record to Python before navigation can discard it.
+    """
+    key = id(page)
+    buffer = _PAGE_EVENT_BUFFERS.setdefault(key, [])
+
+    if not getattr(page, "_testmate_capture_binding_installed", False):
+        def record_from_page(_source: Any, record: Any) -> None:
+            if isinstance(record, dict):
+                buffer.append(dict(record))
+
+        try:
+            page.expose_binding(_CAPTURE_BINDING, record_from_page)
+            setattr(page, "_testmate_capture_binding_installed", True)
+        except Exception as exc:
+            # A mocked Page and an already-installed binding are both safe
+            # fallbacks: current-document extraction still works.
+            logger.debug("Interactive capture binding unavailable: %s", exc)
+
+    try:
+        if not getattr(page, "_testmate_capture_init_script_installed", False):
+            page.add_init_script(_CAPTURE_SCRIPT)
+            setattr(page, "_testmate_capture_init_script_installed", True)
+    except Exception as exc:
+        logger.debug("Interactive capture init script unavailable: %s", exc)
+    return buffer
+
+
+def inject_capture(page: Page, summary: dict[str, Any] | None = None) -> None:
     """Install the page overlay, highlighter, and event listeners."""
     try:
+        _install_persistent_capture(page).clear()
+        if summary:
+            page.evaluate("(s) => { window.__reviewSummary = s; }", summary)
         page.evaluate(_CAPTURE_SCRIPT)
         logger.info("Interactive capture: confirmation overlay injected")
     except Exception as exc:
         logger.warning(f"Interactive capture: failed to inject recorder ({exc})")
 
 
-def wait_for_user(page: Page, timeout_seconds: int = 45) -> bool:
-    """Block until the user confirms the route or the timeout elapses."""
+def wait_for_user(page: Page, timeout_seconds: int = 45, run_id: str | None = None) -> str:
+    """Return ``continue``, ``retry``, ``end``, or ``timeout`` from the review overlay or API."""
     deadline = time.monotonic() + max(1, timeout_seconds)
     logger.info(f"Interactive capture: waiting up to {timeout_seconds}s for user confirmation")
     while time.monotonic() < deadline:
+        if run_id:
+            try:
+                from api.services.scan_control_service import is_scan_stop_requested, pop_user_decision
+                if is_scan_stop_requested(run_id):
+                    logger.info("Interactive capture: scan stop requested via API control")
+                    return "end"
+                api_choice = pop_user_decision(run_id)
+                if api_choice:
+                    logger.info(f"Interactive capture: user selected {api_choice} via API control")
+                    return api_choice
+            except Exception:
+                pass
         try:
-            done = page.evaluate("() => !!window.__continueScan")
+            choice = page.evaluate("() => window.__endScan ? 'end' : (window.__retryScan ? 'retry' : (window.__continueScan ? 'continue' : ''))")
         except Exception:
-            return False
-        if done:
-            logger.info("Interactive capture: user confirmed route")
-            return True
+            return "timeout"
+        if choice:
+            logger.info("Interactive capture: user selected %s", choice)
+            return str(choice)
         page.wait_for_timeout(500)
     logger.info("Interactive capture: timed out waiting for confirmation")
-    return False
+    return "timeout"
 
 
 def extract_events(page: Page) -> list[dict[str, Any]]:
     """Read recorded DOM events and remove the overlay."""
+    bridged_events = list(_PAGE_EVENT_BUFFERS.get(id(page), []))
     try:
         events = page.evaluate("() => Array.isArray(window.__events) ? window.__events : []")
     except Exception as exc:
@@ -260,7 +381,7 @@ def extract_events(page: Page) -> list[dict[str, Any]]:
         page.evaluate(_REMOVE_BANNER_SCRIPT)
     except Exception:
         pass
-    return events or []
+    return bridged_events + (events or [])
 
 
 def events_to_interactions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -300,6 +421,11 @@ def events_to_interactions(events: list[dict[str, Any]]) -> list[dict[str, Any]]
                 "framework_type": event.get("framework_type") or "native",
                 "component_tag": event.get("component_tag") or tag,
                 "page_url": event.get("page_url") or "",
+                "page_title": event.get("page_title") or "",
+                "xpath": event.get("xpath") or "",
+                "source": event.get("source") or "interactive_learning",
+                "element_html": event.get("element_html") or "",
+                "timestamp": event.get("ts") or 0,
                 "value": event.get("value") or "",
             }
         )
@@ -327,6 +453,8 @@ def interactions_to_flow(interactions: list[dict[str, Any]]) -> list[dict[str, A
             "page": interaction.get("page_url", ""),
             "element_type": interaction.get("detected_type") or interaction.get("component", ""),
             "text": interaction.get("label", ""),
+            "xpath": interaction.get("xpath", ""),
+            "source": interaction.get("source", "interactive_learning"),
         }
         if step in {"fill", "select"}:
             item["value"] = "<dynamic>"

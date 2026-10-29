@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PiOne Testmate — Master Enterprise Product Pitch & Technical Architecture (20 Slides)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1e293b;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --accent-cyan: #06b6d4;
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Bar */
+    header {
+      height: 56px;
+      background: rgba(17, 24, 39, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: white;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .slide-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border-color: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #1d4ed8, #1e40af);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Main Deck Stage */
+    main {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      justify-content: center;
+      align-items: center;
+      padding: 1.5rem;
+    }
+
+    .slide-container {
+      width: 100%;
+      max-width: 1560px;
+      height: 100%;
+      max-height: 860px;
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      position: relative;
+      overflow: hidden;
+      display: none;
+      flex-direction: column;
+      animation: fadeIn 0.2s ease-out;
+    }
+    .slide-container.active { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.995); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .slide-header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.02);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .slide-header-left { display: flex; flex-direction: column; gap: 4px; }
+    .slide-step-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+    }
+    .slide-title {
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: -0.02em;
+    }
+    .slide-subtitle { font-size: 0.88rem; color: var(--text-muted); }
+    .slide-tag {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Split Grid Body */
+    .slide-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1.35fr;
+      gap: 1.75rem;
+      padding: 1.75rem 2rem;
+      overflow-y: auto;
+    }
+    .slide-body.full-width { grid-template-columns: 1fr; }
+
+    .content-col { display: flex; flex-direction: column; gap: 1.25rem; justify-content: flex-start; }
+    .value-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .value-card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .value-card-body { font-size: 0.86rem; color: #cbd5e1; line-height: 1.5; }
+
+    .feature-list { list-style: none; display: flex; flex-direction: column; gap: 0.6rem; }
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.86rem;
+      color: #e2e8f0;
+      line-height: 1.45;
+    }
+    .feature-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-emerald);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      margin-top: 2px;
+    }
+
+    .guarantee-box {
+      background: rgba(6, 182, 212, 0.07);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      font-size: 0.82rem;
+      color: #e0f2fe;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .guarantee-badge {
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--accent-cyan);
+      color: #0b0f19;
+      flex-shrink: 0;
+    }
+
+    /* Visual Column */
+    .visual-col { display: flex; flex-direction: column; gap: 0.6rem; height: 100%; min-height: 380px; }
+    .screenshot-frame {
+      flex: 1;
+      background: #000;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      overflow: hidden;
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .screenshot-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #0f172a;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+    .screenshot-frame:hover img { transform: scale(1.015); }
+    .screenshot-caption {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+    }
+
+    /* Grids & Cards */
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; height: 100%; align-content: center; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; height: 100%; align-content: center; }
+
+    .deck-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    .deck-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    }
+    .deck-card.emerald::before { background: linear-gradient(90deg, var(--accent-emerald), #059669); }
+    .deck-card.amber::before { background: linear-gradient(90deg, var(--accent-amber), #d97706); }
+    .deck-card.purple::before { background: linear-gradient(90deg, var(--accent-purple), #6366f1); }
+    .deck-card.red::before { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+    .deck-card-icon { font-size: 1.75rem; margin-bottom: 0.25rem; }
+    .deck-card-title { font-size: 1.1rem; font-weight: 700; color: white; }
+    .deck-card-body { font-size: 0.88rem; color: var(--text-muted); line-height: 1.55; }
+
+    /* Custom Tables */
+    .data-table-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      justify-content: center;
+    }
+    .deck-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      font-size: 0.88rem;
+    }
+    .deck-table th {
+      background: #0f172a;
+      color: var(--accent-cyan);
+      font-weight: 700;
+      text-align: left;
+      padding: 12px 16px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    .deck-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+      background: rgba(30, 41, 59, 0.7);
+    }
+    .deck-table tr:nth-child(even) td { background: rgba(17, 24, 39, 0.7); }
+    .deck-table tr:hover td { background: rgba(59, 130, 246, 0.1); }
+    .deck-table td:first-child { font-weight: 600; color: white; }
+
+    /* Speaker Notes Drawer */
+    #speaker-notes-drawer {
+      position: fixed;
+      bottom: 56px; left: 0; right: 0;
+      max-height: 220px;
+      background: #020617;
+      border-top: 2px solid var(--accent-cyan);
+      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
+      padding: 1rem 2rem;
+      overflow-y: auto;
+      transform: translateY(110%);
+      transition: transform 0.25s ease;
+      z-index: 40;
+    }
+    #speaker-notes-drawer.open { transform: translateY(0); }
+    .notes-header {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    .notes-content { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; white-space: pre-line; }
+
+    /* Bottom Control Bar */
+    footer {
+      height: 56px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.5rem;
+      z-index: 50;
+      flex-shrink: 0;
+    }
+    .slide-pills { display: flex; gap: 5px; align-items: center; }
+    .pill {
+      width: 20px;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pill:hover { background: rgba(255, 255, 255, 0.35); }
+    .pill.active {
+      width: 38px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    }
+
+    #image-zoom-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      cursor: zoom-out;
+    }
+    #image-zoom-modal img {
+      max-width: 96vw;
+      max-height: 92vh;
+      border-radius: 8px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header>
+    <div class="brand">
+      <div class="brand-badge">Enterprise</div>
+      <span>PiOne Testmate</span>
+      <span style="color: var(--text-dim); font-weight: 400; font-size: 0.9rem;">| Master Pitch Deck (20 Slides)</span>
+    </div>
+
+    <div class="nav-actions">
+      <span class="slide-counter" id="slide-indicator">Slide 1 / 20</span>
+      <button class="btn" id="btn-toggle-notes" title="Toggle Speaker Script (N)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        Speaker Script
+      </button>
+      <a href="../PiOne_Testmate_Presentation.pptx" class="btn btn-primary" download title="Download Editable PowerPoint File">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download PPTX (16:9)
+      </a>
+      <button class="btn" id="btn-fullscreen" title="Toggle Fullscreen (F)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Stage -->
+  <main>
+
+    <!-- Slide 1: Title -->
+    <div class="slide-container active" data-slide="1">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Executive Overview</span>
+          <h1 class="slide-title">PiOne Testmate — Autonomous Enterprise Web QA Platform</h1>
+          <p class="slide-subtitle">AI-Driven Autonomous Discovery, Low-Impact DAST Security, & Deterministic Playwright Automation</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Platform v2.1 (October 2026)</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="grid-3" style="align-self: center;">
+          <div class="deck-card">
+            <div class="deck-card-icon">⚡</div>
+            <h3 class="deck-card-title">Zero-Script Setup</h3>
+            <p class="deck-card-body">Autonomous SPA & SSR route discovery without writing fragile manual selector scripts. Cut test authoring cycles from weeks to minutes.</p>
+          </div>
+          <div class="deck-card emerald">
+            <div class="deck-card-icon">🛡️</div>
+            <h3 class="deck-card-title">Production-Safe DAST</h3>
+            <p class="deck-card-body">Passive OWASP Top 10 security auditing across discovered routes. Detects CSP, HSTS, cookie flag, and unauth access flaws without destructive payloads.</p>
+          </div>
+          <div class="deck-card purple">
+            <div class="deck-card-icon">🎯</div>
+            <h3 class="deck-card-title">Enterprise Resilience</h3>
+            <p class="deck-card-body">SQLite / PostgreSQL relational persistence, safe checkpoint resume, visual regression baselines, and multi-provider AI model freedom.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2: Dilemma -->
+    <div class="slide-container" data-slide="2">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Market Analysis</span>
+          <h1 class="slide-title">The Enterprise Web QA Dilemma</h1>
+          <p class="slide-subtitle">Why traditional automation and black-box AI tools fail mission-critical engineering teams</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-amber); border-color: var(--accent-amber);">Problem Statement</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="grid-3">
+          <div class="deck-card red">
+            <div class="deck-card-icon">⏳</div>
+            <h3 class="deck-card-title">Fragile Script Maintenance</h3>
+            <p class="deck-card-body">Teams spend 40% to 60% of their test sprints repairing broken XPath and CSS locators. Minor UI redesigns silently break test suites, delaying deployments.</p>
+          </div>
+          <div class="deck-card amber">
+            <div class="deck-card-icon">💣</div>
+            <h3 class="deck-card-title">Destructive AI Bots</h3>
+            <p class="deck-card-body">Unbounded autonomous agents inadvertently click delete buttons, cancel accounts, or submit orders. Lack of safety controls leads to enterprise security bans.</p>
+          </div>
+          <div class="deck-card emerald">
+            <div class="deck-card-icon">🚀</div>
+            <h3 class="deck-card-title">The PiOne Solution</h3>
+            <p class="deck-card-body">Deterministic Playwright scanner first, grounded AI test planning second. Human-in-the-loop parking lot enclaves isolate destructive operations completely.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3: Philosophy -->
+    <div class="slide-container" data-slide="3">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">System Principles</span>
+          <h1 class="slide-title">Core Philosophy & Enterprise Value Pillars</h1>
+          <p class="slide-subtitle">Deterministic browser automation governed by human checkpoints and grounded AI intelligence</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Architecture Foundations</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="grid-4">
+          <div class="deck-card">
+            <div class="deck-card-icon">🛡️</div>
+            <h3 class="deck-card-title">SSRF Guardrails</h3>
+            <p class="deck-card-body">Target origin allowlisting and strict network blocking of private IP ranges (10.0.0.0/8, 127.0.0.1, 169.254.169.254).</p>
+          </div>
+          <div class="deck-card">
+            <div class="deck-card-icon">🎯</div>
+            <h3 class="deck-card-title">12-Attr Fingerprint</h3>
+            <p class="deck-card-body">Multi-attribute selector scoring (Role > ARIA > ID > Text > CSS > XPath) guaranteeing self-healing locator resilience.</p>
+          </div>
+          <div class="deck-card emerald">
+            <div class="deck-card-icon">🛑</div>
+            <h3 class="deck-card-title">Safety Parking Lot</h3>
+            <p class="deck-card-body">Dangerous keywords (delete, cancel, reset, buy) quarantined into a governance review list requiring human sign-off.</p>
+          </div>
+          <div class="deck-card purple">
+            <div class="deck-card-icon">🔄</div>
+            <h3 class="deck-card-title">Session Renewal</h3>
+            <p class="deck-card-body">Expired sessions are renewed via /session/refresh without dropping discovered route graphs, checkpoints, or active runs.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4: 4-Tier Blueprint -->
+    <div class="slide-container" data-slide="4">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Architecture Blueprint</span>
+          <h1 class="slide-title">Unified System Architecture Blueprint</h1>
+          <p class="slide-subtitle">4-Tier enterprise deployment model guaranteeing durability, isolation, and speed</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-blue); border-color: var(--accent-blue);">System Topology</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="grid-4">
+          <div class="deck-card">
+            <h4 style="color: var(--accent-blue); font-size: 0.8rem; text-transform: uppercase;">Tier 1</h4>
+            <h3 class="deck-card-title">Presentation & UI</h3>
+            <p class="deck-card-body">Tailwind CSS SPA with 8-step responsive stepper, persistent active-run HUD bar, live WebSocket dual-transport, and visual diff viewer.</p>
+          </div>
+          <div class="deck-card">
+            <h4 style="color: var(--accent-cyan); font-size: 0.8rem; text-transform: uppercase;">Tier 2</h4>
+            <h3 class="deck-card-title">FastAPI Gateway</h3>
+            <p class="deck-card-body">Asynchronous endpoints for /scan, /scan/control, /runs/{id}/security passive DAST, multi-provider LLM gateway, and high-speed test execution.</p>
+          </div>
+          <div class="deck-card emerald">
+            <h4 style="color: var(--accent-emerald); font-size: 0.8rem; text-transform: uppercase;">Tier 3</h4>
+            <h3 class="deck-card-title">Automation Core</h3>
+            <p class="deck-card-body">Playwright engine, SecurityGuard SSRF defense, ViewportDeepScanner with 12-attr scoring, ActionClassifier safety gate, and session key store.</p>
+          </div>
+          <div class="deck-card purple">
+            <h4 style="color: var(--accent-purple); font-size: 0.8rem; text-transform: uppercase;">Tier 4</h4>
+            <h3 class="deck-card-title">Durable Persistence</h3>
+            <p class="deck-card-body">SQLAlchemy relational ORM (SQLite / PostgreSQL), JSON run context synchronizer, 10-sheet Excel audit workbooks, and JUnit XML/HTML reports.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 5: 8-Step Lifecycle -->
+    <div class="slide-container" data-slide="5">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Operational Pipeline</span>
+          <h1 class="slide-title">The End-to-End 8-Step Testing Lifecycle</h1>
+          <p class="slide-subtitle">Structured, deterministic pipeline ensuring full enterprise auditability at every transition</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Pipeline Map</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="grid-4">
+          <div class="deck-card"><div class="deck-card-icon">1️⃣</div><h3 class="deck-card-title">Scan Application</h3><p class="deck-card-body">Target specification, credentials containment, and initial SPA/SSR probe.</p></div>
+          <div class="deck-card"><div class="deck-card-icon">2️⃣</div><h3 class="deck-card-title">Choose Modules</h3><p class="deck-card-body">Semantic clustering of discovered paths into testable functional domains.</p></div>
+          <div class="deck-card amber"><div class="deck-card-icon">3️⃣</div><h3 class="deck-card-title">Manual Review</h3><p class="deck-card-body">Human-in-the-loop governance isolating destructive verbs in Parking Lot.</p></div>
+          <div class="deck-card"><div class="deck-card-icon">4️⃣</div><h3 class="deck-card-title">Crawl Telemetry</h3><p class="deck-card-body">Deep sequential traversal with sub-second WebSocket telemetry HUD.</p></div>
+          <div class="deck-card"><div class="deck-card-icon">5️⃣</div><h3 class="deck-card-title">Analyze Routes</h3><p class="deck-card-body">Route health classification (Working/Partial/Non-Working) & element map.</p></div>
+          <div class="deck-card emerald"><div class="deck-card-icon">6️⃣</div><h3 class="deck-card-title">Security DAST</h3><p class="deck-card-body">Passive OWASP Top 10 auditing (CSP, HSTS, cookie flags, unauth access).</p></div>
+          <div class="deck-card purple"><div class="deck-card-icon">7️⃣</div><h3 class="deck-card-title">Generate Tests</h3><p class="deck-card-body">Multi-provider AI planning gateway emitting clean standalone pytest code.</p></div>
+          <div class="deck-card"><div class="deck-card-icon">8️⃣</div><h3 class="deck-card-title">Execute Tests</h3><p class="deck-card-body">Controlled headless/headed runner with per-step live assertion streaming.</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 6: Step 1 Scan -->
+    <div class="slide-container" data-slide="6">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 1 — Initiation</span>
+          <h1 class="slide-title">Scan Application & Session Lifecycle Management</h1>
+          <p class="slide-subtitle">High-fidelity entry point supporting credentialed and public environments with strict session isolation</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Rapid target setup with automated login sequence detection, offline deterministic Mock/Demo mode, and strict credentials containment.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Target Origin Isolation:</b> All crawling strictly bounded to target domain; prevents SSRF and offsite crawling.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Opaque Auth Storage:</b> Storage state encrypted under <code>reports/auth_sessions/&lt;uuid&gt;.json</code>; zero token leakage.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>One-Click Offline Demo:</b> Fully functional mock mode enabling reliable air-gapped evaluation.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Safety</span><span>Passwords and session tokens are never rendered in frontend logs or telemetry.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/01_scan_application.png" alt="Scan Application Interface"></div>
+          <div class="screenshot-caption"><span>FIGURE 1.1: STEP 1 INITIATION & TARGET CONFIGURATION</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 7: Step 2 Choose Modules -->
+    <div class="slide-container" data-slide="7">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 2 — Scoping</span>
+          <h1 class="slide-title">Intelligent Module Discovery & Boundary Isolation</h1>
+          <p class="slide-subtitle">Autonomous clustering of application routes into discrete, testable operational domains</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Test only what changed. Scoping test runs down to specific modules saves up to 85% in pipeline execution time and cloud compute.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Semantic Route Clustering:</b> Auto-groups pages into functional clusters (Inventory, Cart, Checkout, Settings).</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Granular Checkbox Scoping:</b> Select all or targeted subsets with real-time route count indicators.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Stale Run Invalidation:</b> Changing modules transparently flags downstream test suites as needing regeneration.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Efficiency</span><span>Eliminates redundant testing of unchanged static application modules.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/02_choose_modules.png" alt="Choose Modules View"></div>
+          <div class="screenshot-caption"><span>FIGURE 2.1: STEP 2 MODULE CLUSTERING & ROUTE SELECTION</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 8: Step 3 Manual Review -->
+    <div class="slide-container" data-slide="8">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 3 — Governance</span>
+          <h1 class="slide-title">Interactive Manual Review & Safety Enclaves</h1>
+          <p class="slide-subtitle">Pre-crawl human governance gate isolating high-risk interactions and external redirects</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Guarantees autonomous crawlers never inadvertently trigger account cancellations, production deletions, or out-of-scope transactions.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Automated Risk Heuristics:</b> Flags destructive keywords (<code>delete</code>, <code>reset</code>, <code>purchase</code>, <code>logout</code>).</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Parking-Lot Enclave:</b> Quarantine questionable routes for explicit human clearance or omission.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Custom Route Ingestion:</b> Add deep operational URIs directly before deep crawling begins.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Safety</span><span>Zero unintentional destructive database transactions during autonomous exploration.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/03_manual_review.png" alt="Manual Review Interface"></div>
+          <div class="screenshot-caption"><span>FIGURE 3.1: STEP 3 PARKING LOT & GOVERNANCE GATE</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 9: Step 4 Crawl Progress -->
+    <div class="slide-container" data-slide="9">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 4 — Telemetry</span>
+          <h1 class="slide-title">Real-Time Crawl Telemetry & Bounded Exploration</h1>
+          <p class="slide-subtitle">Sub-second streaming progress, network interception, and route-level safety limits</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">100% operational transparency. Live dual-transport WebSocket / polling telemetry with Pause, Resume, and Graceful End controls.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Persistent Active Run Bar:</b> Global HUD displays run ID, active route, progress %, and db health.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Terminal State Protection:</b> Completed scans lock controls and activate "View Analysis" explicitly.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Crash-Resilient State:</b> Telemetry stored continuously; refresh or browser crash resumes seamlessly.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Reliability</span><span>Zero automatic transitions; operator maintains complete supervisory control.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/04_crawl_telemetry.png" alt="Crawl Telemetry Dashboard"></div>
+          <div class="screenshot-caption"><span>FIGURE 4.1: STEP 4 LIVE TELEMETRY & PERSISTENT ACTIVE-RUN HUD</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 10: Step 5 Route Health -->
+    <div class="slide-container" data-slide="10">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 5 — Cataloging</span>
+          <h1 class="slide-title">Route Health Catalog & Classification Engine</h1>
+          <p class="slide-subtitle">Autonomous health derivation and interactive element inspection across all discovered pages</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Instant triage of dead routes, 404/500 HTTP failures, and partially degraded application views before writing a single test line.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Normalized Health Taxonomy:</b> Working, Partial, Non-Working status derived from actual page responses.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Element Density Graph:</b> Catalogs interactive buttons, inputs, links, forms, and ARIA roles per route.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Instant Route Filter:</b> Filter table by module, path, HTTP status code, or functional classification.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Integrity</span><span>Card counts strictly reconcile with underlying route records; zero false-zero counts.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/05_route_health_catalog.png" alt="Route Health Catalog"></div>
+          <div class="screenshot-caption"><span>FIGURE 5.1: STEP 5 ROUTE HEALTH CATALOG & TAXONOMY</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 11: Step 6 Security Scan -->
+    <div class="slide-container" data-slide="11">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 6 — Security</span>
+          <h1 class="slide-title">Non-Destructive DAST Security Assessment</h1>
+          <p class="slide-subtitle">Passive OWASP Top 10 vulnerability checks executed safely against the mapped route graph</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Find security bugs during QA before they reach production. Low-impact, passive auditing with zero risk of database corruption or outages.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Security Headers Audit:</b> Evaluates CSP, HSTS, X-Frame-Options, X-Content-Type-Options.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Cookie Security Analysis:</b> Flags missing <code>Secure</code>, <code>HttpOnly</code>, or <code>SameSite</code> flags.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>OWASP 2021 Alignment:</b> Findings mapped to A01 Broken Access, A05 Misconfig, A07 Auth.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Downloadable Findings:</b> Generates instant compliance JSON reports for DevSecOps pipelines.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Compliance</span><span>Authorized passive scan only; no injection attacks, denial-of-service, or data corruption.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/06_security_assessment.png" alt="Security Scan Interface"></div>
+          <div class="screenshot-caption"><span>FIGURE 6.1: STEP 6 PASSIVE DAST OWASP SECURITY SCANNER</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 12: Step 7 AI Planning -->
+    <div class="slide-container" data-slide="12">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 7 — Generation</span>
+          <h1 class="slide-title">Multi-Provider AI Test Planning Gateway</h1>
+          <p class="slide-subtitle">Vendor-neutral intelligence engine generating robust, deterministic Playwright test suites</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Freedom from LLM lock-in. Toggle seamlessly between Gemini 2.5 Flash, OpenAI GPT-4o, Anthropic Claude 3.5, or Local Ollama.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Zero Hallucination Guarantee:</b> Test plans strictly bounded to elements in the discovered DOM graph.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Deterministic Code Emission:</b> Emits pure Python + Playwright code; no proprietary runtime required.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Editable Plan Staging:</b> Review, reorder, or add custom test steps before code synthesis.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Portability</span><span>Generated tests run in any standard CI/CD runner via standard <code>pytest</code> CLI.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/07_ai_test_planning.png" alt="AI Test Planning Gateway"></div>
+          <div class="screenshot-caption"><span>FIGURE 7.1: STEP 7 MULTI-PROVIDER AI TEST PLANNING INTERFACE</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 13: Step 8 Controlled Execution -->
+    <div class="slide-container" data-slide="13">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 8 — Verification</span>
+          <h1 class="slide-title">Controlled Execution Engine & Live Step Streaming</h1>
+          <p class="slide-subtitle">High-speed headless or interactive browser runner with sub-millisecond assertion tracing</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Watch tests execute in real time or run thousands headless in CI. Immediate visual diagnosis on failure with automated screen captures.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Live Step Streaming:</b> Every action, click, navigation, and expectation displayed in real-time.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Headed / Headless Mode:</b> Toggle headed browser for local visual debugging or headless for speed.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Stop-on-Failure Protection:</b> Automatically halts test execution upon unexpected application error.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Precision</span><span>Native Playwright event dispatching ensures zero timing-related test flakiness.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/08_controlled_execution.png" alt="Test Execution Engine"></div>
+          <div class="screenshot-caption"><span>FIGURE 8.1: STEP 8 CONTROLLED EXECUTION & REAL-TIME ASSERTION LOGS</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 14: Step 9 Audit Reports -->
+    <div class="slide-container" data-slide="14">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Step 9 — Reporting</span>
+          <h1 class="slide-title">Audit-Ready Test Artifacts & Executive Reporting</h1>
+          <p class="slide-subtitle">Comprehensive dashboards providing immediate pass/fail clarity and compliance export</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">One-click audit defense. Generate consolidated execution summaries, test pass rates, timing breakdowns, and failure screenshots.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Standard JUnit XML & JSON:</b> Ingest test results effortlessly into GitHub Actions, GitLab, or Jenkins.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Executive HTML Dossier:</b> Standalone report shareable with compliance officers and VP Engineering.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Traceability Links:</b> Every executed test links back to the original discovered route and element.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Visibility</span><span>Audit-ready evidence generation for SOC2, ISO 27001, and HIPAA compliance reviews.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/09_audit_reports.png" alt="Audit Reports Dossier"></div>
+          <div class="screenshot-caption"><span>FIGURE 9.1: STEP 9 AUDIT DOSSIER & METRIC CARDS</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 15: Saved Runs -->
+    <div class="slide-container" data-slide="15">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Persistence</span>
+          <h1 class="slide-title">Enterprise State Persistence & Checkpoint Resumption</h1>
+          <p class="slide-subtitle">Transactional recovery engine preventing loss of long-running scan context</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Never lose a 2-hour scan to a network glitch or laptop closure. Resume any historical run from its exact recorded checkpoint.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>SQLite / PostgreSQL Backend:</b> Battle-tested relational persistence for all runs, routes, and suites.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>One-Click Resume:</b> Re-attaches telemetry socket and restores execution state instantly.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Safe Destructive Actions:</b> Typed "DELETE" confirmation modal prevents accidental test suite loss.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Resilience</span><span>Safe multi-process database locks prevent race conditions and run corruption.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/10_saved_runs_dashboard.png" alt="Saved Runs Dashboard"></div>
+          <div class="screenshot-caption"><span>FIGURE 10.1: SAVED RUNS & CHECKPOINT RECOVERY HUB</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 16: Regression & Baselines -->
+    <div class="slide-container" data-slide="16">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Continuous Testing</span>
+          <h1 class="slide-title">Autonomous Regression Suites & Visual Baselines</h1>
+          <p class="slide-subtitle">Pixel-perfect perceptual diffing and automated multi-run regression bundling</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Live Platform Capture</span>
+      </div>
+      <div class="slide-body">
+        <div class="content-col">
+          <div class="value-card">
+            <div class="value-card-title">🎯 Key Enterprise Value</div>
+            <div class="value-card-body">Catch subtle UI bugs before users notice. Group multiple test suites into enterprise regression bundles running automatically on every deploy.</div>
+          </div>
+          <ul class="feature-list">
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Golden Baseline Comparison:</b> Detects unintended CSS shifts, font drops, and visual layout breakage.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Suite Bundling:</b> Group critical path suites (Smoke, P0, Checkout) into single regression runs.</span></li>
+            <li class="feature-item"><span class="feature-icon">✓</span><span><b>Historical Drift Analysis:</b> Compare timing, memory footprint, and pass rates across builds.</span></li>
+          </ul>
+          <div class="guarantee-box"><span class="guarantee-badge">Quality</span><span>Zero undetected visual or functional regressions reaching customer-facing environments.</span></div>
+        </div>
+        <div class="visual-col">
+          <div class="screenshot-frame zoomable"><img src="images/11_regression_suites.png" alt="Regression Suites Dashboard"></div>
+          <div class="screenshot-caption"><span>FIGURE 11.1: REGRESSION SUITES & VISUAL BASELINE CONTROLS</span><span>1440x900 @ 2x HI-DPI</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 17: Relational Schema Table -->
+    <div class="slide-container" data-slide="17">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Technical Deep Dive</span>
+          <h1 class="slide-title">Enterprise Data Architecture & Relational Schema</h1>
+          <p class="slide-subtitle">SQLAlchemy persistence models supporting high-concurrency transactional execution</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-cyan); border-color: var(--accent-cyan);">Relational Specs</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="data-table-container">
+          <table class="deck-table">
+            <thead>
+              <tr>
+                <th>Entity Model</th>
+                <th>Primary Attributes</th>
+                <th>Relational Mapping</th>
+                <th>Enterprise Role & Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>RunContext</td>
+                <td>run_id, target_url, status, checkpoint_step, created_at</td>
+                <td>1 : N Routes, 1 : N Suites</td>
+                <td>Top-level scan lifecycle, active module pointers, and checkpoint recovery</td>
+              </tr>
+              <tr>
+                <td>DiscoveredRoute</td>
+                <td>route_id, run_id, path, http_status, classification</td>
+                <td>N : 1 RunContext, 1 : N Elements</td>
+                <td>Durable catalog of all mapped application pages and HTTP health</td>
+              </tr>
+              <tr>
+                <td>ElementRegistry</td>
+                <td>element_id, route_id, role, selector_score, bbox, interactive</td>
+                <td>N : 1 DiscoveredRoute</td>
+                <td>12-attribute self-healing selector registry with bounding coordinates</td>
+              </tr>
+              <tr>
+                <td>RegressionSuite</td>
+                <td>suite_id, name, run_id, test_case_count, status</td>
+                <td>1 : N TestCases, 1 : 1 Baseline</td>
+                <td>Named bundle of critical-path test scenarios for CI/CD automation</td>
+              </tr>
+              <tr>
+                <td>SecurityFinding</td>
+                <td>finding_id, run_id, owasp_category, severity, url, evidence</td>
+                <td>N : 1 RunContext</td>
+                <td>Passive DAST vulnerability audit log with remediation guidance</td>
+              </tr>
+              <tr>
+                <td>ArtifactReference</td>
+                <td>artifact_id, run_id, file_type, file_path, size_bytes</td>
+                <td>N : 1 RunContext</td>
+                <td>Tracked 10-sheet Excel workbooks, JUnit XML, JSON metrics, and screenshots</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 18: Security & Guardrails -->
+    <div class="slide-container" data-slide="18">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Security Architecture</span>
+          <h1 class="slide-title">Enterprise Security, Governance & Transport Guardrails</h1>
+          <p class="slide-subtitle">Transport-layer safety controls preventing SSRF, data corruption, and credential leakage</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-emerald); border-color: var(--accent-emerald);">Risk Mitigation</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="data-table-container">
+          <table class="deck-table">
+            <thead>
+              <tr>
+                <th>Security Domain</th>
+                <th>Identified Threat Vector</th>
+                <th>PiOne Testmate Transport Guardrail</th>
+                <th>Compliance Standards</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Transport SSRF</td>
+                <td>Crawlers hitting cloud metadata (169.254.169.254) or VPC internals</td>
+                <td>Playwright route interception drops non-target and private IP ranges</td>
+                <td>CWE-918, OWASP A10</td>
+              </tr>
+              <tr>
+                <td>Destructive Actions</td>
+                <td>Accidental deletion of database records or billing transactions</td>
+                <td>Safety Parking-Lot quarantines verbs (delete, cancel, buy) for human approval</td>
+                <td>SOC2 CC7.2</td>
+              </tr>
+              <tr>
+                <td>Credential Leakage</td>
+                <td>Passwords or session tokens leaking in logs, reports, or CI artifacts</td>
+                <td>Encrypted storage under reports/auth_sessions/; regex redaction on all logs</td>
+                <td>ISO 27001 A.9.4</td>
+              </tr>
+              <tr>
+                <td>AI Hallucinations</td>
+                <td>LLM generating non-existent test steps causing pipeline failures</td>
+                <td>Prompts strictly bounded to elements in the registered DOM catalog</td>
+                <td>OWASP LLM09</td>
+              </tr>
+              <tr>
+                <td>Session Hijacking</td>
+                <td>Expired or stale session states invalidating long-running tests</td>
+                <td>In-place /session/refresh preserves run context without re-authenticating</td>
+                <td>OWASP A07</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 19: Competitive Matrix -->
+    <div class="slide-container" data-slide="19">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Market Positioning</span>
+          <h1 class="slide-title">Competitive Differentiation Matrix</h1>
+          <p class="slide-subtitle">How PiOne Testmate compares against legacy frameworks and black-box AI tools</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-blue); border-color: var(--accent-blue);">Market Comparison</span>
+      </div>
+      <div class="slide-body full-width">
+        <div class="data-table-container">
+          <table class="deck-table">
+            <thead>
+              <tr>
+                <th>Capability / Feature</th>
+                <th>PiOne Testmate</th>
+                <th>Selenium / WebDriver</th>
+                <th>Cypress / Playwright</th>
+                <th>Black-Box AI Bots</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Setup Effort</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Zero-Script Autonomous</span></td>
+                <td>High (Manual Coding)</td>
+                <td>Medium (Manual Coding)</td>
+                <td>Zero-Script</td>
+              </tr>
+              <tr>
+                <td>Selector Maintenance</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Self-Healing (12 Attr)</span></td>
+                <td>High Maintenance (40% time)</td>
+                <td>High Maintenance</td>
+                <td>Brittle / Hallucinates</td>
+              </tr>
+              <tr>
+                <td>Destructive Action Safety</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Safety Parking Lot Gate</span></td>
+                <td>None (Blind Execution)</td>
+                <td>None (Blind Execution)</td>
+                <td>High Risk of Accidental Delete</td>
+              </tr>
+              <tr>
+                <td>Security Auditing</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Built-in Passive DAST</span></td>
+                <td>Requires 3rd-Party Tools</td>
+                <td>Requires 3rd-Party Tools</td>
+                <td>None</td>
+              </tr>
+              <tr>
+                <td>AI Model Portability</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Gemini, OpenAI, Claude, Ollama</span></td>
+                <td>None</td>
+                <td>None</td>
+                <td>Single Vendor Lock-In</td>
+              </tr>
+              <tr>
+                <td>State Persistence</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Relational Checkpoint Resume</span></td>
+                <td>None (Restart from zero)</td>
+                <td>None (Restart from zero)</td>
+                <td>None</td>
+              </tr>
+              <tr>
+                <td>Test Code Ownership</td>
+                <td><span style="color: var(--accent-emerald); font-weight: 700;">Emits Pure Pytest Code</span></td>
+                <td>Custom Code</td>
+                <td>Custom Code</td>
+                <td>Proprietary Lock-in</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 20: ROI & Action Plan -->
+    <div class="slide-container" data-slide="20">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <span class="slide-step-badge">Executive Summary</span>
+          <h1 class="slide-title">Economic ROI, Deployment Options & Action Plan</h1>
+          <p class="slide-subtitle">Clear financial returns and seamless enterprise deployment roadmap</p>
+        </div>
+        <span class="slide-tag" style="color: var(--accent-emerald); border-color: var(--accent-emerald);">Investment Case</span>
+      </div>
+      <div class="slide-body full-width">
+        <div style="display: flex; flex-direction: column; gap: 1.25rem; height: 100%; justify-content: center;">
+          <div class="grid-3" style="height: auto;">
+            <div class="deck-card emerald">
+              <div class="deck-card-icon">📈</div>
+              <h3 class="deck-card-title">85% Lower Maintenance</h3>
+              <p class="deck-card-body">Reclaims hundreds of engineering hours lost to brittle selector updates. Autonomous route discovery adapts dynamically as your UI evolves.</p>
+            </div>
+            <div class="deck-card">
+              <div class="deck-card-icon">⚡</div>
+              <h3 class="deck-card-title">10x Test Velocity</h3>
+              <p class="deck-card-body">Generate complete, production-grade Playwright suites in minutes rather than weeks. Cut QA release cycles from 3 days to under 30 minutes.</p>
+            </div>
+            <div class="deck-card purple">
+              <div class="deck-card-icon">🔒</div>
+              <h3 class="deck-card-title">Air-Gapped & Secure</h3>
+              <p class="deck-card-body">Deploy on-premise, in your private VPC, or fully offline with local LLM inference via Ollama. Zero test data or credentials leave your network perimeter.</p>
+            </div>
+          </div>
+
+          <div class="deck-card" style="background: #0f172a; border-color: var(--accent-cyan);">
+            <h3 style="color: var(--accent-cyan); font-size: 1.1rem; margin-bottom: 0.5rem;">Actionable Enterprise Pilot Roadmap</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; font-size: 0.86rem; color: #cbd5e1;">
+              <div><strong style="color: white;">Day 1 Integration:</strong> Deploy PiOne Testmate container in your staging VPC; configure target URLs and verify browser runtime readiness.</div>
+              <div><strong style="color: white;">Week 1 Pilot:</strong> Scan 3 representative applications; catalog routes, run passive DAST scans, and generate grounded pytest suites.</div>
+              <div><strong style="color: white;">Production Rollout:</strong> Integrate generated JUnit XML and HTML reports into your GitHub Actions / GitLab pipeline for automated gatekeeping.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Speaker Notes Drawer -->
+  <div id="speaker-notes-drawer">
+    <div class="notes-header">
+      <span>Speaker Script & Key Enterprise Talking Points</span>
+      <span style="font-family: monospace; font-size: 0.75rem;">Press 'N' or Click to Dismiss</span>
+    </div>
+    <div class="notes-content" id="speaker-notes-text"></div>
+  </div>
+
+  <!-- Bottom Control Bar -->
+  <footer>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn" id="btn-prev">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        Previous
+      </button>
+      <button class="btn btn-primary" id="btn-next">
+        Next
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </button>
+    </div>
+
+    <div class="slide-pills" id="slide-pills-container"></div>
+
+    <div style="display: flex; gap: 8px;">
+      <a href="../docs/END_TO_END_WORKFLOW_USER_GUIDE.md" class="btn" target="_blank">User Guide</a>
+      <a href="../docs/SOFTWARE_REQUIREMENTS_DOCUMENT.md" class="btn" target="_blank">SRS / PRD</a>
+    </div>
+  </footer>
+
+  <div id="image-zoom-modal">
+    <img id="zoomed-image" src="" alt="Enlarged Screenshot">
+  </div>
+
+  <script>
+    const speakerNotes = {
+      1: "Welcome executives and engineering leaders. Today I'm presenting PiOne Testmate, an autonomous enterprise web testing and security verification platform. Unlike legacy Selenium scripts that break every release or brittle black-box AI tools that click delete buttons, PiOne Testmate provides a controlled, deterministic 8-step lifecycle that automates discovery, authoring, and execution without risking production stability.",
+      2: "Here is the reality facing every software engineering organization: QA teams spend over 40% of their sprints fixing flaky test scripts after minor UI changes. Meanwhile, fully autonomous 'AI agents' are dangerous in enterprise environments because they lack safety boundaries. PiOne Testmate bridges this gap: deterministic execution powered by Playwright, governed by human-in-the-loop checkpoints.",
+      3: "Our core philosophy is simple: Deterministic Scanner First, Grounded AI Second. Playwright deterministically discovers and explores DOM structures. AI models are strictly restricted to synthesizing structured test scenarios from verified elements. Plus, transport-level SSRF guards and parking-lot enclaves guarantee total safety.",
+      4: "This is our unified 4-tier architectural blueprint. Tier 1 provides the responsive Tailwind UI and persistent active-run HUD. Tier 2 is our asynchronous FastAPI gateway. Tier 3 is the Playwright core with 12-attribute locator fingerprinting. Tier 4 is our durable persistence layer supporting SQLite and PostgreSQL.",
+      5: "The 8-step end-to-end lifecycle ensures complete operational governance. Notice that every step has explicit entry and exit gates. We never automatically leap into destructive actions. From Scan to Module Discovery, Manual Review, Crawl, Route Analysis, Passive DAST, Multi-Provider AI Planning, Controlled Execution, and Audit Dossiers.",
+      6: "In Step 1, configuring a target takes under 15 seconds. The platform automatically handles both public and credential-protected applications. Session storage is cryptographically protected under isolated opaque session IDs. Furthermore, our offline Demo Mode guarantees deterministic evaluations even in air-gapped environments.",
+      7: "In Step 2, Testmate doesn't just crawl blindly—it intelligently clusters application routes into functional modules like Inventory, Cart, and Settings. Engineering teams can select only the modules affected by their pull request, cutting test suite runtimes by over 80%.",
+      8: "Step 3 represents our patent-pending Safety Enclave. Before deep crawling starts, any potentially destructive action—like delete account, payment checkout, or external social redirects—is quarantined in an interactive Parking Lot. The QA engineer retains absolute veto power.",
+      9: "During Step 4, we provide live sub-second telemetry via WebSockets with fallback polling. Operators see the active route, memory consumption, and progress. Notice the persistent Active-Run bar at the top: the user can navigate anywhere in the platform without losing their active run context.",
+      10: "Step 5 is the Route Health Catalog. Testmate automatically classifies every discovered page into Working, Partial, or Non-Working. We display element density, forms, and buttons, allowing developers to detect 404s and client-side rendering errors immediately.",
+      11: "In Step 6, we introduce passive low-impact DAST security auditing. We test against OWASP Top 10 categories—CSP headers, cookie flags (HttpOnly/Secure/SameSite), unauthenticated access, and CORS vulnerabilities—without executing destructive attacks. All findings are exportable for security audits.",
+      12: "Step 7 features our Multi-Provider Planning Gateway. You are never locked into a single AI provider. Choose Google Gemini, OpenAI GPT-4o, Anthropic Claude, or run completely offline with Ollama. Crucially, the AI only generates tests for elements that actually exist in the discovered DOM graph.",
+      13: "Step 8 is our Controlled Execution Engine. Powered by Playwright, it executes generated tests with millisecond-level step streaming. You can watch live in a headed browser for visual debugging, or run headless in your CI/CD pipeline.",
+      14: "Step 9 delivers audit-ready compliance dossiers. Testmate outputs standard JUnit XML, JSON summaries, and high-fidelity HTML reports with full failure screenshots. Everything is traceable back to the exact DOM element and route.",
+      15: "For enterprise scale, PiOne Testmate features transactional state persistence on SQLite and PostgreSQL. If an engineer's laptop closes or a network blips during a 2-hour scan, the run can be resumed from its exact checkpoint with a single click.",
+      16: "Regression testing is automated with visual perceptual diffing. Teams can bundle multiple test suites into scheduled regression runs and verify visual layout integrity against golden baselines across every release.",
+      17: "Here is our relational data model built on SQLAlchemy ORM. It tracks RunContexts, DiscoveredRoutes, ElementRegistries with 12 attributes, RegressionSuites, and SecurityFindings with complete referential integrity across SQLite and PostgreSQL.",
+      18: "Security is non-negotiable in enterprise settings. This matrix shows our transport-level SSRF defense, parking-lot destructive verb quarantine, credential redaction, and strict grounding preventing AI hallucinations.",
+      19: "In this competitive matrix, compare PiOne Testmate with Selenium, Cypress, and black-box AI tools. We provide zero-script autonomous discovery, self-healing selectors, built-in passive DAST, multi-provider LLM portability, and pure Pytest code output.",
+      20: "In conclusion, PiOne Testmate delivers an 85% reduction in manual test maintenance, 10x acceleration in test authoring velocity, and complete enterprise security compliance. Our 3-phase pilot plan gets you operational in a single day. Thank you."
+    };
+
+    let currentSlide = 1;
+    const totalSlides = 20;
+
+    const slideIndicator = document.getElementById('slide-indicator');
+    const pillsContainer = document.getElementById('slide-pills-container');
+    const notesDrawer = document.getElementById('speaker-notes-drawer');
+    const notesText = document.getElementById('speaker-notes-text');
+    const zoomModal = document.getElementById('image-zoom-modal');
+    const zoomedImg = document.getElementById('zoomed-image');
+
+    for (let i = 1; i <= totalSlides; i++) {
+      const pill = document.createElement('div');
+      pill.className = `pill ${i === 1 ? 'active' : ''}`;
+      pill.dataset.slideIndex = i;
+      pill.title = `Slide ${i}`;
+      pill.addEventListener('click', () => goToSlide(i));
+      pillsContainer.appendChild(pill);
+    }
+
+    function updateSlide() {
+      document.querySelectorAll('.slide-container').forEach(el => {
+        el.classList.remove('active');
+        if (parseInt(el.dataset.slide) === currentSlide) {
+          el.classList.add('active');
+        }
+      });
+
+      document.querySelectorAll('.pill').forEach((pill, idx) => {
+        pill.classList.toggle('active', (idx + 1) === currentSlide);
+      });
+
+      slideIndicator.textContent = `Slide ${currentSlide} / ${totalSlides}`;
+      notesText.textContent = speakerNotes[currentSlide] || "No speaker notes for this slide.";
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function goToSlide(n) {
+      if (n >= 1 && n <= totalSlides) {
+        currentSlide = n;
+        updateSlide();
+      }
+    }
+
+    document.getElementById('btn-next').addEventListener('click', nextSlide);
+    document.getElementById('btn-prev').addEventListener('click', prevSlide);
+
+    const toggleNotesBtn = document.getElementById('btn-toggle-notes');
+    toggleNotesBtn.addEventListener('click', () => {
+      notesDrawer.classList.toggle('open');
+    });
+
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => alert(err.message));
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        notesDrawer.classList.toggle('open');
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen();
+        }
+      } else if (e.key === 'Escape') {
+        notesDrawer.classList.remove('open');
+        zoomModal.style.display = 'none';
+      }
+    });
+
+    document.querySelectorAll('.screenshot-frame img').forEach(img => {
+      img.style.cursor = 'zoom-in';
+      img.addEventListener('click', () => {
+        zoomedImg.src = img.src;
+        zoomModal.style.display = 'flex';
+      });
+    });
+
+    zoomModal.addEventListener('click', () => {
+      zoomModal.style.display = 'none';
+    });
+
+    updateSlide();
+  </script>
+</body>
+</html>

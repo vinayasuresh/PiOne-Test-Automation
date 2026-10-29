@@ -3,7 +3,18 @@
 import re
 from typing import Any, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ValidationInfo, field_validator
+
+from api.utils.security_guard import validate_target_url
+
+
+def _is_explicit_mock(info: ValidationInfo) -> bool:
+    """Return only the client-supplied mock-mode flag.
+
+    A URL hostname, run ID, and auth-session ID are all client-controlled
+    values. None of them may grant a DNS or SSRF validation bypass.
+    """
+    return bool(info.data.get("mock", False)) if info.data else False
 
 
 # ---------------------------------------------------------------------------
@@ -12,23 +23,123 @@ from pydantic import BaseModel, field_validator
 
 
 class ScanRequest(BaseModel):
+    mock: bool = False
     url: str
+    session_name: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
-    mock: bool = False
     interactive_mode: bool = False
-    interactive_timeout: int = 300  # seconds the crawler waits per route confirmation
+    interactive_timeout: int = 900  # seconds the crawler waits per module confirmation
+    resume_run_id: Optional[str] = None
+    scan_id: Optional[str] = None
+    selected_module_ids: Optional[list[str]] = None
+    auth_session_id: Optional[str] = None
+    run_id: Optional[str] = None
 
     @field_validator("url")
     @classmethod
-    def validate_url(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("url is required")
-        if not re.match(r"^https?://", v, re.IGNORECASE):
-            raise ValueError("url must start with http:// or https://")
-        return v.rstrip("/")
+    def validate_url(cls, v: str, info: ValidationInfo) -> str:
+        is_mock = bool(info.data.get("mock", False)) if info.data else False
+        return validate_target_url(v, is_mock=is_mock)
 
+    @field_validator("resume_run_id", "run_id")
+    @classmethod
+    def validate_resume_run_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("ID may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+    @field_validator("scan_id", "auth_session_id")
+    @classmethod
+    def validate_scan_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("ID may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+    @field_validator("selected_module_ids")
+    @classmethod
+    def validate_selected_module_ids(cls, values: Optional[list[str]]) -> Optional[list[str]]:
+        if values is None:
+            return None
+        cleaned = [value.strip() for value in values if isinstance(value, str) and value.strip()]
+        if len(cleaned) != len(set(cleaned)):
+            raise ValueError("selected_module_ids must not contain duplicates")
+        if len(cleaned) > 200:
+            raise ValueError("selected_module_ids may contain at most 200 items")
+        return cleaned
+
+
+class ModuleDiscoveryRequest(BaseModel):
+    """Authenticate once and return only the current application's modules."""
+
+    mock: bool = False
+    url: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    session_name: Optional[str] = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_discovery_url(cls, value: str, info: ValidationInfo) -> str:
+        is_mock = bool(info.data.get("mock", False)) if info.data else False
+        return validate_target_url(value, is_mock=is_mock)
+
+
+class ModuleOption(BaseModel):
+    id: str
+    module_id: Optional[str] = None
+    label: str
+    route: str = ""
+    source: str = ""
+    dom_order: int = 0
+    hierarchy_level: int = 0
+    parent_module: Optional[str] = None
+    confidence: float = 1.0
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.module_id:
+            self.module_id = self.id
+
+
+class ModuleDiscoveryResponse(BaseModel):
+    run_id: str
+    auth_session_id: str
+    modules: list[ModuleOption]
+    message: Optional[str] = None
+    correlation_id: Optional[str] = None
+
+
+class RouteReplayRequest(BaseModel):
+    mock: bool = False
+    base_url: str
+    route: str
+    checkpoint_id: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    scan_id: Optional[str] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+    @field_validator("checkpoint_id", "scan_id")
+    @classmethod
+    def validate_replay_ids(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("IDs may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
 
 # ---------------------------------------------------------------------------
 # Response — inner structures
@@ -68,19 +179,38 @@ class Interaction(BaseModel):
 
 class RouteResult(BaseModel):
     path: str
+    # Canonical route as observed by the browser, including query parameters
+    # and fragments. ``path`` remains the compact UI label for compatibility.
+    url: str = ""
     menu_name: str = ""
     purpose: str = ""
     framework: str = ""
     components: ComponentGroups
     interactions: list[Interaction] = []
     automation_targets: list[dict[str, Any]] = []
+    # The complete target registry is returned for traceability.  This count
+    # remains useful to clients that deliberately page or filter the list.
+    total_automation_targets: int = 0
+    route_status: str = "WORKING"
+    route_score: int = 0
+    dom_stable: bool = True
+    page_load_success: bool = True
+    redirected: bool = False
+    api_response_present: bool = False
+    failed_api_responses: int = 0
+    interaction_success_rate: float = 0.0
 
 
 class ScanSummary(BaseModel):
     total_routes:  int
     total_buttons: int
     total_inputs:  int
+    total_dropdowns: int = 0
     total_tables:  int
+    total_automation_targets: int = 0
+    working_routes: int = 0
+    partial_routes: int = 0
+    non_working_routes: int = 0
     scan_duration_seconds: float
 
 
@@ -100,9 +230,20 @@ class ScanResponse(BaseModel):
     """
 
     status: str = "success"
+    run_id: Optional[str] = None
     routes:  list[RouteResult]
     summary: ScanSummary
     message: Optional[str] = None
+    checkpoint_id: Optional[str] = None
+    replay_comparison: Optional[dict[str, Any]] = None
+    route_namespace: Optional[str] = None
+    # Opaque authenticated browser-session reference for later execution.
+    # Never contains cookies or credentials.
+    auth_session_id: Optional[str] = None
+    # Safety evidence belongs to the scan response so Analyze, planning, and
+    # Report all consume the same immutable source of truth.
+    safe_actions_explored: int = 0
+    parking_lot_actions: list[dict[str, Any]] = []
 
 
 class ErrorResponse(BaseModel):
@@ -116,22 +257,155 @@ class ErrorResponse(BaseModel):
 
 
 class GenerateTestRequest(BaseModel):
+    mock: bool = False
     base_url: str
     scan: ScanResponse
     description: Optional[str] = None
     feature_focus: Optional[str] = None
+    context_id: Optional[str] = None
+    provider: str = "deterministic"
+    model: Optional[str] = None
+    user_prompt: Optional[str] = None
+    run_id: Optional[str] = None
+    session_name: Optional[str] = None
+    # Optional planning cap.  Zero preserves the provider's automatic
+    # grounded coverage; a positive value limits the returned catalogue.
+    testcase_count: int = 0
+    evidence_revision: Optional[int] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_generate_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+    @field_validator("context_id")
+    @classmethod
+    def validate_context_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("context_id may contain only letters, numbers, '_' and '-' (max 80)")
+        return value
+
+    @field_validator("testcase_count")
+    @classmethod
+    def validate_testcase_count(cls, value: int) -> int:
+        if value < 0 or value > 100:
+            raise ValueError("testcase_count must be between 0 and 100")
+        return value
+
+
+class TestContextResponse(BaseModel):
+    context_id: str
+    requirements_characters: int = 0
+    testcase_characters: int = 0
+    user_prompt_characters: int = 0
+    source_files: list[str] = []
+    normalized_items: int = 0
+
+
+class LLMProviderInfo(BaseModel):
+    id: str
+    label: str
+    available: bool
+    default_model: str = ""
+    detail: str = ""
 
 
 class GeneratedTestResponse(BaseModel):
     status: str = "success"
+    run_id: Optional[str] = None
     script: str
     execution_command: str
+    planning_notes: str = ""
+    context_id: Optional[str] = None
+    test_cases: list["TestCase"] = []
+    planning_metadata: dict[str, Any] = {}
+    coverage_gaps: list[dict[str, Any]] = []
+    provider: str = "deterministic"
+    model: str = ""
+    fallback_used: bool = False
+    warnings: list[str] = []
+    shortfall_explanation: Optional[dict[str, Any]] = None
+    evidence_revision: Optional[int] = None
+
+
+class TestStep(BaseModel):
+    __test__ = False
+    step_id: str
+    action: str
+    route: str = ""
+    target_label: str = ""
+    selector: dict[str, Any] = {}
+    expected_result: str = ""
+    source: str = "scan"
+    value: str = ""
+    element_identity: str = ""
+    safety_classification: str = ""
+
+
+class TestCase(BaseModel):
+    __test__ = False
+    tc_id: str
+    title: str
+    module: str
+    route: str
+    purpose: str = ""
+    requirement_references: list[str] = []
+    steps: list[TestStep] = []
+    tags: list[str] = []
+    priority: str = "Medium"
+    prerequisites: list[str] = []
+    locators: dict[str, Any] = {}
+    safety_classification: str = "safe_action"
+    latest_result: str = "Untested"
+    last_execution_time: Optional[str] = None
+    baseline_version: str = "1.0"
+    # Report-friendly fields.  The legacy fields above remain the execution contract.
+    screen: str = ""
+    feature: str = ""
+    testcase: str = ""
+    steps_to_execute: str = ""
+    test_status: str = "Not Executed"
+    actual_result: str = ""
+    severity: str = "Medium"
+    bug_status: str = "Not Raised"
+    notes_reason: str = ""
+    bug_sheet_current_version: str = "1"
+    tested_version: str = ""
+    test_type: str = "positive"
+    source_references: list[str] = []
 
 
 class ExecuteTestRequest(BaseModel):
+    mock: bool = False
     base_url: str
     scan: ScanResponse
     script: str
+    test_cases: list[TestCase] = []
+    allow_mutating_actions: bool = False
+    # Authenticated scan session used to open the same application context
+    # during execution. This is an opaque server-side state-file ID.
+    auth_session_id: Optional[str] = None
+    run_id: Optional[str] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_execute_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+    @field_validator("auth_session_id")
+    @classmethod
+    def validate_auth_session_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return None
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value):
+            raise ValueError("auth_session_id contains invalid characters")
+        return value
 
 
 class ExecutionResultRow(BaseModel):
@@ -145,6 +419,15 @@ class ExecutionResultRow(BaseModel):
     Status: str
     Failure_Info: str = ""
     Bug_Priority: str = ""
+    Step_ID: str = ""
+    Action: str = ""
+    Artifact_Path: str = ""
+    locator_used: str = ""
+    failure_category: str = ""
+    console_errors: list[str] = []
+    network_errors: list[str] = []
+    element_identity: str = ""
+    safety_classification: str = ""
 
 
 class ExecutionSummary(BaseModel):
@@ -156,8 +439,95 @@ class ExecutionSummary(BaseModel):
 
 class ExecuteTestResponse(BaseModel):
     status: str = "success"
+    run_id: Optional[str] = None
     rows: list[ExecutionResultRow]
     summary: ExecutionSummary
+    artifacts: dict[str, str] = {}
+
+
+class RerunStepRequest(BaseModel):
+    mock: bool = False
+    base_url: str
+    test_case: TestCase
+    step_id: str
+    auth_session_id: Optional[str] = None
+    run_id: Optional[str] = None
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_rerun_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class RerunStepResponse(BaseModel):
+    status: str = "success"
+    step_id: str
+    locator_used: str = ""
+    actual_result: str = ""
+    failure_info: str = ""
+    artifact_path: str = ""
+    console_errors: list[str] = []
+    network_errors: list[str] = []
+
+
+class RefreshSessionRequest(BaseModel):
+    run_id: str
+    mock: bool = False
+    url: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+    @field_validator("url")
+    @classmethod
+    def validate_refresh_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class RefreshSessionResponse(BaseModel):
+    status: str = "success"
+    run_id: str
+    auth_session_id: str
+    message: str = "Session refreshed successfully"
+
+
+class SessionStatusResponse(BaseModel):
+    run_id: str
+    auth_session_id: Optional[str] = None
+    is_valid: bool
+    status: str  # "authenticated" | "expired" | "missing"
+    detail: str
+
+
+class RegressionRunRequest(BaseModel):
+    execution_id: Optional[str] = None
+    mock: bool = False
+    base_url: str
+    run_id: Optional[str] = None
+
+    @field_validator("execution_id")
+    @classmethod
+    def validate_execution_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not re.fullmatch(r"execution_[0-9]{8}_[0-9]{6}(?:_[A-Za-z0-9_-]+)?", value):
+            raise ValueError("Invalid execution artifact ID")
+        return value
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_regression_base_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class RegressionRunResponse(BaseModel):
+    status: str = "success"
+    run_id: str
+    execution_id: str
+    summary: ExecutionSummary
+    rows: list[ExecutionResultRow]
+    diff: dict[str, Any] = {}
+    artifacts: dict[str, str] = {}
 
 
 class SystemInfoResponse(BaseModel):
@@ -165,3 +535,115 @@ class SystemInfoResponse(BaseModel):
     browser: str
     python_version: str
     environment: str
+
+
+class ScanControlRequest(BaseModel):
+    run_id: str
+    action: str  # "pause" | "resume" | "continue" | "retry" | "end"
+
+
+class ScanControlResponse(BaseModel):
+    status: str = "success"
+    run_id: str
+    action: str
+    message: str = ""
+
+
+class ArtifactStatusResponse(BaseModel):
+    run_id: str
+    status: str  # "ready" | "in_progress" | "not_found"
+    artifacts: dict[str, bool] = {}
+    download_urls: dict[str, str] = {}
+
+
+class CreateRunRequest(BaseModel):
+    mock: bool = False
+    url: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    allowed_scope: str = "/"
+    interactive_mode: bool = False
+    selected_module_ids: list[str] = []
+
+    @field_validator("url")
+    @classmethod
+    def validate_create_run_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class SaveProgressRequest(BaseModel):
+    run_id: str
+    state: Optional[dict[str, Any]] = None
+
+
+class ResumeRunRequest(BaseModel):
+    run_id: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rescan_modules: list[str] = []
+
+
+class CreateRegressionSuiteRequest(BaseModel):
+    name: str
+    mock: bool = False
+    base_url: str
+    environment: str = "production"
+    description: str = ""
+    baseline_run_id: Optional[str] = None
+    test_case_ids: list[str] = []
+    filter_tags: list[str] = []
+    filter_modules: list[str] = []
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_suite_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class UpdateRegressionSuiteRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    environment: Optional[str] = None
+    case_toggles: dict[str, bool] = {}
+    filter_tags: list[str] = []
+    filter_modules: list[str] = []
+
+
+class ExecuteSelectedRegressionRequest(BaseModel):
+    run_id: str
+    mock: bool = False
+    base_url: str
+    suite_id: Optional[str] = None
+    filter_type: str = "all"  # all, modules, routes, tags, failed_only, changed_only, never_executed, review_required
+    selected_test_case_ids: list[str] = []
+    selected_modules: list[str] = []
+    selected_routes: list[str] = []
+    selected_tags: list[str] = []
+    failed_only: bool = False
+    changed_since_baseline_only: bool = False
+    never_executed_only: bool = False
+    manual_review_only: bool = False
+    confirmed: bool = False
+    expected_test_count: Optional[int] = None
+    expected_step_count: Optional[int] = None
+    auth_session_id: Optional[str] = None
+    allow_mutating_actions: bool = False
+
+    @field_validator("base_url")
+    @classmethod
+    def validate_exec_url(cls, value: str, info: ValidationInfo) -> str:
+        return validate_target_url(value, is_mock=_is_explicit_mock(info))
+
+
+class SaveBaselineRequest(BaseModel):
+    run_id: str
+    name: str = "Baseline Plan"
+    version: str = "1.0"
+    confirmed_overwrite: bool = False
+
+
+class CompareBaselineRequest(BaseModel):
+    current_run_id: str
+    baseline_run_id: Optional[str] = None
+    baseline_id: Optional[str] = None
+

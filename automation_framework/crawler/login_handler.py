@@ -1,27 +1,37 @@
 """Deterministic login handler.
 
 Flow (in order):
-    1. Navigate to base_url and wait for any <input> + an <input type="password">.
-    2. Pick username field by strict priority list.
-    3. Pick password field (must be input[type="password"]).
+    1. Navigate to base_url and wait for login form (supporting SPA hydration and frames).
+    2. Pick username field by strict priority list (name, id, placeholder, label, autocomplete).
+    3. Pick password field (type=password, name, id, placeholder, autocomplete).
     4. Pick submit button by strict priority list, excluding SSO/social buttons.
-    5. Fill, small delay, click.
-    6. Wait for networkidle + 3 s settle.
-    7. Validate: if "login" still in URL → fail.
+    5. Fill credentials safely, small delay, submit.
+    6. Wait for load state + settle.
+    7. Validate login success; capture redacted diagnostic snapshot on failure.
 
-Only this module was changed; the public function signature
+Public API:
     login(page, username, password, base_url)
-is unchanged so existing callers (main.py, crawler_engine.py,
-api/services/crawler_service.py) continue to work.
 """
 
+from __future__ import annotations
+
+import json
+import time
+from typing import Any
+
 from playwright.sync_api import (
+    Error as PlaywrightError,
+    Frame,
     Locator,
     Page,
     TimeoutError as PlaywrightTimeoutError,
 )
 
-from automation_framework.config.settings import SCREENSHOT_PATH
+from automation_framework.config.settings import LOGIN_TIMEOUT, ROUTE_LOAD_TIMEOUT, SCREENSHOT_PATH
+from automation_framework.crawler.auth_exceptions import (
+    DiscoveryUnavailableError,
+    LoginFailedError,
+)
 from automation_framework.utils.logger import logger
 
 
@@ -32,11 +42,59 @@ from automation_framework.utils.logger import logger
 # Username field selectors, tried in this exact order.
 USERNAME_PRIORITY: tuple[str, ...] = (
     'input[type="email"]',
-    'input[name*="email" i]',
+    'input[name="username" i]',
+    'input[name="user" i]',
+    'input[name="email" i]',
     'input[name*="user" i]',
-    'input[id*="email" i]',
+    'input[name*="email" i]',
+    'input[name*="login" i]',
+    'input[name*="account" i]',
+    'input[name*="identity" i]',
+    'input[id="username" i]',
+    'input[id="user" i]',
+    'input[id="email" i]',
+    'input[id*="username" i]',
     'input[id*="user" i]',
+    'input[id*="email" i]',
+    'input[id*="login" i]',
+    'input[id*="account" i]',
+    'input[placeholder="username" i]',
+    'input[placeholder*="user" i]',
+    'input[placeholder*="email" i]',
+    'input[placeholder*="login" i]',
+    'input[placeholder*="account" i]',
+    'input[aria-label="username" i]',
+    'input[aria-label*="user" i]',
+    'input[aria-label*="email" i]',
+    'input[aria-label*="login" i]',
+    'input[aria-label*="account" i]',
+    'input[autocomplete="username" i]',
+    'input[autocomplete*="username" i]',
+    'input[autocomplete*="email" i]',
     'input[type="text"]:visible',
+    'input:not([type]):visible',
+    'input:not([type="hidden"]):not([type="password"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):visible',
+)
+
+# Password field selectors, tried in this exact order.
+PASSWORD_PRIORITY: tuple[str, ...] = (
+    'input[type="password"]',
+    'input[name="password" i]',
+    'input[name="pass" i]',
+    'input[name*="pass" i]',
+    'input[name*="pwd" i]',
+    'input[id="password" i]',
+    'input[id="pass" i]',
+    'input[id*="pass" i]',
+    'input[id*="pwd" i]',
+    'input[placeholder="password" i]',
+    'input[placeholder*="pass" i]',
+    'input[placeholder*="pwd" i]',
+    'input[aria-label="password" i]',
+    'input[aria-label*="pass" i]',
+    'input[autocomplete="current-password" i]',
+    'input[autocomplete="password" i]',
+    'input[autocomplete*="password" i]',
 )
 
 # SSO / social-login buttons we must never click.
@@ -64,75 +122,167 @@ SSO_KEYWORDS: tuple[str, ...] = (
 def login(page: Page, username: str, password: str, base_url: str) -> None:
     """Perform a deterministic email/username + password login.
 
-    Raises RuntimeError on any failure. Captures a screenshot to
-    screenshots/login_failure.png before raising.
+    Raises LoginFailedError if credentials fail, or DiscoveryUnavailableError
+    if navigation/target is unreachable. Captures a diagnostic snapshot and
+    screenshot to screenshots/login_failure.png before raising.
     """
     try:
         logger.info(f"[login] Navigating to {base_url}")
-        page.goto(base_url, wait_until="domcontentloaded")
+        try:
+            page.goto(base_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
+        except (PlaywrightError, PlaywrightTimeoutError) as nav_err:
+            raise DiscoveryUnavailableError(f"Target navigation failed: {nav_err}") from nav_err
 
-        _wait_for_login_form(page)
+        current_init = (page.url or "").lower().strip()
+        if current_init.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+            raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
 
-        username_field, username_selector = _find_username_field(page)
+        context, username_field, username_selector, password_field, password_selector = (
+            _wait_for_login_form(page)
+        )
+
+        logger.info(f"[login] Form detected in context ({type(context).__name__})")
         logger.info(f"[login] Username field selector: {username_selector}")
+        logger.info(f"[login] Password field selector: {password_selector}")
 
-        password_field = _find_password_field(page)
-        logger.info('[login] Password field selector: input[type="password"]')
-
-        submit_button, submit_selector = _find_submit_button(page)
+        submit_button, submit_selector = _find_submit_button(context)
         logger.info(f"[login] Submit button selector: {submit_selector}")
 
         logger.info("[login] Filling credentials")
-        username_field.fill(username)
-        password_field.fill(password)
-        page.wait_for_timeout(500)
+        try:
+            username_field.fill(username, timeout=LOGIN_TIMEOUT)
+            password_field.fill(password, timeout=LOGIN_TIMEOUT)
+            page.wait_for_timeout(500)
+        except (PlaywrightError, PlaywrightTimeoutError) as fill_err:
+            raise LoginFailedError(f"Unable to fill login credentials: {fill_err}") from fill_err
 
         logger.info("[login] Submitting form")
-        submit_button.click()
+        try:
+            if submit_button is None:
+                password_field.press("Enter", timeout=LOGIN_TIMEOUT)
+            else:
+                submit_button.click(timeout=LOGIN_TIMEOUT)
+        except (PlaywrightError, PlaywrightTimeoutError) as submit_err:
+            raise LoginFailedError(f"Unable to submit login form: {submit_err}") from submit_err
 
         _wait_for_login_completion(page)
         _validate_login_success(page)
 
         logger.info(f"[login] Login successful — current URL: {page.url}")
 
-    except Exception as exc:
+    except (DiscoveryUnavailableError, LoginFailedError):
         _screenshot_failure(page)
-        logger.error(f"[login] Login failed: {exc}")
-        # Re-raise as RuntimeError so callers always see a uniform exception type.
-        if isinstance(exc, RuntimeError):
-            raise
-        raise RuntimeError(f"Login failed: {exc}") from exc
+        raise
+    except Exception as exc:
+        diagnostics = _capture_login_diagnostics(page)
+        _screenshot_failure(page)
+        logger.error(
+            "[login] Login failed: %s | Diagnostics: URL=%s, Frames=%d, Inputs=%d, Buttons=%d",
+            exc,
+            diagnostics.get("final_url"),
+            diagnostics.get("frame_count", 0),
+            len(diagnostics.get("detected_inputs", [])),
+            len(diagnostics.get("detected_buttons", [])),
+        )
+        curr = (page.url or "").lower().strip()
+        if curr.startswith(("chrome-error:", "chrome-error://", "about:blank")):
+            raise DiscoveryUnavailableError(f"Target navigation error: {exc}") from exc
+        raise LoginFailedError(f"Login failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
-# Step 1 — wait for the login form to be ready
+# Step 1 — wait for login form (with SPA hydration & multi-frame support)
 # ---------------------------------------------------------------------------
 
 
-def _wait_for_login_form(page: Page) -> None:
-    try:
-        page.wait_for_selector("input", timeout=8000)
-    except PlaywrightTimeoutError as exc:
-        raise RuntimeError("no input fields found on the login page") from exc
+def _wait_for_login_form(
+    page: Page,
+    timeout_ms: int = LOGIN_TIMEOUT,
+) -> tuple[Page | Frame, Locator, str, Locator, str]:
+    """Wait for username and password fields to become available and interactable.
 
-    try:
-        page.wait_for_selector('input[type="password"]', timeout=8000)
-    except PlaywrightTimeoutError as exc:
-        raise RuntimeError("password field never appeared on the login page") from exc
+    Supports client-rendered SPAs (OrangeHRM, Angular, React) where inputs may
+    hydrate after initial shell rendering, and inspects same-origin frames if
+    the login form is rendered in an iframe.
+    """
+    deadline = time.monotonic() + (timeout_ms / 1000.0)
+    poll_interval = 0.25
+
+    while time.monotonic() < deadline:
+        # Check main page and all attached frames
+        contexts: list[Page | Frame] = [page]
+        try:
+            contexts.extend(page.frames)
+        except Exception:
+            pass
+
+        for ctx in contexts:
+            try:
+                # Fast existence check
+                if ctx.locator("input").count() == 0:
+                    continue
+
+                username_candidate, u_sel = _find_username_field(ctx)
+                password_candidate, p_sel = _find_password_field(ctx)
+
+                if username_candidate is not None and password_candidate is not None:
+                    return ctx, username_candidate, u_sel, password_candidate, p_sel
+            except Exception:
+                continue
+
+        time.sleep(poll_interval)
+
+    # If we timed out, check what exists to provide an accurate exception
+    has_any_input = False
+    contexts = [page] + list(page.frames)
+    for ctx in contexts:
+        try:
+            if ctx.locator("input").count() > 0:
+                has_any_input = True
+                break
+        except Exception:
+            pass
+
+    if not has_any_input:
+        current_u = (page.url or "").lower().strip()
+        if current_u.startswith(("chrome-error:", "chrome-error://")):
+            raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
+        raise DiscoveryUnavailableError("no input fields found on the login page")
+    raise DiscoveryUnavailableError("password field never appeared on the login page")
 
 
 # ---------------------------------------------------------------------------
-# Step 2 — username field
+# Step 2 — username field (priority + label heuristic)
 # ---------------------------------------------------------------------------
 
 
-def _find_username_field(page: Page) -> tuple[Locator, str]:
+def _find_username_field(context: Page | Frame) -> tuple[Locator | None, str]:
+    # 1. Primary selector priority list
     for selector in USERNAME_PRIORITY:
-        candidate = _first_interactable(page.locator(selector))
+        candidate = _first_interactable(context.locator(selector))
         if candidate is not None:
             return candidate, selector
 
-    raise RuntimeError("could not locate a visible username/email field")
+    # 2. Label text heuristic: find label element referencing an input
+    for label_word in ("username", "email", "user id", "account", "user"):
+        try:
+            labels = context.locator(f"label:has-text('{label_word}')")
+            for i in range(labels.count()):
+                lbl = labels.nth(i)
+                for_attr = lbl.get_attribute("for")
+                if for_attr:
+                    target = context.locator(f"#{for_attr}")
+                    if _is_visible(target) and _is_enabled(target):
+                        return target, f"label[for='{for_attr}']"
+                nested_input = lbl.locator("input")
+                if nested_input.count() > 0:
+                    first = _first_interactable(nested_input)
+                    if first is not None:
+                        return first, f"label:has-text('{label_word}') input"
+        except Exception:
+            pass
+
+    return None, ""
 
 
 # ---------------------------------------------------------------------------
@@ -140,11 +290,31 @@ def _find_username_field(page: Page) -> tuple[Locator, str]:
 # ---------------------------------------------------------------------------
 
 
-def _find_password_field(page: Page) -> Locator:
-    candidate = _first_interactable(page.locator('input[type="password"]'))
-    if candidate is None:
-        raise RuntimeError("password field is not visible/interactable")
-    return candidate
+def _find_password_field(context: Page | Frame) -> tuple[Locator | None, str]:
+    for selector in PASSWORD_PRIORITY:
+        candidate = _first_interactable(context.locator(selector))
+        if candidate is not None:
+            return candidate, selector
+
+    # Label text heuristic for password
+    try:
+        labels = context.locator("label:has-text('password')")
+        for i in range(labels.count()):
+            lbl = labels.nth(i)
+            for_attr = lbl.get_attribute("for")
+            if for_attr:
+                target = context.locator(f"#{for_attr}")
+                if _is_visible(target) and _is_enabled(target):
+                    return target, f"label[for='{for_attr}']"
+            nested_input = lbl.locator("input")
+            if nested_input.count() > 0:
+                first = _first_interactable(nested_input)
+                if first is not None:
+                    return first, "label:has-text('password') input"
+    except Exception:
+        pass
+
+    return None, ""
 
 
 # ---------------------------------------------------------------------------
@@ -152,31 +322,48 @@ def _find_password_field(page: Page) -> Locator:
 # ---------------------------------------------------------------------------
 
 
-def _find_submit_button(page: Page) -> tuple[Locator, str]:
-    """Return the real login submit button (never an SSO/social button)."""
-    # Priority 1: a submit button that lives inside a <form>.
-    candidate = _first_safe_button(page.locator("form button[type='submit']"))
-    if candidate is not None:
-        return candidate, "form button[type='submit']"
-
-    # Priority 2: any submit button on the page.
-    candidate = _first_safe_button(page.locator("button[type='submit']"))
-    if candidate is not None:
-        return candidate, "button[type='submit']"
-
-    # Priority 3: text-based fallback. Each variant is tried separately.
-    text_selectors = (
-        'button:has-text("Sign in")',
-        'button:has-text("Login")',
-        'button:has-text("Log in")',
-        'button:has-text("Sign In")',
+def _find_submit_button(context: Page | Frame) -> tuple[Locator | None, str]:
+    """Return a safe submit control, or a form-Enter fallback."""
+    selectors = (
+        "form input[type='submit']",
+        "form button[type='submit']",
+        "form [role='button']",
+        "form button",
+        "form input[type='button']",
+        "input[type='submit']",
+        "button[type='submit']",
+        "[type='submit']",
+        "button.oxd-button",
+        "button",
+        "[role='button']",
     )
-    for selector in text_selectors:
-        candidate = _first_safe_button(page.locator(selector))
+    for selector in selectors:
+        candidate = _first_safe_button(context.locator(selector))
         if candidate is not None:
             return candidate, selector
 
-    raise RuntimeError("could not locate a non-SSO login submit button")
+    # Text / accessibility name lookup
+    for name in ("sign in", "login", "log in", "submit", "continue"):
+        for locator in (
+            context.get_by_role("button", name=name, exact=True),
+            context.get_by_role("button", name=name, exact=False),
+            context.get_by_text(name, exact=True),
+        ):
+            candidate = _first_safe_button(locator)
+            if candidate is not None:
+                return candidate, f"accessible/text:{name}"
+
+    # Last resort: enter in password field
+    forms = context.locator("form")
+    try:
+        for index in range(forms.count()):
+            form = forms.nth(index)
+            if _is_visible(form):
+                return None, "form:Enter"
+    except Exception:
+        pass
+
+    return None, "enter_key_fallback"
 
 
 def _first_safe_button(locator: Locator) -> Locator | None:
@@ -198,23 +385,15 @@ def _first_safe_button(locator: Locator) -> Locator | None:
 
 
 def _is_sso_button(button: Locator) -> bool:
-    """True if the button (or any descendant) references an SSO provider.
-
-    We pull the entire subtree's text, attribute values, and child img alt
-    text into one lowercased string so buttons whose label lives inside a
-    child <img alt="Google"> or icon <svg> are still detected.
-    """
+    """True if the button (or any descendant) references an SSO provider."""
     try:
         haystack = button.evaluate(
             """
             (el) => {
                 const parts = [];
-                /* Attributes on the button itself */
                 ['aria-label', 'title', 'name', 'id', 'class', 'data-provider', 'data-testid']
                     .forEach(a => { const v = el.getAttribute(a); if (v) parts.push(v); });
-                /* Visible text */
                 parts.push(el.innerText || '');
-                /* Attributes on every descendant — catches <img alt="Google"> and <svg aria-label> */
                 el.querySelectorAll('*').forEach(child => {
                     ['alt', 'aria-label', 'title', 'data-provider', 'class']
                         .forEach(a => { const v = child.getAttribute(a); if (v) parts.push(v); });
@@ -236,20 +415,110 @@ def _is_sso_button(button: Locator) -> bool:
 
 def _wait_for_login_completion(page: Page) -> None:
     try:
-        page.wait_for_load_state("networkidle", timeout=10000)
+        page.wait_for_load_state("networkidle", timeout=min(LOGIN_TIMEOUT, 6000))
     except PlaywrightTimeoutError:
         logger.warning("[login] networkidle timeout after submit — continuing")
-    page.wait_for_timeout(3000)
+    page.wait_for_timeout(min(1000, LOGIN_TIMEOUT))
 
 
 # ---------------------------------------------------------------------------
-# Step 7 — validate
+# Step 7 — validate & diagnostics
 # ---------------------------------------------------------------------------
 
 
 def _validate_login_success(page: Page) -> None:
-    if "login" in page.url.lower():
-        raise RuntimeError(f"still on login page after submit (url={page.url})")
+    current = page.url.lower().strip()
+    # A browser-level error page can change the URL away from /login without
+    # establishing an authenticated application session. Treat it as a hard
+    # failure instead of allowing discovery to scan chrome-error:// routes.
+    if current.startswith(("chrome-error:", "chrome-error://", "about:blank", "data:", "file:", "javascript:")):
+        raise DiscoveryUnavailableError(f"login navigation failed (browser error page: {page.url})")
+    if not current.startswith(("http://", "https://")):
+        raise DiscoveryUnavailableError(f"login navigation produced an invalid URL scheme: {page.url}")
+
+    # Check if remaining on a login page path
+    login_patterns = ("/auth/login", "/signin", "/sign-in", "/authenticate")
+    is_login_path = any(p in current for p in login_patterns) or current.endswith("/login") or "login." in current or "login=" in current
+
+    if is_login_path:
+        # Give SPA router up to 2 extra seconds to complete route change
+        for _ in range(8):
+            time.sleep(0.25)
+            current = page.url.lower().strip()
+            if not (any(p in current for p in login_patterns) or current.endswith("/login") or "login." in current or "login=" in current):
+                is_login_path = False
+                break
+
+    # If still on a login path, or if a visible password input / login button / login error remains
+    has_visible_password = False
+    try:
+        pw = page.locator('input[type="password"]')
+        has_visible_password = pw.count() > 0 and pw.first.is_visible()
+    except Exception:
+        pass
+
+    if is_login_path or has_visible_password:
+        raise LoginFailedError(f"Invalid credentials or login rejected; still on login page after submit (url={page.url})")
+
+
+def _capture_login_diagnostics(page: Page) -> dict[str, Any]:
+    """Capture diagnostic metadata without ever extracting or logging credentials."""
+    diagnostics: dict[str, Any] = {
+        "final_url": page.url,
+        "frame_count": len(page.frames),
+        "detected_inputs": [],
+        "detected_buttons": [],
+    }
+
+    contexts: list[Page | Frame] = [page]
+    try:
+        contexts.extend(page.frames)
+    except Exception:
+        pass
+
+    for ctx in contexts:
+        ctx_name = getattr(ctx, "name", "main_page") or "frame"
+        try:
+            inputs_meta = ctx.locator("input, textarea").evaluate_all("""els => els.map(el => {
+                const box = el.getBoundingClientRect();
+                const style = window.getComputedStyle(el);
+                const visible = style.display !== 'none' && style.visibility !== 'hidden' && (box.width > 0 || box.height > 0);
+                return {
+                    tag: el.tagName.toLowerCase(),
+                    type: el.getAttribute('type') || '',
+                    name: el.getAttribute('name') || '',
+                    id: el.id || '',
+                    placeholder: el.getAttribute('placeholder') || '',
+                    classes: el.className || '',
+                    visible: visible
+                };
+            })""")
+            for im in inputs_meta:
+                im["frame"] = ctx_name
+                diagnostics["detected_inputs"].append(im)
+        except Exception:
+            pass
+
+        try:
+            buttons_meta = ctx.locator("button, [role='button'], input[type='submit'], input[type='button']").evaluate_all("""els => els.map(el => {
+                const box = el.getBoundingClientRect();
+                const style = window.getComputedStyle(el);
+                const visible = style.display !== 'none' && style.visibility !== 'hidden' && (box.width > 0 || box.height > 0);
+                return {
+                    tag: el.tagName.toLowerCase(),
+                    text: (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 50),
+                    role: el.getAttribute('role') || '',
+                    classes: el.className || '',
+                    visible: visible
+                };
+            })""")
+            for bm in buttons_meta:
+                bm["frame"] = ctx_name
+                diagnostics["detected_buttons"].append(bm)
+        except Exception:
+            pass
+
+    return diagnostics
 
 
 # ---------------------------------------------------------------------------
@@ -296,3 +565,4 @@ def _screenshot_failure(page: Page) -> None:
         logger.warning(f"[login] Failure screenshot saved to {path}")
     except Exception:
         logger.warning("[login] Could not save failure screenshot")
+

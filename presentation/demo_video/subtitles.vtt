@@ -1,0 +1,45 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:04.200
+Modern QA teams lose valuable sprint cycles
+
+2
+00:00:04.200 --> 00:00:08.550
+manually mapping complex screens and constantly maintaining fragile UI test scripts.
+
+3
+00:00:08.550 --> 00:00:13.200
+PiOne Testmate scans authorised web applications.
+
+4
+00:00:13.200 --> 00:00:18.250
+discovering navigation routes and interactive UI controls while preserving comprehensive evidence.
+
+5
+00:00:18.250 --> 00:00:22.800
+With evidence-grounded test planning.
+
+6
+00:00:22.800 --> 00:00:28.190
+generated test cases link directly to verified DOM elements and selectors. preventing hallucinated locators.
+
+7
+00:00:28.190 --> 00:00:32.800
+Through interactive checkpoints. testers can guide discovery.
+
+8
+00:00:32.800 --> 00:00:37.980
+teach key workflows. and safely quarantine risky actions before deep crawling.
+
+9
+00:00:37.980 --> 00:00:43.100
+Execute tests with live assertion streaming and per-step screenshots.
+
+10
+00:00:43.100 --> 00:00:48.690
+Export ten-sheet Excel workbooks. save checkpoints. and compare regression baselines.
+
+11
+00:00:48.690 --> 00:00:55.290
+PiOne Testmate — evidence-first AI QA for controlled. explainable test automation.

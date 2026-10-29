@@ -388,7 +388,15 @@ Edit:
   - [automation_framework/reports/](./automation_framework/reports/)
   - [automation_framework/logs/](./automation_framework/logs/)
   - [scans/](./scans/)
-- Pytest config exists in [pytest.ini](./pytest.ini), but [automation_framework/tests/](./automation_framework/tests/) currently appears minimal/empty.
+- The project has an active pytest suite under
+  [automation_framework/tests/](./automation_framework/tests/), including
+  crawler, persistence, execution-reliability, security-boundary, lifecycle,
+  module-selection, and controlled-browser coverage. Browser-marked tests need
+  a host where Playwright and local async sockets can start normally.
+- Current V2 evidence verifies planned counts through 30 grounded cases and a
+  rendered Mock Demo report lifecycle. The live, multi-module
+  interrupt/retry/resume checkpoint journey remains a release-evidence gap and
+  must not be inferred from fixture-only tests.
 - [erdataanalysis.py](./erdataanalysis.py) looks like a separate/legacy script and not part of the main framework + API flow.
 
 ---

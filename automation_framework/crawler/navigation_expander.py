@@ -1,6 +1,6 @@
 import re
 
-from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError, expect
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 from automation_framework.utils.logger import logger
 
@@ -8,6 +8,8 @@ from automation_framework.utils.logger import logger
 SIDEBAR_SELECTORS = [
     "aside",
     "aside nav",
+    "mat-sidenav",
+    "mat-drawer",
     "[role='navigation'][aria-label*='side' i]",
     "[class*='sidebar' i]",
     "[class*='sidenav' i]",
@@ -36,7 +38,14 @@ def ensure_navigation_expanded(page: Page, timeout: int = 5000) -> bool:
         logger.warning("Sidebar toggle button not detected")
         return False
 
-    toggle_button.click()
+    try:
+        toggle_button.click(timeout=timeout)
+    except Exception as exc:
+        # Navigation expansion is an enhancement, not an authentication or
+        # scan precondition.  A framework-specific toggle must never abort
+        # module discovery for an otherwise usable application.
+        logger.info(f"Sidebar toggle could not be opened: {exc}")
+        return False
     if not _wait_for_navigation_items(sidebar, timeout):
         return False
 
@@ -90,9 +99,11 @@ def _wait_for_navigation_items(sidebar: Locator, timeout: int) -> bool:
         visible_text_items = sidebar.locator(NAVIGATION_ITEM_SELECTOR).filter(
             has_text=re.compile(r"\S")
         )
-        expect(visible_text_items.first).to_be_visible(timeout=timeout)
+        if visible_text_items.count() == 0:
+            return False
+        visible_text_items.first.wait_for(state="visible", timeout=timeout)
         return True
-    except PlaywrightTimeoutError:
+    except (PlaywrightTimeoutError, AssertionError):
         logger.warning("Timed out waiting for sidebar navigation items")
         return False
 

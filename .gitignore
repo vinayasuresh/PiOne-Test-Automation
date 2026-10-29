@@ -2,6 +2,13 @@ venv/
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
 node_modules/
 dist/
 build/
+automation_framework/reports/*
+!automation_framework/reports/.gitkeep
+automation_framework/logs/*.log
+scans/test_context/
+automation_framework/storage/auth_state.json

@@ -16,18 +16,26 @@ Change detection:
 - a new visible nav element appears
 """
 
+import time
 from typing import Callable
 
 from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
-from automation_framework.config.settings import MAX_DEEP_EXPLORATION_DEPTH
+from automation_framework.config.settings import (
+    MAX_DEEP_EXPLORATION_DEPTH,
+    MENU_EXPANSION_TIMEOUT,
+    SUBMENU_TIMEOUT,
+)
 from automation_framework.utils.logger import logger
 
 
 TRIGGER_SELECTOR = (
     "button[aria-expanded], [role='button'][aria-expanded], "
     "[aria-haspopup='true'], [aria-haspopup='menu'], [aria-haspopup='listbox'], "
-    "[role='tab']"
+    "[role='tab'], mat-expansion-panel-header, .mat-expansion-panel-header, "
+    ".p-accordion-header, .p-panel-header, .p-menuitem-link, "
+    "[data-bs-toggle='collapse'], [data-toggle='collapse'], "
+    "[class*='accordion' i] button, [class*='submenu' i][role='button']"
 )
 
 DESTRUCTIVE_WORDS = (
@@ -37,6 +45,7 @@ DESTRUCTIVE_WORDS = (
 )
 
 CHANGE_THRESHOLD = 5  # min DOM child delta on <body> to count as a "change"
+MAX_TRIGGERS_PER_PASS = 60
 
 # Extract label, aria-label, title, and a unique signature for every trigger
 # candidate in a single JS round-trip instead of calling Playwright per element.
@@ -72,7 +81,8 @@ def explore_hidden_navigation(
     change. The callback is responsible for scanning/storing the new state.
     """
     visited_signatures: set[str] = set()
-    _explore_recursive(page, on_state_change, visited_signatures, depth=0)
+    deadline = time.monotonic() + SUBMENU_TIMEOUT / 1000
+    _explore_recursive(page, on_state_change, visited_signatures, depth=0, deadline=deadline)
 
 
 def _explore_recursive(
@@ -80,12 +90,13 @@ def _explore_recursive(
     on_state_change: Callable[[str], None],
     visited_signatures: set[str],
     depth: int,
+    deadline: float,
 ) -> None:
-    if depth >= MAX_DEEP_EXPLORATION_DEPTH:
+    if depth >= MAX_DEEP_EXPLORATION_DEPTH or time.monotonic() >= deadline:
         return
 
     triggers = page.locator(TRIGGER_SELECTOR)
-    trigger_count = triggers.count()
+    trigger_count = min(triggers.count(), MAX_TRIGGERS_PER_PASS)
     if trigger_count == 0:
         return
 
@@ -113,6 +124,8 @@ def _explore_recursive(
         visited_signatures.add(sig)
 
     for signature, label in candidates:
+        if time.monotonic() >= deadline:
+            return
         # Re-locate after each click since DOM may have changed.
         trigger = page.locator(f'{TRIGGER_SELECTOR}').filter(has_text=label).first if label else None
         if trigger is None or not _safe_visible(trigger):
@@ -122,12 +135,12 @@ def _explore_recursive(
         before_body_children = _body_child_count(page)
 
         try:
-            trigger.click(timeout=2000)
+            trigger.click(timeout=MENU_EXPANSION_TIMEOUT)
         except Exception:
             logger.debug(f"Deep exploration: could not click trigger '{label}'")
             continue
 
-        if not _wait_for_change(page, before_url, before_body_children):
+        if not _wait_for_change(page, before_url, before_body_children, deadline):
             continue
 
         logger.info(f"Deep exploration: state change detected after clicking '{label}'")
@@ -137,7 +150,7 @@ def _explore_recursive(
             logger.exception("on_state_change callback failed during deep exploration")
 
         # Recurse into the new state to find further-hidden navigation.
-        _explore_recursive(page, on_state_change, visited_signatures, depth + 1)
+        _explore_recursive(page, on_state_change, visited_signatures, depth + 1, deadline)
 
 
 def _is_safe_trigger(trigger: Locator) -> bool:
@@ -201,11 +214,12 @@ def _body_child_count(page: Page) -> int:
         return 0
 
 
-def _wait_for_change(page: Page, before_url: str, before_body_children: int) -> bool:
+def _wait_for_change(page: Page, before_url: str, before_body_children: int, deadline: float) -> bool:
     """Return True if URL or DOM changed meaningfully after a click."""
     # Reduced from 2500 ms — most SPAs respond within 1–1.5 s.
     try:
-        page.wait_for_load_state("networkidle", timeout=1500)
+        remaining_ms = max(1, min(1500, int((deadline - time.monotonic()) * 1000)))
+        page.wait_for_load_state("networkidle", timeout=remaining_ms)
     except PlaywrightTimeoutError:
         pass
 
