@@ -1,0 +1,105 @@
+name: PiOne Testmate CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pione-testmate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-and-tests:
+    name: Python quality and V2 unit suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+      CI: "true"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compile application source
+        run: python -m compileall -q api automation_framework
+
+      - name: Run default V2 test suite
+        run: |
+          mkdir -p artifacts
+          pytest -q --junitxml=artifacts/unit-results.xml
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-evidence-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release-source:
+    name: Build deployable source bundle
+    needs: quality-and-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build versioned source archive
+        run: |
+          mkdir -p release
+          git archive --format=tar.gz --prefix=pione-testmate/ HEAD > release/pione-testmate-${{ github.sha }}.tar.gz
+          git rev-parse HEAD > release/commit.txt
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: pione-testmate-source-${{ github.sha }}
+          path: release/
+          retention-days: 30
+
+  deploy-staging:
+    name: Trigger staging deployment
+    needs: release-source
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
+
+    steps:
+      - name: Skip when deployment is not configured
+        if: ${{ env.STAGING_DEPLOY_WEBHOOK_URL == '' }}
+        run: echo "No STAGING_DEPLOY_WEBHOOK_URL secret is configured; staging deployment skipped."
+
+      - name: Trigger approved deployment webhook
+        if: ${{ env.STAGING_DEPLOY_WEBHOOK_URL != '' }}
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          curl --fail --show-error --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data "{\"repository\":\"${{ github.repository }}\",\"sha\":\"${COMMIT_SHA}\",\"environment\":\"staging\"}" \
+            "$STAGING_DEPLOY_WEBHOOK_URL"
