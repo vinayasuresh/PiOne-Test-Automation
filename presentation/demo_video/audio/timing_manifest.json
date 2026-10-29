@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "title": "Problem: The QA Dilemma",
+    "text": "Modern QA teams lose valuable sprint cycles manually mapping complex screens and constantly maintaining fragile UI test scripts.",
+    "audio_file": "scene1.wav",
+    "duration": 8.55
+  },
+  {
+    "id": 2,
+    "title": "Discovery: Autonomous Scanning",
+    "text": "PiOne Testmate scans authorised web applications, discovering navigation routes and interactive UI controls while preserving comprehensive evidence.",
+    "audio_file": "scene2.wav",
+    "duration": 9.7
+  },
+  {
+    "id": 3,
+    "title": "Intelligence: Grounded AI Testing",
+    "text": "With evidence-grounded test planning, generated test cases link directly to verified DOM elements and selectors, preventing hallucinated locators.",
+    "audio_file": "scene3.wav",
+    "duration": 9.94
+  },
+  {
+    "id": 4,
+    "title": "Governance: Interactive Learning",
+    "text": "Through interactive checkpoints, testers can guide discovery, teach key workflows, and safely quarantine risky actions before deep crawling.",
+    "audio_file": "scene4.wav",
+    "duration": 9.79
+  },
+  {
+    "id": 5,
+    "title": "Validation: Execution and Reporting",
+    "text": "Execute tests with live assertion streaming and per-step screenshots. Export ten-sheet Excel workbooks, save checkpoints, and compare regression baselines.",
+    "audio_file": "scene5.wav",
+    "duration": 10.71
+  },
+  {
+    "id": 6,
+    "title": "Closing: The Evidence-First Platform",
+    "text": "PiOne Testmate - evidence-first AI QA for controlled, explainable test automation.",
+    "audio_file": "scene6.wav",
+    "duration": 6.6
+  }
+]

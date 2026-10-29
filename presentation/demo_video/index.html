@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PiOne Testmate V2 — Enterprise Demo Video (57s)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0B0F19; color: #F8FAFC; }
+    video::cue { background: rgba(11, 15, 25, 0.85); color: #38BDF8; font-family: system-ui, sans-serif; font-size: 16px; padding: 4px 12px; border-radius: 6px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20">
+          <i class="fa-solid fa-play text-sm"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-white">PiOne Testmate V2 — Product Launch Demo</h1>
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 border border-cyan-500/20">57s • 1080p 16:9</span>
+          </div>
+          <p class="text-xs text-slate-400">Evidence-First AI QA for Controlled, Explainable Test Automation</p>
+        </div>
+      </div>
+
+      <!-- Action Downloads -->
+      <div class="flex items-center gap-2 flex-wrap text-xs">
+        <a href="pione_testmate_v2_demo.mp4" download class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-2 rounded-lg shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-download"></i> Download MP4 (15.6 MB)
+        </a>
+        <a href="pione_testmate_demo_slides.pptx" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+          <i class="fa-solid fa-file-powerpoint text-amber-400"></i> Slides (.pptx)
+        </a>
+        <a href="narration_script.txt" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+          <i class="fa-solid fa-file-lines text-blue-400"></i> Script (.txt)
+        </a>
+        <a href="subtitles.srt" download class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+          <i class="fa-solid fa-closed-captioning text-emerald-400"></i> Subtitles (.srt)
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-6 py-8 w-full flex-grow space-y-8">
+
+    <!-- Video Theater Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Video Player -->
+      <div class="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl relative group">
+        <div class="aspect-video w-full bg-black relative flex items-center justify-center">
+          <video id="demoVideo" controls preload="metadata" class="w-full h-full object-contain" poster="synthetic_presenter.jpg">
+            <source src="pione_testmate_v2_demo.mp4" type="video/mp4">
+            <track src="subtitles.vtt" kind="subtitles" srclang="en" label="English" default>
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        
+        <!-- Video Details Bar -->
+        <div class="p-4 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1 text-emerald-400 font-semibold"><i class="fa-solid fa-circle-check text-[10px]"></i> 1080p Full HD</span>
+            <span>•</span>
+            <span>Natural English Narration</span>
+            <span>•</span>
+            <span class="text-cyan-400 font-medium">Synthetic Presenter</span>
+          </div>
+          <div>Duration: <strong>00:57</strong></div>
+        </div>
+      </div>
+
+      <!-- Scene Jump Navigation -->
+      <div class="lg:col-span-4 space-y-3">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">Scene Breakdown &amp; Jump Points</h3>
+        
+        <div class="space-y-2">
+          <!-- Scene 1 -->
+          <button onclick="seekTo(0)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:00</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">1. Problem: The QA Dilemma</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">Manual mapping and fragile UI scripts drain sprint cycles.</p>
+            </div>
+          </button>
+
+          <!-- Scene 2 -->
+          <button onclick="seekTo(9)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:09</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">2. Autonomous Discovery &amp; Evidence</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">Boundary-locked crawling extracts routes and 12-attribute DOM elements.</p>
+            </div>
+          </button>
+
+          <!-- Scene 3 -->
+          <button onclick="seekTo(19)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:19</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">3. Grounded AI Test Planning</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">100% DOM-anchored selectors with shortfall explanation guard.</p>
+            </div>
+          </button>
+
+          <!-- Scene 4 -->
+          <button onclick="seekTo(29)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:29</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">4. Interactive Checkpoints &amp; Safety</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">Safety Parking Lot isolates destructive actions; in-browser overlays.</p>
+            </div>
+          </button>
+
+          <!-- Scene 5 -->
+          <button onclick="seekTo(39)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:39</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">5. Controlled Execution &amp; 10-Sheet Audit</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">82/82 passing steps, per-step screenshots, 10-sheet Excel workbook.</p>
+            </div>
+          </button>
+
+          <!-- Scene 6 -->
+          <button onclick="seekTo(49)" class="w-full text-left p-3.5 rounded-xl bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group flex items-start gap-3">
+            <span class="text-xs font-mono font-bold text-cyan-400 px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 whitespace-nowrap">00:49</span>
+            <div class="flex-grow">
+              <h4 class="text-xs font-bold text-white group-hover:text-cyan-300">6. Closing &amp; Brand Promise</h4>
+              <p class="text-[11px] text-slate-400 line-clamp-1 mt-0.5">"Evidence-first AI QA for controlled, explainable test automation."</p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Production & Governance Dossier -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-800">
+      
+      <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+        <div class="flex items-center gap-2 text-cyan-400 font-bold text-sm">
+          <i class="fa-solid fa-user-astronaut"></i> Synthetic Presenter Avatar
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          In strict compliance with privacy standards, the presenter is a 100% computer-generated synthetic corporate spokesperson. No real individual likeness is used.
+        </p>
+      </div>
+
+      <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+        <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+          <i class="fa-solid fa-shield-halved"></i> Privacy &amp; Data Hygiene
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Zero credential exposure, zero private tokens, zero browser taskbars, and zero internal file paths. Screenshots feature only verified UI components.
+        </p>
+      </div>
+
+      <div class="p-5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-2">
+        <div class="flex items-center gap-2 text-blue-400 font-bold text-sm">
+          <i class="fa-solid fa-balance-scale"></i> Grounded Evidence Claims
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          All narrative claims use tempered phrasing ("helps teams", "evidence-first") adhering to the verified <strong>Conditional V2 Baseline</strong> metrics.
+        </p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    const video = document.getElementById('demoVideo');
+    function seekTo(sec) {
+      if (video) {
+        video.currentTime = sec;
+        video.play();
+      }
+    }
+  </script>
+</body>
+</html>

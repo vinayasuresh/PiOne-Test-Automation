@@ -3,6 +3,7 @@
 **Deck Title:** PiOne Testmate — Autonomous Enterprise Web QA & Grounded AI Testing Platform
 **Master Executive Document:** [`PIONE_TESTMATE_V2_EXECUTIVE_PRESENTATION.md`](PIONE_TESTMATE_V2_EXECUTIVE_PRESENTATION.md)
 **Documentation Hub:** [`docs/v2_release/README.md`](../docs/v2_release/README.md)
+**Enterprise Demo Video Package:** [`demo_video/`](demo_video/) (57s 1080p MP4, Narration Script, Subtitles, Storyboard, PPTX Package)
 **Target Audience:** Executive Leadership, VP of Engineering, QA Directors, SDET Leads, DevSecOps Engineers, Compliance Auditors
 **Estimated Presentation Duration:** 20 to 25 minutes (+ 10 minutes Q&A)
 **Current Baseline Status:** **CONDITIONAL V2.5 BASELINE** (Pending live multi-module interruption & resume verification)

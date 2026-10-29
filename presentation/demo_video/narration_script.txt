@@ -1,0 +1,25 @@
+PiOne Testmate V2 — Enterprise Demo Video Narration Script
+===========================================================
+Total Duration: ~55 Seconds
+Target Audience: Executive QA Leadership, SDET Directors, Engineering Leads
+Presenter: Synthetic Human AI Spokesperson
+Voice: Natural English
+Theme: Enterprise Product Launch (Evidence-First Assurance)
+
+[Scene 1: Problem — The QA Dilemma | 00:00 - 00:08.55]
+"Modern QA teams lose valuable sprint cycles manually mapping complex screens and constantly maintaining fragile UI test scripts."
+
+[Scene 2: Discovery — Autonomous Scanning | 00:08.55 - 00:18.25]
+"PiOne Testmate scans authorised web applications, discovering navigation routes and interactive UI controls while preserving comprehensive evidence."
+
+[Scene 3: Intelligence — Grounded AI Testing | 00:18.25 - 00:28.19]
+"With evidence-grounded test planning, generated test cases link directly to verified DOM elements and selectors, preventing hallucinated locators."
+
+[Scene 4: Governance — Interactive Learning | 00:28.19 - 00:37.98]
+"Through interactive checkpoints, testers can guide discovery, teach key workflows, and safely quarantine risky actions before deep crawling."
+
+[Scene 5: Validation — Controlled Execution & Audit-Ready Reporting | 00:37.98 - 00:48.69]
+"Execute tests with live assertion streaming and per-step screenshots. Export ten-sheet Excel workbooks, save checkpoints, and compare regression baselines."
+
+[Scene 6: Closing & Brand Promise | 00:48.69 - 00:55.29]
+"PiOne Testmate — evidence-first AI QA for controlled, explainable test automation."

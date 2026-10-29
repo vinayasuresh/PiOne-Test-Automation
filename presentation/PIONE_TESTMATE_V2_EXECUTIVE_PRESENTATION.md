@@ -5,6 +5,7 @@
 **Baseline Revision:** PiOne Testmate V2.5 Enterprise (`build: e9dc503`, conditional baseline)
 **Format:** Slide Deck Outline, Screen-by-Screen Visual Architecture & Demonstration Script
 **Visual Asset Ledger:** 24 New High-Resolution Screenshots `[v2.5]` + 11 Preserved Baseline Screenshots `[v2]`
+**Enterprise Demo Video Package:** [`demo_video/`](demo_video/) (57s 1080p MP4, Narration Script, Subtitles, Storyboard, PPTX Package)
 
 ---
 
