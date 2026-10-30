@@ -190,11 +190,59 @@ jobs:
         with:
           ref: ${{ needs.build-and-push-image.outputs.sha }}
 
-      - name: Verify Docker Compose file
+      - name: Prepare Docker Compose for GHCR deployment
         shell: bash
         run: |
           set -euo pipefail
           test -f docker-compose.prod.yml
+
+          # The repository Compose file was originally configured to build
+          # "pione-testmate" locally. For GHCR deployment, remove that build
+          # block and point the app service at the exact image pushed by CI.
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          compose = Path("docker-compose.prod.yml")
+          lines = compose.read_text(encoding="utf-8").splitlines(keepends=True)
+
+          result = []
+          index = 0
+          removed_build = False
+
+          while index < len(lines):
+              line = lines[index]
+              if re.match(r"^    build\s*:\s*(?:#.*)?$", line.rstrip("\n")):
+                  removed_build = True
+                  index += 1
+                  while index < len(lines):
+                      candidate = lines[index]
+                      if candidate.strip() and len(candidate) - len(candidate.lstrip(" ")) <= 4:
+                          break
+                      index += 1
+                  continue
+              result.append(line)
+              index += 1
+
+          text = "".join(result)
+          text, image_count = re.subn(
+              r"(?m)^    image\s*:.*$",
+              "    image: ${" + "GHCR_IMAGE}:" + "${" + "IMAGE_TAG}",
+              text,
+          )
+
+          if image_count != 1:
+              raise SystemExit(
+                  f"Expected exactly one app image declaration, found {image_count}. "
+                  "Check docker-compose.prod.yml structure."
+              )
+
+          compose.write_text(text, encoding="utf-8")
+          print("Compose configured to pull the GHCR image; local build disabled.")
+          PY
+
+          echo "Effective Compose image declaration:"
+          grep -nE '^    (build|image):' docker-compose.prod.yml || true
 
       - name: Configure trusted SSH connection
         shell: bash
