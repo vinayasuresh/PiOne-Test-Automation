@@ -4,6 +4,12 @@
 **Audience:** Product, engineering, QA, security and senior reviewers
 **Last reviewed:** 2026-10-26
 
+> **Current delivery priority:** The client-support, Tara, helpdesk and continuous
+> assurance requirements are sequenced in
+> [the V3 Client Assurance Delivery Blueprint](V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md).
+> That document defines the demo-ready Monday vertical slice; this document remains
+> the broader multi-phase product roadmap.
+
 ## 1. The product decision
 
 Do not position PiOne Testmate as “another AI test generator.” That market already

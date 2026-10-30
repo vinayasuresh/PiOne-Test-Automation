@@ -170,6 +170,7 @@ The V3 execution blueprint, senior-demo script and copy/paste engineering prompt
 maintained here:
 
 - [V3 phase roadmap](docs/V3_PHASE_ROADMAP.md)
+- [V3 client-assurance delivery blueprint](docs/V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
 - [Senior demo brief](docs/v2_release/SENIOR_DEMO_BRIEF.md)
 - [Antigravity V3 execution prompt](docs/ANTIGRAVITY_V3_EXECUTION_PROMPT.md)
 
