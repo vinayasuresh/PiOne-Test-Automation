@@ -47,19 +47,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install Playwright Chromium for readiness checks
-        run: python -m playwright install --with-deps chromium
-
       - name: Compile application source
         run: python -m compileall -q api automation_framework
 
       - name: Run default V2 test suite
-        shell: bash
         run: |
-          set -o pipefail
           mkdir -p artifacts
-          pytest -vv --tb=long --junitxml=artifacts/unit-results.xml \
-            2>&1 | tee artifacts/pytest.log
+          pytest -q --junitxml=artifacts/unit-results.xml
 
       - name: Upload test evidence
         if: always()
@@ -111,24 +105,17 @@ jobs:
           OWNER="$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           echo "name=ghcr.io/${OWNER}/pione-testmate" >> "$GITHUB_OUTPUT"
 
-      - name: Validate GHCR credentials
-        env:
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-        run: |
-          if [[ -z "$GHCR_TOKEN" ]]; then
-            echo "::error::Missing GHCR_TOKEN secret."
-            exit 1
-          fi
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Use the repository-scoped GITHUB_TOKEN to publish the package.
+      # The job-level packages: write permission authorizes this push.
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -175,6 +162,7 @@ jobs:
           [[ -n "$SERVER_SSH_KEY" ]] || missing+=("SERVER_SSH_KEY")
           [[ -n "$SERVER_KNOWN_HOSTS" ]] || missing+=("SERVER_KNOWN_HOSTS")
           [[ -n "$DEPLOY_PATH" ]] || missing+=("DEPLOY_PATH")
+          # These credentials are used by the staging VM to pull a private GHCR image.
           [[ -n "$GHCR_USERNAME" ]] || missing+=("GHCR_USERNAME")
           [[ -n "$GHCR_TOKEN" ]] || missing+=("GHCR_TOKEN")
 
