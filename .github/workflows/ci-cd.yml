@@ -47,13 +47,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install Playwright Chromium for readiness checks
+        run: python -m playwright install --with-deps chromium
+
       - name: Compile application source
         run: python -m compileall -q api automation_framework
 
       - name: Run default V2 test suite
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p artifacts
-          pytest -q --junitxml=artifacts/unit-results.xml
+          pytest -vv --tb=long --junitxml=artifacts/unit-results.xml \
+            2>&1 | tee artifacts/pytest.log
 
       - name: Upload test evidence
         if: always()

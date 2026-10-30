@@ -1,304 +1,269 @@
-# PiOne Testmate V3 — Client Assurance Delivery Blueprint
+# PiOne Testmate V3 — Client Assurance Release Blueprint
 
 **Owner:** Business Analysis Lead, Development Lead and Delivery Manager
-**Created:** 30 October 2026
-**Target:** Monday, 2 November 2026
-**Status:** Delivery contract — scope must be signed off before implementation starts
+**Release target:** Monday, 2 November 2026
+**Delivery rule:** Ship one evidence-backed vertical slice. Do not label an unfinished enterprise platform as complete.
 
-## 1. Executive decision
+## 1. Product decision
 
-PiOne Testmate V3 will become an **evidence-first incident verification and
-continuous assurance platform**. It connects customer support, automated
-verification and engineering ownership:
+PiOne Testmate V3 is an **evidence-first assurance platform**. It turns a customer complaint, scheduled journey, deployment event or approved IoT signal into an authorized verification job, an honest verdict and evidence for the right owner.
 
 ```text
-Customer → Tara → ticket → Testmate verification job → evidence verdict
-         → helpdesk owner → fix → controlled retest → customer update
-
-Schedule/deployment/device signal → monitoring job ────────────────┘
+Tara / monitoring signal → ticket + verification job → policy and scenario
+                                               ↓
+Helpdesk queue ← evidence + verdict ← Testmate UI/API/data worker
+                                               ↓
+                         owner fixes → controlled retest → customer update
 ```
 
-The product does not promise that AI can understand every complaint or fix every
-defect without people. It promises that an authorized complaint or monitoring
-signal is turned into a controlled test, a reproducible outcome and useful
-evidence for the right owner.
+The promise is **faster, repeatable evidence-backed triage**. It is not “AI fixes all bugs,” continuous deep crawling, or proof of root cause from one screenshot.
 
-## 2. Monday definition of done
+## 2. Monday release scope
 
-An enterprise-scale V3 release cannot responsibly be completed by Monday. The
-Monday objective is a **demo-ready V3 vertical slice**, not a fake full release.
-It must show one truthful, end-to-end customer incident from Tara intake to a
-verified Testmate result and an assigned helpdesk record.
+### Must ship — priority 0
 
-### In scope for Monday
+1. **API contract validation**
+   - Import or register an approved OpenAPI/Postman contract.
+   - Run safe checks: schema, required fields, status code, auth boundary and response-time threshold.
+   - Link each API observation to a run, route/business feature, testcase and evidence artifact.
+   - Redact credentials, cookies, authorization headers and sensitive response fields.
 
-- A documented integration contract for Tara, Testmate and helpdesk.
-- A durable `verification_job` record linked to a Testmate run and a ticket.
-- API endpoints or mocked adapters that accept a structured incident, create a
-  queued job and return a correlation ID.
-- One controlled functional scenario selected from a pre-approved scenario
-  library, executed by the existing Testmate engine.
-- Persisted evidence: tested URL, role, expected behaviour, actual behaviour,
-  verdict, timestamps, screenshots/report links and failure category.
-- Ticket update payload with one of: `reproduced`, `not_reproduced`, `blocked`,
-  `inconclusive`.
-- A basic Helpdesk / Incident Queue page, or a working mock page, showing the
-  ticket, verification state, assigned team, evidence links and recommended next
-  action.
-- One scheduled health-check definition that can be manually triggered in the
-  demo. Do not present it as a production scheduler until durable scheduling is
-  implemented.
-- Demonstration script, acceptance checklist and known-limitations statement.
+2. **Dashboard-data validation**
+   - Compare a dashboard metric/chart/table value with an approved API or read-only query adapter result under the same filters, timezone and freshness tolerance.
+   - Persist expected value, actual UI value, source value, selector, source reference, tolerance and screenshot.
+   - Classify stale data, missing data, filter mismatch, rounding mismatch and visual value mismatch.
+   - Start read-only; production writes and arbitrary SQL are out of scope.
 
-### Explicitly out of scope for Monday
+3. **Tara incident to verified ticket flow**
+   - Accept a sanitized structured incident from Tara.
+   - Create one durable ticket and idempotent verification job.
+   - Run a pre-approved UI/API/dashboard scenario using an approved role.
+   - Return `reproduced`, `not_reproduced`, `blocked`, or `inconclusive`.
+   - Show an internal Helpdesk Incident Queue with owner, evidence and next action.
 
-- Full multi-tenant SaaS, RBAC, SSO and audit-retention policy.
-- Autonomous free-form exploration of production customer applications.
-- A real physical-IoT device command/control test platform.
-- Complete Jira, ServiceNow, Teams or email production connectors.
-- Claims of automatic root-cause analysis, self-healing, full OWASP coverage or
-  guaranteed issue reproduction.
+4. **One controlled continuous-check prototype**
+   - Manually trigger a saved critical journey. Persist a schedule definition but do not claim a production scheduler.
+   - Group repeated failures by scenario/target/environment and record recovery when a later run passes.
 
-These remain V3 backlog items, not hidden gaps.
+### Must preserve
 
-## 3. Product flow and user experience
+- V2 scan → module → crawl → analyse → generate → execute → report flow.
+- Current run IDs, reports, checkpoints, regression baselines and assessment-mode isolation.
+- SSRF, same-origin and destructive-action protections.
+- Existing manual-interaction mode. Agent mode must not silently pass a human checkpoint.
 
-### A. Customer support incident flow
+### Deferred after Monday
 
-1. A customer explains a problem to Tara.
-2. Tara asks the minimum useful diagnostic questions: affected feature, user role,
-   expected result, actual result, time, environment and harmless reproduction
-   steps.
-3. Tara searches approved knowledge and troubleshooting material.
-4. If unresolved, Tara creates a ticket immediately and posts the structured
-   incident to Testmate. A test failure must never prevent support from creating a
-   ticket.
-5. Testmate validates authorization, target scope, scenario availability and
-   test-account availability.
-6. The planner chooses a versioned, approved scenario or produces a bounded plan
-   grounded only in saved route and element evidence.
-7. A worker executes the allowed browser/API checks and stores evidence.
-8. Testmate sends the verdict and evidence reference to the helpdesk.
-9. Helpdesk assignment rules select the responsible team. Engineers fix the issue.
-10. The same scenario is re-run and the ticket records the verified recovery.
+- Multi-tenant SaaS, SSO, full RBAC, production secret vault and retention policy.
+- Free-form autonomous exploration of customer production environments.
+- Physical IoT command/control testing; begin only with portal and read-only telemetry validation.
+- Production Teams, Jira, ServiceNow or email connectors.
+- Full DAST, claimed OWASP coverage, automatic root-cause analysis or self-healing without approval.
 
-### B. Continuous assurance flow
+## 3. Functional definition of done
 
-1. A product owner selects a critical journey such as login, device dashboard,
-   report download or ticket creation.
-2. A schedule, deployment event or approved IoT telemetry rule creates a
-   verification job.
-3. Testmate runs the versioned scenario in the approved environment.
-4. Repeated failures are grouped into one incident; retries use back-off and
-   maintenance windows.
-5. Send one actionable alert with evidence, then one recovery notice when the
-   scenario passes again.
-
-Never deep-crawl every customer application continuously. Discovery belongs in
-onboarding or controlled re-discovery; monitoring should use approved, focused
-journeys.
-
-## 4. Architecture blueprint
-
-```text
-                 ┌───────────────────────────────┐
-                 │ Tara / CAT Sentinel            │
-                 │ Q&A, intent extraction, consent│
-                 └───────────────┬───────────────┘
-                                 │ Incident API
-┌──────────────┐        ┌────────▼─────────┐       ┌──────────────────┐
-│ Scheduler /  ├───────►│ Assurance         │──────►│ Helpdesk          │
-│ deployment / │        │ Orchestrator      │       │ dashboard/ticket  │
-│ IoT signal   │        │ policy + queue    │       │ assignment        │
-└──────────────┘        └────────┬─────────┘       └──────────────────┘
-                                 │ durable job
-                     ┌───────────▼───────────┐
-                     │ Isolated Testmate      │
-                     │ Playwright/API worker  │
-                     └───────┬────────┬──────┘
-                             │        │
-                     ┌───────▼───┐ ┌──▼─────────────────┐
-                     │ Postgres  │ │ Evidence storage    │
-                     │ runs/jobs │ │ screenshots/reports │
-                     └───────────┘ └────────────────────┘
-```
-
-### Required data records
-
-| Record | Minimum fields | Why it exists |
-|---|---|---|
-| `support_incident` | ticket ID, tenant, reporter role, sanitized summary, affected feature, priority | Preserves Tara's support context. |
-| `verification_job` | job ID, incident ID, scenario version, target, mode, state, retry policy, correlation ID | Durable orchestration and deduplication. |
-| `verification_attempt` | job ID, worker ID, start/end, outcome, failure category, event sequence | Explains retries and interruptions. |
-| `evidence_manifest` | artifact ID, run ID, source step, checksum, storage location, retention expiry | Makes reports and screenshots defensible. |
-| `assignment_rule` | feature/service, owning team, escalation window | Routes work deterministically. |
-
-Existing `ScanRun`, saved-run, checkpoint and execution-result data should be
-linked, not replaced. The V3 job ID must reference the existing Testmate run ID.
-
-## 5. Safety and decision policy
-
-The model can choose only approved tools and actions. It cannot run arbitrary
-Python, use raw credentials in prompts, alter production data or issue physical
-device commands.
-
-| Situation | System action |
+| Capability | Demonstrable result |
 |---|---|
-| Known approved scenario | Execute automatically within scope. |
-| User complaint lacks details | Tara asks questions; ticket remains open. |
-| Required test account unavailable | Mark `blocked`; never claim product failure. |
-| Target or network unavailable | Mark infrastructure/target outage separately. |
-| Sensitive/destructive operation | Park for human authorization. |
-| Result conflicts with user report | Mark `not_reproduced under tested conditions`; retain the ticket. |
-| Repeated scheduled failure | Group as one incident; alert once, then send recovery. |
+| API contract test | A selected endpoint yields a pass/fail with redacted request metadata, response validation and evidence link. |
+| Dashboard-data test | A dashboard figure/table cell is compared with its declared source under the same filters and tolerance. |
+| Incident intake | Replaying a Tara correlation ID returns the original ticket/job and starts no duplicate run. |
+| Verification | A job links to Testmate run ID, scenario version, role, target, verdict, category and evidence manifest. |
+| Helpdesk | Operator can see ticket, timeline, owner, tested conditions, evidence and next action. |
+| Honest failure | Auth expiry, target outage, unsupported complaint and missing test data become `blocked` or `inconclusive`, never a green pass. |
+| V2 protection | Focused V2 regression checks pass without a changed user flow. |
 
-For IoT, start with portal journeys and read-only telemetry freshness rules. A
-dashboard failure, device-gateway failure and physical-device failure are different
-layers. Physical commands require a customer-approved laboratory and a separate
-safety policy.
+## 4. Required data model and contracts
 
-## 6. Delivery phases in the correct order
+Additive V3 records must link to existing `ScanRun`, checkpoint, execution-result and artifact records; do not replace them.
 
-### Phase 0 — Friday: scope and contracts
+| Record | Required fields |
+|---|---|
+| `support_incident` | ticket ID, correlation ID, sanitized summary, affected feature, reporter role, expected/actual behaviour, priority |
+| `verification_job` | incident ID, Testmate run ID, scenario version, target, role, mode, state, retry policy, grouping key |
+| `verification_attempt` | job ID, attempt number, worker ID, start/end, terminal outcome, failure category, event sequence |
+| `api_observation` | job/run ID, operation ID, redacted request metadata, response status, schema assertion, latency, result |
+| `data_assertion` | dashboard route, UI selector, source type/reference, filter context, timezone, expected/actual, tolerance, result |
+| `evidence_manifest` | artifact ID, run ID, source step, checksum, content type, storage location, retention expiry |
+| `assignment_rule` | product/feature/service, owner team, severity threshold, escalation window |
 
-**Goal:** Prevent demo work from becoming an untestable feature pile.
+### Minimum Tara incident request
 
-- Select one target app, one seeded/known defect and one approved test role.
-- Agree the incident JSON contract and four verdicts.
-- Choose one helpdesk destination: internal mock queue first, or one approved
-  connector.
-- Define the single critical scenario and expected evidence.
-- Add a feature flag so V2 workflow remains unchanged.
+```json
+{
+  "correlation_id": "tara-incident-unique-id",
+  "ticket_reference": "CAT-123",
+  "affected_feature": "Monthly report download",
+  "expected_behavior": "A valid XLSX file downloads",
+  "actual_behavior": "Download button returns an error",
+  "authorized_target": "https://staging.example.com",
+  "permitted_role": "standard_user",
+  "scenario_reference": "reports.download.v1"
+}
+```
 
-**Exit:** a written request/response example exists and the demo data is safe.
+Never persist raw conversation transcripts, passwords, cookies or access tokens in this request, prompts, report exports or logs.
 
-### Phase 1 — Saturday: durable incident-to-run vertical slice
+## 5. Agent policy
 
-**Goal:** create and run a verifiable job without losing V2 behaviour.
+The agent loop is **observe → select approved action → execute → verify → record → conclude**.
 
-- Add database migration/models for incident, job, attempt and evidence reference.
-- Add idempotent `POST /integrations/incidents` and `GET /verification-jobs/{id}`.
-- Map the job to an existing scan/generate/execute pipeline with correlation IDs.
-- Persist terminal outcome atomically with its latest evidence references.
-- Add unit tests for duplicate delivery, invalid scope and worker interruption.
+- The planner may choose only from a registered scenario library and validated browser/API/data tools.
+- No arbitrary generated Python, shell commands, SQL or physical-device commands.
+- Each test needs expected behaviour and a verifiable oracle; an LLM opinion is not an oracle.
+- Browser/API/data assertions run under declared identity, scope, environment and timeout.
+- Ambiguity means `inconclusive`; unavailable dependencies mean `blocked`.
+- Model failure falls back to a deterministic plan only where the saved scenario supports it.
 
-**Exit:** one API request leads to one—and only one—durable Testmate run.
+## 6. API and dashboard-data design
 
-### Phase 2 — Sunday morning: planner, policy and evidence
+### API testing ladder
 
-**Goal:** make the automated conclusion trustworthy.
+1. Register OpenAPI/Postman operations and an approved auth fixture.
+2. Validate request/response schema, required fields and status codes.
+3. Add business assertions using approved expected values or fixtures.
+4. Compare UI network observations against declared operations.
+5. Add safe negative tests only for authorized staging: invalid format and unauthorized-role boundary.
 
-- Use a scenario library first; LLM planning is bounded fallback, never the only
-  source of truth.
-- Add explicit authorization and test-account checks.
-- Produce the four verdicts plus failure category.
-- Attach screenshot/report/trace manifest references to the job.
-- Add a compact event timeline: queued, running, evidence captured, completed.
+Do not send fuzzing payloads, mutation requests or destructive calls by default.
 
-**Exit:** a reviewer can determine what was tested and why the verdict occurred.
+### Dashboard-data validation ladder
 
-### Phase 3 — Sunday afternoon: helpdesk experience and monitoring demo
+1. Capture route, filter state, date range, timezone and UI selectors.
+2. Obtain a trusted source from an approved API or read-only query adapter.
+3. Normalize nulls, currencies, percentages, rounding and time buckets.
+4. Compare value and freshness using scenario-defined tolerance.
+5. Save screenshot, API/query evidence and the comparison result.
 
-**Goal:** show operational value to a client.
+Example: “Total assets” on `/assets` must match `GET /api/assets/summary` for the same tenant, active filters and reporting timestamp. A difference is a **data-integrity finding**, not merely a UI failure.
 
-- Build the incident queue/details view using persisted job records.
-- Add deterministic assignment rule and manual reassignment.
-- Add a manually triggered scheduled-check prototype and failure grouping key.
-- Add notification payload mock/log; do not send real external messages without
-  approved recipients and credentials.
+## 7. Delivery schedule to Monday
 
-**Exit:** a user can follow a ticket from Tara context to evidence and owner.
+### Friday — architecture freeze and API/data foundation
 
-### Phase 4 — Monday: release gate and client rehearsal
+- Inspect existing models, repository layer, run state, router, exports and frontend flow.
+- Add migrations/models and a feature flag for V3 Assurance.
+- Finalize incident, job, API observation and data assertion contracts.
+- Implement OpenAPI/Postman registration, one safe endpoint test and one dashboard metric comparison.
 
-**Goal:** prove the vertical slice, freeze it and present it honestly.
+**Exit:** One API test and one dashboard comparison run locally with persisted evidence.
 
-- Run happy path, target outage, expired authentication, duplicate request,
-  unsupported complaint and evidence-link failure tests.
-- Complete one rendered-browser demonstration.
-- Record all limitations and create backlog items for deferred V3 phases.
-- Tag the demo build only when acceptance evidence is attached.
+### Delivery ownership and checkpoints
 
-**Exit:** no open showstopper in the chosen demo path; all failures have clear
-operator messaging and do not create false application defects.
+| Workstream | Accountable role | Friday output | Monday proof |
+|---|---|---|---|
+| Product and business analysis | BA Lead | Scenario catalogue, acceptance oracle, severity and ownership mapping | Demo narrative matches shipped behaviour. |
+| API and data assurance | Backend/API Lead | Approved contract registry and source-data adapter | Contract/data mismatch produces an explainable result. |
+| Browser and evidence | QA Automation Lead | UI selector/filter capture and evidence manifest linkage | UI, API and source-data evidence agree or the difference is visible. |
+| Incident and helpdesk UX | Frontend Lead | Feature-flagged queue/details workflow | Operator can assign, investigate and retest one incident. |
+| Reliability and release | DevOps/QA Lead | Test matrix and demo environment readiness | Release gate records pass, fail and blocked evidence. |
 
-## 7. Monday acceptance criteria
+The Delivery Manager runs two short gates each day: **midday integration check** and **end-of-day evidence check**. Work that lacks a verifiable acceptance result moves to the post-Monday backlog; it does not enter the demo path.
 
-The work is accepted only when all of these are demonstrably true:
+### Saturday — durable orchestration and Testmate linkage
 
-1. One structured Tara-style incident creates one ticket and one Testmate job.
-2. Replaying the same request does not create a duplicate execution.
-3. The job state survives a browser/worker/API interruption and records its
-   terminal status honestly.
-4. The job references a Testmate run, scenario version, target, role and evidence.
-5. The helpdesk view identifies a responsible team and recommended next step.
-6. A `blocked` or `inconclusive` run does not show a green functional pass.
-7. A failed screenshot/report link is visible as an evidence failure.
-8. V2 functional, security-mode and current report flows pass their focused
-   regression tests unchanged.
+- Implement idempotent incident ingestion and job-status endpoints.
+- Link one verification job to the existing Testmate lifecycle without rewriting V2.
+- Persist attempt history, verdict and evidence manifest atomically.
+- Implement authorization, role, target-scope, scenario and test-data checks.
+- Test duplicate delivery, invalid scope, missing role and target outage.
 
-## 8. Backlog after Monday
+**Exit:** One incident produces exactly one durable job and linked run.
 
-1. Replace process-local scan control with queue-backed worker control and
-   persistent event replay.
-2. Production scheduler, deployment webhooks, alert suppression and recovery
-   notifications.
-3. Teams/Jira/ServiceNow connectors and customer-configurable assignment rules.
-4. Tenant isolation, RBAC, secret vault, audit log and retention policy.
-5. API/telemetry adapters, role matrix, visual diff and approved ZAP/Burp adapters.
-6. Locator-healing candidates with approval trail, impact analysis and model-cost
-   observability.
-7. Device-lab and physical-IoT test protocols.
+### Sunday morning — helpdesk and operator experience
 
-## 9. Client demonstration language
+- Build incident queue/details behind the V3 feature flag.
+- Show Tara summary, expected/actual, state timeline, owner, API/data/UI evidence and next action.
+- Add deterministic assignment and manual reassignment.
+- Add manual trigger for one saved health-check and failure grouping key.
 
-> A customer describes an issue to Tara. Tara asks the right support questions and
-> creates a ticket if it cannot resolve the issue. Testmate then verifies the
-> reported journey using an approved test account and produces evidence. The
-> responsible team receives a reproducible result, not just a complaint. We can
-> run the same journey on a schedule to detect failures early and verify recovery
-> after a fix.
+**Exit:** An operator can understand the result without reading raw logs.
 
-Do not say “AI fixes all bugs,” “we test everything continuously,” or “we prove a
-root cause from one screenshot.” The credible claim is faster evidence-backed
-triage and repeatable verification.
+### Sunday afternoon — verification, recovery and hardening
 
-## 10. Refined Antigravity job task
+- Exercise UI, API and dashboard-data happy paths.
+- Test expired session, provider fallback, API timeout, evidence-link failure, duplicate incident and worker interruption.
+- Confirm a passed UI check cannot mask a failed source-data comparison.
+- Confirm V2 functional-only/security-only mode behaviour remains unchanged.
 
-Use the following task as the implementation brief:
+**Exit:** All result states are truthful and evidence links work.
+
+### Monday — release gate and client rehearsal
+
+- Run focused unit/integration tests, browser workflow and `git diff --check`.
+- Demonstrate a seeded defect: Tara intake → ticket → UI/API/data check → evidence → assignment → fixed retest.
+- Record pass/fail/blocked evidence and known limitations.
+- Freeze the demo build only if the selected path has no showstopper.
+
+**Exit:** The team can give a credible demo without overstating capability.
+
+## 8. Risks and decisions
+
+| Risk | Decision |
+|---|---|
+| Deadline encourages feature bloat | Ship one vertical slice; defer integrations and scale layers. |
+| UI says completed while data is wrong | Data assertion is a first-class result and blocks a false green outcome. |
+| Tara creates duplicate incidents | Correlation-ID idempotency is mandatory. |
+| Worker/process restart loses state | Persist jobs and attempts; process-local controls cannot be the source of truth. |
+| Sensitive data reaches models/reports | Sanitize at ingress and redact evidence; never pass secrets to LLMs. |
+| IoT claim exceeds proof | Demo portal/API/telemetry freshness only; physical commands need a separate safety plan. |
+
+## 9. Refined Antigravity implementation task
 
 ```text
-Implement ONLY the Monday V3 client-assurance vertical slice described in
+Implement the Monday V3 Client Assurance vertical slice in
 docs/V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md. PiOne Testmate is an existing
-FastAPI + Playwright + vanilla frontend V2 product. Preserve all working V2 flows,
-run IDs, report formats, assessment modes and safety controls. Gate every V3 UI and
-endpoint behind an explicit feature flag.
+FastAPI + Playwright + vanilla frontend V2 repository. Preserve V2 behaviour,
+run IDs, reports, checkpoint recovery, assessment modes and safety controls.
+Gate every V3 endpoint and UI surface behind an explicit feature flag.
 
-First inspect the current ScanRun, checkpoint, execution, artifact and telemetry
-models/services. Then implement a durable support_incident, verification_job,
-verification_attempt and evidence_manifest linkage with migrations. Do not rewrite
-the existing crawler or replace its data model.
+Priority order is mandatory:
+P0 API contract validation and dashboard-data validation.
+P1 Tara incident → durable verification job → existing Testmate execution linkage.
+P2 Helpdesk queue/details and manually triggered health-check prototype.
+P3 Only focused reliability hardening necessary for the above.
 
-Create an idempotent incident-ingest endpoint and a job-status endpoint. Accept a
-sanitized Tara-style incident containing tenant/project, ticket reference, affected
-feature, expected/actual behaviour, authorized target, permitted role and scenario
-reference. Duplicate correlation IDs must return the original job rather than
-starting another test.
+Before editing, inspect README.md, CHANGES.md, database models/repository, scan
+router, run context, crawler, execution, artifact/export layers and tests. Provide
+a short findings list. Make additive, reviewable changes; do not rewrite the crawler,
+replace ScanRun, or redesign unrelated UI.
 
-Use only a pre-approved scenario library for the Monday demo. Reuse the existing
-Testmate pipeline to create a linked run, execute it and persist one of four
-verdicts: reproduced, not_reproduced, blocked or inconclusive. Store all evidence
-through a manifest reference. Never put passwords, cookies or raw user conversation
-text in LLM prompts, logs or exports.
+Implement a safe API-test layer that imports/registers approved OpenAPI or Postman
+operations. Validate status, schema, required fields, response timing and declared
+business assertions. Redact secrets. Block destructive methods unless an explicit
+authorized staging profile permits them.
 
-Add a compact Helpdesk Incident Queue/Details view that displays: ticket, status,
-scenario, run ID, verdict, owner, evidence links and next action. Use deterministic
-assignment rules. Add a manually triggered health-check definition only; do not add
-an unbounded production scheduler or send external messages.
+Implement dashboard-data assertions: capture route, selectors, filters, date range,
+timezone and source reference; compare UI values to an approved API or read-only
+data adapter using declared normalization and tolerance. Persist expected/actual
+values, result and screenshot/evidence. A failed source-data assertion must be
+visible as a data-integrity failure and must not be hidden by a passing UI step.
 
-Implement focused tests for happy path, duplicate delivery, invalid authorization,
-target outage, expired session, worker interruption and broken evidence link. Run
-existing V2 focused regression tests. Report pass, fail and blocked evidence
-accurately. Do not claim physical-IoT testing, full autonomous exploration, root
-cause analysis or production integrations that are not implemented.
+Add support_incident, verification_job, verification_attempt, api_observation,
+data_assertion, evidence_manifest and assignment_rule records or compatible
+additive equivalents. Link them to existing Testmate run IDs. Create idempotent
+incident ingest/status APIs using correlation_id. Accept only sanitized incident
+fields; never store raw Tara transcripts, passwords, cookies or tokens.
+
+Use an approved scenario library. The agent may select only validated browser/API/
+data tools. It may not execute arbitrary generated code or mutate production data.
+Persist exactly one verdict: reproduced, not_reproduced, blocked or inconclusive,
+plus failure category and evidence references.
+
+Build a minimal V3 Helpdesk Incident Queue/Details UI showing ticket, owner, state
+timeline, scenario version, run ID, expected/actual, API/data/UI evidence, verdict
+and next action. Add deterministic assignment and manual reassignment. Add one
+manually triggered health-check definition with grouping; do not claim a production
+scheduler or external notification connector.
+
+Test: API contract pass/fail and redaction; dashboard match/mismatch/filter/timezone
+handling; duplicate incident; invalid target/authorization; unavailable target;
+expired session; model fallback; worker interruption; broken artifact; V2 focused
+functional/security-mode/report regressions. Run browser proof against an authorized
+controlled target. State exactly what passed, failed and was blocked. Do not claim
+physical-IoT testing, complete OWASP coverage, autonomous root-cause analysis or
+production connectors unless actually delivered and tested.
 ```
+
+## 10. Client demo line
+
+> Tara understands the complaint and creates a ticket. PiOne Testmate checks the same journey, API contract and dashboard data with an approved test role. The responsible team receives evidence, not a vague complaint. The same saved check can then detect a recurrence and verify the fix.

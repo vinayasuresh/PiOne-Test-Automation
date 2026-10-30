@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import time
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
@@ -29,6 +30,8 @@ _ENGINE: Engine | None = None
 _SESSION_FACTORY: sessionmaker | None = None
 _IS_FALLBACK: bool = False
 _LAST_ERROR: str | None = None
+_SCHEMA_INITIALIZED: bool = False
+_SCHEMA_INIT_LOCK = threading.Lock()
 
 
 def get_default_sqlite_url() -> str:
@@ -107,6 +110,12 @@ def get_session_factory() -> sessionmaker:
 @contextmanager
 def get_db_session() -> Generator[Session, None, None]:
     """Yield a transactional database session with automatic commit/rollback and retry."""
+    # Repository functions are also used directly by the test suite and
+    # background workers, where FastAPI's startup lifecycle is not guaranteed
+    # to have run.  Ensure every supported database has the current model
+    # tables before the first write instead of relying on a pre-existing local
+    # SQLite file.
+    init_db()
     factory = get_session_factory()
     session: Session = factory()
     try:
@@ -169,8 +178,17 @@ def check_db_status() -> dict[str, Any]:
 
 def init_db(engine: Engine | None = None) -> None:
     """Initialize all database tables from declarative metadata."""
+    global _SCHEMA_INITIALIZED
+
     target_engine = engine or get_engine()
-    # Import models to ensure they are registered with Base
-    import api.db.models  # noqa: F401
-    Base.metadata.create_all(bind=target_engine)
-    logger.info(f"[DB] Initialized database tables on dialect '{target_engine.dialect.name}'")
+    # Import models to ensure they are registered with Base before the schema
+    # is materialized.  A lock prevents concurrent first requests from racing
+    # to create the same SQLite tables.
+    with _SCHEMA_INIT_LOCK:
+        if _SCHEMA_INITIALIZED and engine is None:
+            return
+        import api.db.models  # noqa: F401
+        Base.metadata.create_all(bind=target_engine)
+        if engine is None:
+            _SCHEMA_INITIALIZED = True
+        logger.info(f"[DB] Initialized database tables on dialect '{target_engine.dialect.name}'")

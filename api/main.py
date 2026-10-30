@@ -15,6 +15,7 @@ import datetime
 import json
 import os
 import subprocess
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routers import scan, scan_events, security_scan
+from api.db.session import init_db
 from api.services import browser_readiness
 from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
@@ -74,6 +76,13 @@ _verify_and_clean_storage_template()
 # App
 # ---------------------------------------------------------------------------
 
+@asynccontextmanager
+async def _application_lifespan(_: FastAPI):
+    """Prepare the persistent store before the API accepts requests."""
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="PiOne Testmate API",
     description=(
@@ -82,6 +91,7 @@ app = FastAPI(
     version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=_application_lifespan,
 )
 
 # ---------------------------------------------------------------------------

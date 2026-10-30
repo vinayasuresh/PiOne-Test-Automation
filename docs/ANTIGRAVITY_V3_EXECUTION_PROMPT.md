@@ -3,8 +3,10 @@
 Copy the prompt below into Antigravity when implementation work begins.
 
 > **Priority order:** For the immediate client-demo implementation, use
-> [V3 Client Assurance Delivery Blueprint](V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
-> first. It narrows this broader V3 programme into the safe Monday vertical slice.
+> [V3 Client Assurance Release Blueprint](V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
+> first. API contract testing and dashboard-data validation are mandatory before
+> Tara/helpdesk orchestration; it narrows this broader V3 programme into the safe
+> Monday vertical slice.
 
 ```text
 Act as a principal product engineer, QA automation lead and application-security
