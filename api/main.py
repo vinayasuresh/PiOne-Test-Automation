@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routers import scan, scan_events, security_scan
 from api.db.session import init_db
 from api.services import browser_readiness
+from api.services.v3_feature_flags import is_v3_assurance_enabled
 from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
 
@@ -220,10 +221,13 @@ def health() -> dict:
 
 @app.get("/version", tags=["Health"], summary="Service build and version details")
 async def version() -> dict:
+    # This is metadata only.  It does not expose a V3 route, UI control, job,
+    # or persistence path while the assurance feature flag is disabled.
     return {
         "status": "ok",
         "application": "PiOne Testmate",
         "version": "2.0.0",
         "build_id": BUILD_IDENTIFIER,
         "process_start": PROCESS_START_TIMESTAMP,
+        "v3_assurance_enabled": is_v3_assurance_enabled(),
     }
