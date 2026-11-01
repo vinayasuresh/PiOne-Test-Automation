@@ -25,6 +25,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -351,3 +352,109 @@ class AuditEvent(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
 
     run = relationship("ScanRun", back_populates="audit_events")
+
+
+# ---------------------------------------------------------------------------
+# 5. V3 Client Assurance (feature-flagged, additive)
+# ---------------------------------------------------------------------------
+
+class SupportIncident(Base):
+    """Sanitized support signal.  It intentionally never stores chat transcripts."""
+
+    __tablename__ = "support_incidents"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    correlation_id = Column(String(160), nullable=False, unique=True, index=True)
+    ticket_reference = Column(String(160), nullable=True, index=True)
+    grouping_key = Column(String(255), nullable=False, index=True)
+    summary = Column(Text, nullable=False)
+    affected_feature = Column(String(255), default="")
+    reporter_role = Column(String(120), default="")
+    expected_behavior = Column(Text, default="")
+    actual_behavior = Column(Text, default="")
+    priority = Column(String(30), default="Medium", nullable=False)
+    status = Column(String(40), default="open", nullable=False, index=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    jobs = relationship("VerificationJob", back_populates="incident", cascade="all, delete-orphan")
+
+
+class VerificationJob(Base):
+    """A durable, bounded verification request linked to V2 evidence by IDs."""
+
+    __tablename__ = "verification_jobs"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    incident_id = Column(String(80), ForeignKey("support_incidents.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_id = Column(String(80), ForeignKey("scan_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    execution_id = Column(String(80), ForeignKey("executions.id", ondelete="SET NULL"), nullable=True, index=True)
+    checkpoint_id = Column(String(80), ForeignKey("checkpoints.id", ondelete="SET NULL"), nullable=True, index=True)
+    artifact_id = Column(String(80), ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True, index=True)
+    scenario_version = Column(String(100), nullable=False, default="unassigned")
+    target = Column(String(1024), nullable=False, default="")
+    authorized_role = Column(String(120), nullable=False, default="")
+    mode = Column(String(60), nullable=False, default="functional_only")
+    state = Column(String(40), nullable=False, default="created", index=True)
+    verdict = Column(String(40), nullable=False, default="pending", index=True)
+    technical_category = Column(String(100), default="")
+    grouping_key = Column(String(255), nullable=False, index=True)
+    retry_limit = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    incident = relationship("SupportIncident", back_populates="jobs")
+    attempts = relationship("VerificationAttempt", back_populates="job", cascade="all, delete-orphan")
+    evidence_manifests = relationship("EvidenceManifest", back_populates="job", cascade="all, delete-orphan")
+
+
+class VerificationAttempt(Base):
+    __tablename__ = "verification_attempts"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    job_id = Column(String(80), ForeignKey("verification_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    attempt_number = Column(Integer, nullable=False)
+    worker_id = Column(String(120), default="")
+    state = Column(String(40), nullable=False, default="created")
+    terminal_outcome = Column(String(40), default="pending")
+    failure_category = Column(String(100), default="")
+    event_sequence = Column(JSON, default=list)
+    started_at = Column(DateTime, default=_now_utc, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+
+    job = relationship("VerificationJob", back_populates="attempts")
+
+    __table_args__ = (UniqueConstraint("job_id", "attempt_number", name="uq_verification_attempt_job_number"),)
+
+
+class EvidenceManifest(Base):
+    __tablename__ = "evidence_manifests"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    job_id = Column(String(80), ForeignKey("verification_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    artifact_id = Column(String(80), ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True, index=True)
+    run_id = Column(String(80), ForeignKey("scan_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_step = Column(String(160), default="")
+    source_route = Column(String(1024), default="")
+    checksum = Column(String(128), nullable=False, default="")
+    content_type = Column(String(120), nullable=False, default="application/octet-stream")
+    storage_location = Column(String(1024), nullable=False, default="")
+    retention_expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
+    job = relationship("VerificationJob", back_populates="evidence_manifests")
+
+
+class AssignmentRule(Base):
+    __tablename__ = "assignment_rules"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    product = Column(String(255), default="")
+    feature = Column(String(255), default="", index=True)
+    service = Column(String(255), default="")
+    owner_team = Column(String(255), nullable=False)
+    severity_threshold = Column(String(30), default="Low")
+    escalation_window_minutes = Column(Integer, default=0)
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)

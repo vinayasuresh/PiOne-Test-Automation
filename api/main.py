@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import scan, scan_events, security_scan
+from api.routers import scan, scan_events, security_scan, v3_assurance
 from api.db.session import init_db
 from api.services import browser_readiness
 from api.services.v3_feature_flags import is_v3_assurance_enabled
@@ -167,6 +167,7 @@ app.add_middleware(
 app.include_router(scan.router, tags=["Scan"])
 app.include_router(scan_events.router, tags=["Scan Events"])
 app.include_router(security_scan.router)
+app.include_router(v3_assurance.router)
 
 # ---------------------------------------------------------------------------
 # Serve the frontend

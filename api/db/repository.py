@@ -23,6 +23,7 @@ from api.db.models import (
     Checkpoint,
     Execution,
     ExecutionStep,
+    EvidenceManifest,
     RegressionSuite,
     RegressionSuiteCase,
     RouteEdge,
@@ -30,8 +31,11 @@ from api.db.models import (
     ScanModule,
     ScanRoute,
     ScanRun,
+    SupportIncident,
     TestCaseModel,
     TestPlan,
+    VerificationAttempt,
+    VerificationJob,
 )
 from api.db.session import execute_with_retry, get_db_session
 from automation_framework.utils.logger import logger
@@ -890,4 +894,232 @@ class DBRepository:
                 "unchanged_count": len(set(base_by_tcid) & set(curr_by_tcid)) - len(newly_failing) - len(newly_passing),
             }
 
+        return execute_with_retry(_op)
+
+    # -----------------------------------------------------------------------
+    # 6. V3 assurance records (additive; no V2 lifecycle ownership)
+    # -----------------------------------------------------------------------
+
+    _V3_JOB_TRANSITIONS = {
+        "created": {"queued", "cancelled"},
+        "queued": {"running", "blocked", "cancelled"},
+        "running": {"completed", "failed", "blocked", "inconclusive"},
+        "blocked": {"queued", "cancelled"},
+        "failed": {"queued", "cancelled"},
+        "inconclusive": {"queued", "cancelled"},
+        "completed": set(),
+        "cancelled": set(),
+    }
+    @staticmethod
+    def _v3_attempt_to_dict(attempt: VerificationAttempt) -> dict[str, Any]:
+        return {
+            "attempt_id": attempt.id,
+            "attempt_number": attempt.attempt_number,
+            "worker_id": attempt.worker_id,
+            "state": attempt.state,
+            "terminal_outcome": attempt.terminal_outcome,
+            "failure_category": attempt.failure_category,
+            "event_sequence": attempt.event_sequence or [],
+            "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
+            "ended_at": attempt.ended_at.isoformat() if attempt.ended_at else None,
+        }
+
+    @staticmethod
+    def _v3_manifest_to_dict(manifest: EvidenceManifest) -> dict[str, Any]:
+        return {
+            "manifest_id": manifest.id,
+            "artifact_id": manifest.artifact_id,
+            "run_id": manifest.run_id,
+            "source_step": manifest.source_step,
+            "source_route": manifest.source_route,
+            "checksum": manifest.checksum,
+            "content_type": manifest.content_type,
+            "storage_location": manifest.storage_location,
+            "retention_expires_at": manifest.retention_expires_at.isoformat() if manifest.retention_expires_at else None,
+            "created_at": manifest.created_at.isoformat() if manifest.created_at else None,
+        }
+
+    @staticmethod
+    def _v3_job_to_dict(session: Session, job: VerificationJob) -> dict[str, Any]:
+        attempts = (
+            session.query(VerificationAttempt)
+            .filter(VerificationAttempt.job_id == job.id)
+            .order_by(VerificationAttempt.attempt_number)
+            .all()
+        )
+        manifests = (
+            session.query(EvidenceManifest)
+            .filter(EvidenceManifest.job_id == job.id)
+            .order_by(EvidenceManifest.created_at)
+            .all()
+        )
+        return {
+            "job_id": job.id,
+            "incident_id": job.incident_id,
+            "run_id": job.run_id,
+            "execution_id": job.execution_id,
+            "checkpoint_id": job.checkpoint_id,
+            "artifact_id": job.artifact_id,
+            "scenario_version": job.scenario_version,
+            "target": job.target,
+            "authorized_role": job.authorized_role,
+            "mode": job.mode,
+            "state": job.state,
+            "verdict": job.verdict,
+            "technical_category": job.technical_category,
+            "grouping_key": job.grouping_key,
+            "retry_limit": job.retry_limit,
+            "attempts": [DBRepository._v3_attempt_to_dict(item) for item in attempts],
+            "evidence_manifests": [DBRepository._v3_manifest_to_dict(item) for item in manifests],
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+        }
+
+    @staticmethod
+    def _v3_incident_to_dict(session: Session, incident: SupportIncident) -> dict[str, Any]:
+        jobs = session.query(VerificationJob).filter(VerificationJob.incident_id == incident.id).order_by(VerificationJob.created_at).all()
+        return {
+            "incident_id": incident.id,
+            "correlation_id": incident.correlation_id,
+            "ticket_reference": incident.ticket_reference,
+            "grouping_key": incident.grouping_key,
+            "summary": incident.summary,
+            "affected_feature": incident.affected_feature,
+            "reporter_role": incident.reporter_role,
+            "expected_behavior": incident.expected_behavior,
+            "actual_behavior": incident.actual_behavior,
+            "priority": incident.priority,
+            "status": incident.status,
+            "jobs": [DBRepository._v3_job_to_dict(session, item) for item in jobs],
+            "created_at": incident.created_at.isoformat() if incident.created_at else None,
+            "updated_at": incident.updated_at.isoformat() if incident.updated_at else None,
+        }
+
+    @staticmethod
+    def create_or_get_v3_incident_job(payload: dict[str, Any]) -> dict[str, Any]:
+        """Create exactly one sanitized incident/job pair per correlation ID."""
+        safe = redact_sensitive_data(payload)
+
+        def _op(session: Session) -> dict[str, Any]:
+            existing = session.query(SupportIncident).filter(SupportIncident.correlation_id == safe["correlation_id"]).first()
+            if existing:
+                return {"created": False, "incident": DBRepository._v3_incident_to_dict(session, existing)}
+
+            links = safe.get("links") or {}
+            incident = SupportIncident(
+                correlation_id=safe["correlation_id"],
+                ticket_reference=safe.get("ticket_reference"),
+                grouping_key=safe["grouping_key"],
+                summary=safe["summary"],
+                affected_feature=safe.get("affected_feature", ""),
+                reporter_role=safe.get("reporter_role", ""),
+                expected_behavior=safe.get("expected_behavior", ""),
+                actual_behavior=safe.get("actual_behavior", ""),
+                priority=safe.get("priority", "Medium"),
+            )
+            session.add(incident)
+            session.flush()
+            job = VerificationJob(
+                incident_id=incident.id,
+                run_id=links.get("run_id"),
+                execution_id=links.get("execution_id"),
+                checkpoint_id=links.get("checkpoint_id"),
+                artifact_id=links.get("artifact_id"),
+                scenario_version=safe.get("scenario_version", "unassigned"),
+                target=safe.get("target", ""),
+                authorized_role=safe.get("authorized_role", ""),
+                mode=safe.get("mode", "functional_only"),
+                grouping_key=safe["grouping_key"],
+                retry_limit=safe.get("retry_limit", 0),
+            )
+            session.add(job)
+            session.flush()
+            return {"created": True, "incident": DBRepository._v3_incident_to_dict(session, incident)}
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_incident(incident_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            incident = session.query(SupportIncident).filter(SupportIncident.id == incident_id).first()
+            return DBRepository._v3_incident_to_dict(session, incident) if incident else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_job(job_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            return DBRepository._v3_job_to_dict(session, job) if job else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def transition_v3_job(job_id: str, target_state: str, verdict: str | None = None, technical_category: str = "") -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            if not job:
+                raise LookupError("Verification job not found")
+            allowed = DBRepository._V3_JOB_TRANSITIONS.get(job.state, set())
+            if target_state not in allowed:
+                raise ValueError(f"Illegal verification-job transition: {job.state} -> {target_state}")
+            if target_state == "completed" and verdict not in {"reproduced", "not_reproduced"}:
+                raise ValueError("Completed verification jobs require a reproduced or not_reproduced verdict")
+            if target_state in {"blocked", "inconclusive"} and verdict not in {target_state, None}:
+                raise ValueError(f"{target_state} jobs may only use the matching verdict")
+            job.state = target_state
+            if verdict:
+                job.verdict = verdict
+            elif target_state in {"blocked", "inconclusive"}:
+                job.verdict = target_state
+            if technical_category:
+                job.technical_category = redact_sensitive_data(technical_category)
+            job.updated_at = _now_utc()
+            session.flush()
+            return DBRepository._v3_job_to_dict(session, job)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def add_v3_attempt(job_id: str, worker_id: str = "", state: str = "created", terminal_outcome: str = "pending", failure_category: str = "", event_sequence: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        safe_events = redact_sensitive_data(event_sequence or [])
+        def _op(session: Session) -> dict[str, Any]:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            if not job:
+                raise LookupError("Verification job not found")
+            if job.state not in {"queued", "running"}:
+                raise ValueError("Attempts can be added only while a verification job is queued or running")
+            attempt_number = (session.query(func.max(VerificationAttempt.attempt_number)).filter(VerificationAttempt.job_id == job_id).scalar() or 0) + 1
+            attempt = VerificationAttempt(
+                job_id=job_id,
+                attempt_number=attempt_number,
+                worker_id=redact_sensitive_data(worker_id),
+                state=state,
+                terminal_outcome=terminal_outcome,
+                failure_category=redact_sensitive_data(failure_category),
+                event_sequence=safe_events,
+                ended_at=_now_utc() if terminal_outcome != "pending" else None,
+            )
+            session.add(attempt)
+            session.flush()
+            return DBRepository._v3_attempt_to_dict(attempt)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def add_v3_evidence_manifest(job_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+        def _op(session: Session) -> dict[str, Any]:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            if not job:
+                raise LookupError("Verification job not found")
+            manifest = EvidenceManifest(
+                job_id=job_id,
+                artifact_id=safe.get("artifact_id"),
+                run_id=safe.get("run_id") or job.run_id,
+                source_step=safe.get("source_step", ""),
+                source_route=safe.get("source_route", ""),
+                checksum=safe.get("checksum", ""),
+                content_type=safe.get("content_type", "application/octet-stream"),
+                storage_location=safe.get("storage_location", ""),
+            )
+            session.add(manifest)
+            session.flush()
+            return DBRepository._v3_manifest_to_dict(manifest)
         return execute_with_retry(_op)

@@ -60,13 +60,23 @@ or autonomous exploration in this phase.
 
 ### Tasks
 
-- [ ] Add migrations and models for `support_incident`, `verification_job`,
+- [x] Add migrations and models for `support_incident`, `verification_job`,
   `verification_attempt`, `evidence_manifest` and `assignment_rule`.
-- [ ] Link records to existing run IDs, execution IDs, checkpoint IDs and
+- [x] Link records to existing run IDs, execution IDs, checkpoint IDs and
   artifact IDs rather than duplicating V2 state.
-- [ ] Enforce idempotency through a unique correlation ID and grouping key.
-- [ ] Add repository transactions, lifecycle validation and redaction tests.
-- [ ] Add incident/job API contracts behind the feature flag.
+- [x] Enforce idempotency through a unique correlation ID and grouping key.
+- [x] Add repository transactions, lifecycle validation and redaction tests.
+- [x] Add incident/job API contracts behind the feature flag.
+
+### Phase 1 evidence (2026-11-02)
+
+- `support_incidents`, `verification_jobs`, `verification_attempts`,
+  `evidence_manifests` and `assignment_rules` are additive V3 tables with an
+  Alembic migration.
+- `POST /v3/incidents/intake` is feature-flagged, sanitized, and idempotent by
+  `correlation_id`; it creates one durable incident and one job only.
+- Jobs enforce legal transitions and retain attempt/evidence history without
+  starting or altering an existing V2 run.
 
 ### Exit criteria
 
