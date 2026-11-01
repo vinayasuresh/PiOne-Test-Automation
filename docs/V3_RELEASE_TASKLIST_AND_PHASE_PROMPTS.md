@@ -101,12 +101,30 @@ rollback and redaction. Do not change the V2 user flow or replace existing table
 
 ### Tasks
 
-- [ ] Support approved OpenAPI or Postman contract registration.
-- [ ] Register operations, approved auth fixtures and safe response rules.
-- [ ] Validate schema, required fields, status code, auth boundary and latency.
-- [ ] Persist a redacted `api_observation` linked to job/run/scenario/evidence.
-- [ ] Add safe negative cases only for authorised staging environments.
-- [ ] Export API observations in reports without exposing credentials.
+- [x] Support approved OpenAPI or Postman contract registration.
+- [x] Register operations, approved auth fixtures and safe response rules.
+- [x] Validate schema, required fields, status code, auth boundary and latency.
+- [x] Persist a redacted `api_observation` linked to job/run/scenario/evidence.
+- [x] Add safe negative cases only for authorised staging environments.
+- [x] Export API observations in reports without exposing credentials.
+
+### Phase 2 evidence (2026-11-02)
+
+- `api_contracts`, `api_operations` and `api_observations` are additive V3
+  tables with an Alembic migration. The submitted source document is used only
+  for normalization and is never persisted.
+- `POST /v3/api-contracts` accepts an approved OpenAPI or Postman document;
+  it registers only same-origin operations. Write methods are visible as
+  disabled records and cannot be executed by this phase.
+- `POST /v3/api-operations/{id}/validate` validates exactly one registered,
+  approved, read-only operation. It records truthful `pass`, `fail`, or
+  `blocked` results for status, required fields, authorization boundary,
+  timeout and latency conditions.
+- Unauthenticated probes are allowed only when explicitly configured on a
+  staging/test contract. Requests never accept raw credentials, arbitrary
+  target URLs, bodies, fuzzing inputs or mutation methods.
+- `GET /v3/api-contracts/{id}/observations/export` returns the redacted
+  observation ledger; fixture references are identifiers only, never secrets.
 
 ### Exit criteria
 

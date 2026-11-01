@@ -458,3 +458,80 @@ class AssignmentRule(Base):
     is_enabled = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=_now_utc, nullable=False)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+
+# ---------------------------------------------------------------------------
+# 6. V3 API contract assurance (feature-flagged, additive)
+# ---------------------------------------------------------------------------
+
+class ApiContract(Base):
+    """An approved, sanitized API contract registration.
+
+    The original OpenAPI/Postman document is deliberately not retained: it can
+    contain authorization examples or test data.  Only normalized, reviewed
+    operations and safe assertion rules are persisted.
+    """
+
+    __tablename__ = "api_contracts"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    name = Column(String(255), nullable=False)
+    version = Column(String(100), nullable=False, default="unversioned")
+    source_type = Column(String(30), nullable=False)  # openapi | postman
+    base_url = Column(String(1024), nullable=False)
+    environment = Column(String(40), nullable=False, default="staging")
+    is_approved = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    operations = relationship("ApiOperation", back_populates="contract", cascade="all, delete-orphan")
+
+
+class ApiOperation(Base):
+    """A normalized approved operation; never stores authorization values."""
+
+    __tablename__ = "api_operations"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    contract_id = Column(String(80), ForeignKey("api_contracts.id", ondelete="CASCADE"), nullable=False, index=True)
+    operation_key = Column(String(255), nullable=False)
+    method = Column(String(10), nullable=False)
+    path = Column(String(1024), nullable=False)
+    expected_status_codes = Column(JSON, default=list, nullable=False)
+    required_fields = Column(JSON, default=list, nullable=False)
+    max_latency_ms = Column(Integer, nullable=False, default=3000)
+    auth_requirement = Column(String(30), nullable=False, default="none")
+    auth_fixture_ref = Column(String(160), nullable=False, default="")
+    approved_role = Column(String(120), nullable=False, default="")
+    allow_unauthenticated_probe = Column(Boolean, nullable=False, default=False)
+    safe_read_only = Column(Boolean, nullable=False, default=True)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+
+    contract = relationship("ApiContract", back_populates="operations")
+    observations = relationship("ApiObservation", back_populates="operation", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("contract_id", "operation_key", name="uq_api_operation_contract_key"),)
+
+
+class ApiObservation(Base):
+    """Redacted API-validation result linked to V2/V3 traceability IDs."""
+
+    __tablename__ = "api_observations"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    operation_id = Column(String(80), ForeignKey("api_operations.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id = Column(String(80), ForeignKey("verification_jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+    run_id = Column(String(80), ForeignKey("scan_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    evidence_manifest_id = Column(String(80), ForeignKey("evidence_manifests.id", ondelete="SET NULL"), nullable=True, index=True)
+    scenario_version = Column(String(100), nullable=False, default="unassigned")
+    result = Column(String(30), nullable=False, index=True)  # pass | fail | blocked
+    classification = Column(String(100), nullable=False, default="")
+    status_code = Column(Integer, nullable=True)
+    latency_ms = Column(Integer, nullable=True)
+    request_metadata = Column(JSON, default=dict, nullable=False)
+    assertion_result = Column(JSON, default=dict, nullable=False)
+    evidence_link = Column(String(1024), nullable=False, default="")
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+
+    operation = relationship("ApiOperation", back_populates="observations")

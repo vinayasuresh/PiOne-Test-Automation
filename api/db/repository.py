@@ -17,6 +17,9 @@ from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
 from api.db.models import (
+    ApiContract,
+    ApiObservation,
+    ApiOperation,
     ApplicationTarget,
     Artifact,
     AuditEvent,
@@ -1122,4 +1125,167 @@ class DBRepository:
             session.add(manifest)
             session.flush()
             return DBRepository._v3_manifest_to_dict(manifest)
+        return execute_with_retry(_op)
+
+    # -----------------------------------------------------------------------
+    # 7. V3 API contract assurance (additive; no V2 execution ownership)
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _api_operation_to_dict(operation: ApiOperation) -> dict[str, Any]:
+        return {
+            "operation_id": operation.id,
+            "contract_id": operation.contract_id,
+            "operation_key": operation.operation_key,
+            "method": operation.method,
+            "path": operation.path,
+            "expected_status_codes": operation.expected_status_codes or [],
+            "required_fields": operation.required_fields or [],
+            "max_latency_ms": operation.max_latency_ms,
+            "auth_requirement": operation.auth_requirement,
+            "auth_fixture_ref": operation.auth_fixture_ref,
+            "approved_role": operation.approved_role,
+            "allow_unauthenticated_probe": operation.allow_unauthenticated_probe,
+            "safe_read_only": operation.safe_read_only,
+            "is_enabled": operation.is_enabled,
+        }
+
+    @staticmethod
+    def _api_contract_to_dict(session: Session, contract: ApiContract) -> dict[str, Any]:
+        operations = (
+            session.query(ApiOperation)
+            .filter(ApiOperation.contract_id == contract.id)
+            .order_by(ApiOperation.operation_key)
+            .all()
+        )
+        return {
+            "contract_id": contract.id,
+            "name": contract.name,
+            "version": contract.version,
+            "source_type": contract.source_type,
+            "base_url": contract.base_url,
+            "environment": contract.environment,
+            "is_approved": contract.is_approved,
+            "operations": [DBRepository._api_operation_to_dict(item) for item in operations],
+            "created_at": contract.created_at.isoformat() if contract.created_at else None,
+            "updated_at": contract.updated_at.isoformat() if contract.updated_at else None,
+        }
+
+    @staticmethod
+    def register_v3_api_contract(payload: dict[str, Any], operations: list[dict[str, Any]]) -> dict[str, Any]:
+        """Persist only normalized operations, never the source document or secrets."""
+        safe = redact_sensitive_data(payload)
+        safe_operations = redact_sensitive_data(operations)
+
+        def _op(session: Session) -> dict[str, Any]:
+            contract = ApiContract(
+                name=safe["name"],
+                version=safe.get("version", "unversioned"),
+                source_type=safe["source_type"],
+                base_url=safe["base_url"],
+                environment=safe.get("environment", "staging"),
+                is_approved=bool(safe.get("approved", False)),
+            )
+            session.add(contract)
+            session.flush()
+            for item in safe_operations:
+                session.add(ApiOperation(contract_id=contract.id, **item))
+            session.flush()
+            return DBRepository._api_contract_to_dict(session, contract)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_api_contract(contract_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            contract = session.query(ApiContract).filter(ApiContract.id == contract_id).first()
+            return DBRepository._api_contract_to_dict(session, contract) if contract else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_api_operation(operation_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            operation = session.query(ApiOperation).filter(ApiOperation.id == operation_id).first()
+            if not operation:
+                return None
+            contract = session.query(ApiContract).filter(ApiContract.id == operation.contract_id).first()
+            return {
+                "operation": DBRepository._api_operation_to_dict(operation),
+                "contract": DBRepository._api_contract_to_dict(session, contract) if contract else None,
+            }
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def configure_v3_api_operation(operation_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+        allowed = {
+            "expected_status_codes", "required_fields", "max_latency_ms", "auth_requirement",
+            "auth_fixture_ref", "approved_role", "allow_unauthenticated_probe", "safe_read_only",
+        }
+
+        def _op(session: Session) -> dict[str, Any]:
+            operation = session.query(ApiOperation).filter(ApiOperation.id == operation_id).first()
+            if not operation:
+                raise LookupError("API operation not found")
+            for key in allowed:
+                if key in safe:
+                    setattr(operation, key, safe[key])
+            session.flush()
+            return DBRepository._api_operation_to_dict(operation)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def add_v3_api_observation(payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+
+        def _op(session: Session) -> dict[str, Any]:
+            operation = session.query(ApiOperation).filter(ApiOperation.id == safe["operation_id"]).first()
+            if not operation:
+                raise LookupError("API operation not found")
+            link_models = {
+                "job_id": (VerificationJob, "Verification job"),
+                "run_id": (ScanRun, "Scan run"),
+                "evidence_manifest_id": (EvidenceManifest, "Evidence manifest"),
+            }
+            for field, (model, label) in link_models.items():
+                if safe.get(field) and not session.query(model).filter(model.id == safe[field]).first():
+                    raise ValueError(f"{label} link was not found")
+            observation = ApiObservation(**safe)
+            session.add(observation)
+            session.flush()
+            return DBRepository._api_observation_to_dict(observation)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def _api_observation_to_dict(observation: ApiObservation) -> dict[str, Any]:
+        return {
+            "observation_id": observation.id,
+            "operation_id": observation.operation_id,
+            "job_id": observation.job_id,
+            "run_id": observation.run_id,
+            "evidence_manifest_id": observation.evidence_manifest_id,
+            "scenario_version": observation.scenario_version,
+            "result": observation.result,
+            "classification": observation.classification,
+            "status_code": observation.status_code,
+            "latency_ms": observation.latency_ms,
+            "request_metadata": observation.request_metadata or {},
+            "assertion_result": observation.assertion_result or {},
+            "evidence_link": observation.evidence_link,
+            "created_at": observation.created_at.isoformat() if observation.created_at else None,
+        }
+
+    @staticmethod
+    def list_v3_api_observations(contract_id: str) -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            return [
+                DBRepository._api_observation_to_dict(item)
+                for item in (
+                    session.query(ApiObservation)
+                    .join(ApiOperation, ApiObservation.operation_id == ApiOperation.id)
+                    .filter(ApiOperation.contract_id == contract_id)
+                    .order_by(ApiObservation.created_at)
+                    .all()
+                )
+            ]
         return execute_with_retry(_op)

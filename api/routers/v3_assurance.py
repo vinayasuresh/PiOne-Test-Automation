@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 
 from fastapi import APIRouter, HTTPException, Response, status
+from fastapi.responses import JSONResponse
 
 from api.db.repository import DBRepository
 from api.models.v3_assurance_models import (
@@ -18,6 +19,12 @@ from api.models.v3_assurance_models import (
     V3IncidentIntakeRequest,
     V3JobTransitionRequest,
 )
+from api.models.v3_api_contract_models import (
+    ApiContractRegistrationRequest,
+    ApiOperationConfigurationRequest,
+    ApiOperationValidationRequest,
+)
+from api.services.v3_api_contract_service import normalize_contract, validate_registered_operation
 from api.services.v3_feature_flags import is_v3_assurance_enabled
 
 
@@ -101,3 +108,83 @@ def add_evidence_manifest(job_id: str, request: V3EvidenceManifestRequest) -> di
     except LookupError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return {"status": "created", "evidence_manifest": manifest}
+
+
+@router.post("/api-contracts", status_code=status.HTTP_201_CREATED)
+def register_api_contract(request: ApiContractRegistrationRequest) -> dict:
+    """Register only normalized, reviewed API operations behind the V3 flag."""
+    _require_v3()
+    try:
+        operations = normalize_contract(request.source_type, request.source_document, request.base_url)
+        # source_document is deliberately excluded from persistence.
+        contract = DBRepository.register_v3_api_contract(
+            request.model_dump(exclude={"source_document"}),
+            operations,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"status": "created", "contract": contract}
+
+
+@router.get("/api-contracts/{contract_id}")
+def get_api_contract(contract_id: str) -> dict:
+    _require_v3()
+    _validate_id(contract_id, "contract ID")
+    contract = DBRepository.get_v3_api_contract(contract_id)
+    if not contract:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API contract not found")
+    return {"status": "ok", "contract": contract}
+
+
+@router.put("/api-operations/{operation_id}/rules")
+def configure_api_operation(operation_id: str, request: ApiOperationConfigurationRequest) -> dict:
+    _require_v3()
+    _validate_id(operation_id, "operation ID")
+    try:
+        operation = DBRepository.configure_v3_api_operation(operation_id, request.model_dump())
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {"status": "ok", "operation": operation}
+
+
+@router.post("/api-operations/{operation_id}/validate", status_code=status.HTTP_201_CREATED)
+def validate_api_operation(operation_id: str, request: ApiOperationValidationRequest) -> dict:
+    """Validate exactly one approved, registered read-only operation."""
+    _require_v3()
+    _validate_id(operation_id, "operation ID")
+    registration = DBRepository.get_v3_api_operation(operation_id)
+    if not registration or not registration.get("contract"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API operation not found")
+    observation_result = validate_registered_operation(
+        registration["contract"],
+        registration["operation"],
+        negative_case=request.negative_case,
+    )
+    try:
+        observation = DBRepository.add_v3_api_observation({
+            "operation_id": operation_id,
+            "job_id": request.job_id,
+            "run_id": request.run_id,
+            "evidence_manifest_id": request.evidence_manifest_id,
+            "scenario_version": request.scenario_version,
+            "result": observation_result["result"],
+            "classification": observation_result["classification"],
+            "status_code": observation_result["status_code"],
+            "latency_ms": observation_result["latency_ms"],
+            "request_metadata": observation_result["request_metadata"],
+            "assertion_result": observation_result["assertion_result"],
+            "evidence_link": "",
+        })
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return {"status": "created", "observation": observation}
+
+
+@router.get("/api-contracts/{contract_id}/observations/export")
+def export_api_observations(contract_id: str) -> JSONResponse:
+    """Return sanitized observation records; credentials are never stored or exported."""
+    _require_v3()
+    _validate_id(contract_id, "contract ID")
+    if not DBRepository.get_v3_api_contract(contract_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API contract not found")
+    return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_api_observations(contract_id)})
