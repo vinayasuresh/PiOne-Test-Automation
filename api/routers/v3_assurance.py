@@ -8,6 +8,7 @@ V3 feature flag is enabled.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import JSONResponse
@@ -25,6 +26,8 @@ from api.models.v3_api_contract_models import (
     ApiOperationValidationRequest,
 )
 from api.services.v3_api_contract_service import normalize_contract, validate_registered_operation
+from api.models.v3_data_assertion_models import DataAssertionEvaluationRequest, DataAssertionScenarioRequest
+from api.services.v3_data_assertion_service import compare_dashboard_data, parse_timestamp, read_approved_source
 from api.services.v3_feature_flags import is_v3_assurance_enabled
 
 
@@ -188,3 +191,78 @@ def export_api_observations(contract_id: str) -> JSONResponse:
     if not DBRepository.get_v3_api_contract(contract_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API contract not found")
     return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_api_observations(contract_id)})
+
+
+@router.post("/data-assertion-scenarios", status_code=status.HTTP_201_CREATED)
+def register_data_assertion_scenario(request: DataAssertionScenarioRequest) -> dict:
+    """Register an approved comparison against an existing read-only API operation."""
+    _require_v3()
+    try:
+        scenario = DBRepository.register_v3_data_assertion_scenario(request.model_dump())
+    except LookupError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return {"status": "created", "scenario": scenario}
+
+
+@router.get("/data-assertion-scenarios/{scenario_id}")
+def get_data_assertion_scenario(scenario_id: str) -> dict:
+    _require_v3()
+    _validate_id(scenario_id, "data assertion scenario ID")
+    scenario = DBRepository.get_v3_data_assertion_scenario(scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data assertion scenario not found")
+    return {"status": "ok", "scenario": scenario}
+
+
+@router.post("/data-assertion-scenarios/{scenario_id}/evaluate", status_code=status.HTTP_201_CREATED)
+def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEvaluationRequest) -> dict:
+    """Compare a captured UI value to the scenario's approved API source only."""
+    _require_v3()
+    _validate_id(scenario_id, "data assertion scenario ID")
+    scenario = DBRepository.get_v3_data_assertion_scenario(scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data assertion scenario not found")
+    if not scenario["is_approved"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Data assertion scenario is not approved")
+    source_registration = DBRepository.get_v3_api_operation(scenario["source_operation_id"])
+    if not source_registration or not source_registration.get("contract"):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Approved source operation is unavailable")
+    source_reading = read_approved_source(
+        source_registration["contract"], source_registration["operation"],
+        scenario["source_field"], scenario["source_timestamp_field"],
+    )
+    comparison = compare_dashboard_data(scenario, request.model_dump(), source_reading)
+    try:
+        observation = DBRepository.add_v3_data_assertion_observation({
+            "scenario_id": scenario_id,
+            "job_id": request.job_id,
+            "run_id": request.run_id,
+            "evidence_manifest_id": request.evidence_manifest_id,
+            "scenario_version": request.scenario_version,
+            "result": comparison["result"],
+            "classification": comparison["classification"],
+            "ui_raw_value": comparison["ui_raw_value"],
+            "source_raw_value": comparison["source_raw_value"],
+            "normalized_ui_value": comparison.get("normalized_ui_value"),
+            "normalized_source_value": comparison.get("normalized_source_value"),
+            "delta": comparison.get("delta"),
+            "filter_context": comparison["filter_context"],
+            "source_filter_context": comparison["source_filter_context"],
+            "source_fresh_at": parse_timestamp(comparison.get("source_fresh_at")),
+            "captured_at": request.captured_at or datetime.now(timezone.utc),
+            "source_metadata": comparison["source_metadata"],
+        })
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return {"status": "created", "observation": observation}
+
+
+@router.get("/data-assertion-scenarios/{scenario_id}/observations/export")
+def export_data_assertion_observations(scenario_id: str) -> JSONResponse:
+    _require_v3()
+    _validate_id(scenario_id, "data assertion scenario ID")
+    if not DBRepository.get_v3_data_assertion_scenario(scenario_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data assertion scenario not found")
+    return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_data_assertion_observations(scenario_id)})

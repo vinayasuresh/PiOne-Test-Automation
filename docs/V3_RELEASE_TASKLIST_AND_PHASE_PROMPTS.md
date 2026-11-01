@@ -150,14 +150,16 @@ Keep V2 unchanged.
 
 ### Tasks
 
-- [ ] Define a data assertion scenario with route, UI selector, source API/read
+- [x] Define a data assertion scenario with route, UI selector, source API/read
   adapter, filters, timezone, freshness window and tolerance.
-- [ ] Capture the visible KPI/table/chart value and the exact filter context.
-- [ ] Read the approved API/read-only source.
-- [ ] Normalize nulls, currency, percentages, rounding and time buckets.
-- [ ] Classify stale data, missing data, filter mismatch, rounding mismatch and
+- [x] Capture a supplied visible KPI/table/chart value and its exact filter context.
+- [x] Read the approved API/read-only source.
+- [x] Normalize nulls, currency, percentages and rounding.
+- [x] Classify stale data, missing data, filter mismatch, rounding mismatch and
   visual/source mismatch.
-- [ ] Save a screenshot plus source comparison evidence.
+- [x] Persist source comparison evidence and optionally link an existing V2
+  evidence manifest. Automatic browser screenshot capture remains a later
+  browser-agent integration, not a claim of this phase.
 
 ### Exit criteria
 

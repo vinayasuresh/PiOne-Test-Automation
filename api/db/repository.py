@@ -24,6 +24,8 @@ from api.db.models import (
     Artifact,
     AuditEvent,
     Checkpoint,
+    DataAssertionObservation,
+    DataAssertionScenario,
     Execution,
     ExecutionStep,
     EvidenceManifest,
@@ -1288,4 +1290,120 @@ class DBRepository:
                     .all()
                 )
             ]
+        return execute_with_retry(_op)
+
+    # -----------------------------------------------------------------------
+    # 8. V3 dashboard-data assurance (additive; read-only source evidence)
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _data_scenario_to_dict(scenario: DataAssertionScenario) -> dict[str, Any]:
+        return {
+            "data_assertion_scenario_id": scenario.id,
+            "name": scenario.name,
+            "route": scenario.route,
+            "ui_selector": scenario.ui_selector,
+            "metric_label": scenario.metric_label,
+            "source_operation_id": scenario.source_operation_id,
+            "source_field": scenario.source_field,
+            "source_timestamp_field": scenario.source_timestamp_field,
+            "expected_filters": scenario.expected_filters or {},
+            "timezone": scenario.timezone,
+            "freshness_window_minutes": scenario.freshness_window_minutes,
+            "tolerance": scenario.tolerance,
+            "value_format": scenario.value_format,
+            "is_approved": scenario.is_approved,
+        }
+
+    @staticmethod
+    def register_v3_data_assertion_scenario(payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+
+        def _op(session: Session) -> dict[str, Any]:
+            source = session.query(ApiOperation).filter(ApiOperation.id == safe["source_operation_id"]).first()
+            if not source:
+                raise LookupError("Approved source operation was not found")
+            if not source.safe_read_only or not source.is_enabled:
+                raise ValueError("Source operation must be an enabled read-only operation")
+            scenario = DataAssertionScenario(
+                name=safe["name"], route=safe["route"], ui_selector=safe["ui_selector"],
+                metric_label=safe.get("metric_label", ""), source_operation_id=safe["source_operation_id"],
+                source_field=safe["source_field"], source_timestamp_field=safe.get("source_timestamp_field", ""),
+                expected_filters=safe.get("expected_filters", {}), timezone=safe.get("timezone", "UTC"),
+                freshness_window_minutes=safe.get("freshness_window_minutes", 60), tolerance=safe.get("tolerance", "0"),
+                value_format=safe.get("value_format", "number"), is_approved=bool(safe.get("approved", False)),
+            )
+            session.add(scenario)
+            session.flush()
+            return DBRepository._data_scenario_to_dict(scenario)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_data_assertion_scenario(scenario_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            scenario = session.query(DataAssertionScenario).filter(DataAssertionScenario.id == scenario_id).first()
+            return DBRepository._data_scenario_to_dict(scenario) if scenario else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def add_v3_data_assertion_observation(payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+        # API callers may omit captured_at.  Do not pass an explicit NULL to
+        # the non-null database column; preserve a truthful server capture
+        # timestamp instead.
+        if safe.get("captured_at") is None:
+            safe["captured_at"] = datetime.now(timezone.utc)
+        links = {
+            "job_id": (VerificationJob, "Verification job"),
+            "run_id": (ScanRun, "Scan run"),
+            "evidence_manifest_id": (EvidenceManifest, "Evidence manifest"),
+        }
+
+        def _op(session: Session) -> dict[str, Any]:
+            scenario = session.query(DataAssertionScenario).filter(DataAssertionScenario.id == safe["scenario_id"]).first()
+            if not scenario:
+                raise LookupError("Data assertion scenario not found")
+            for field, (model, label) in links.items():
+                if safe.get(field) and not session.query(model).filter(model.id == safe[field]).first():
+                    raise ValueError(f"{label} link was not found")
+            observation = DataAssertionObservation(**safe)
+            session.add(observation)
+            session.flush()
+            return DBRepository._data_observation_to_dict(observation)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def _data_observation_to_dict(observation: DataAssertionObservation) -> dict[str, Any]:
+        return {
+            "data_observation_id": observation.id,
+            "scenario_id": observation.scenario_id,
+            "job_id": observation.job_id,
+            "run_id": observation.run_id,
+            "evidence_manifest_id": observation.evidence_manifest_id,
+            "scenario_version": observation.scenario_version,
+            "result": observation.result,
+            "classification": observation.classification,
+            "ui_raw_value": observation.ui_raw_value,
+            "source_raw_value": observation.source_raw_value,
+            "normalized_ui_value": observation.normalized_ui_value,
+            "normalized_source_value": observation.normalized_source_value,
+            "delta": observation.delta,
+            "filter_context": observation.filter_context or {},
+            "source_filter_context": observation.source_filter_context or {},
+            "source_fresh_at": observation.source_fresh_at.isoformat() if observation.source_fresh_at else None,
+            "captured_at": observation.captured_at.isoformat() if observation.captured_at else None,
+            "source_metadata": observation.source_metadata or {},
+            "created_at": observation.created_at.isoformat() if observation.created_at else None,
+        }
+
+    @staticmethod
+    def list_v3_data_assertion_observations(scenario_id: str) -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            rows = (
+                session.query(DataAssertionObservation)
+                .filter(DataAssertionObservation.scenario_id == scenario_id)
+                .order_by(DataAssertionObservation.created_at)
+                .all()
+            )
+            return [DBRepository._data_observation_to_dict(item) for item in rows]
         return execute_with_retry(_op)

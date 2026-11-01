@@ -535,3 +535,60 @@ class ApiObservation(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
 
     operation = relationship("ApiOperation", back_populates="observations")
+
+
+# ---------------------------------------------------------------------------
+# 7. V3 dashboard data assurance (feature-flagged, additive)
+# ---------------------------------------------------------------------------
+
+class DataAssertionScenario(Base):
+    """Approved UI-versus-read-only-source comparison definition."""
+
+    __tablename__ = "data_assertion_scenarios"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    name = Column(String(255), nullable=False)
+    route = Column(String(1024), nullable=False)
+    ui_selector = Column(String(1024), nullable=False)
+    metric_label = Column(String(255), nullable=False, default="")
+    source_operation_id = Column(String(80), ForeignKey("api_operations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    source_field = Column(String(255), nullable=False)
+    source_timestamp_field = Column(String(255), nullable=False, default="")
+    expected_filters = Column(JSON, default=dict, nullable=False)
+    timezone = Column(String(100), nullable=False, default="UTC")
+    freshness_window_minutes = Column(Integer, nullable=False, default=60)
+    tolerance = Column(String(80), nullable=False, default="0")
+    value_format = Column(String(30), nullable=False, default="number")
+    is_approved = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    observations = relationship("DataAssertionObservation", back_populates="scenario", cascade="all, delete-orphan")
+
+
+class DataAssertionObservation(Base):
+    """A redacted comparison with V2/V3 evidence links and clear classification."""
+
+    __tablename__ = "data_assertion_observations"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    scenario_id = Column(String(80), ForeignKey("data_assertion_scenarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    job_id = Column(String(80), ForeignKey("verification_jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+    run_id = Column(String(80), ForeignKey("scan_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    evidence_manifest_id = Column(String(80), ForeignKey("evidence_manifests.id", ondelete="SET NULL"), nullable=True, index=True)
+    scenario_version = Column(String(100), nullable=False, default="unassigned")
+    result = Column(String(30), nullable=False, index=True)  # pass | fail | blocked
+    classification = Column(String(100), nullable=False, default="")
+    ui_raw_value = Column(String(1024), nullable=False, default="")
+    source_raw_value = Column(String(1024), nullable=False, default="")
+    normalized_ui_value = Column(String(80), nullable=True)
+    normalized_source_value = Column(String(80), nullable=True)
+    delta = Column(String(80), nullable=True)
+    filter_context = Column(JSON, default=dict, nullable=False)
+    source_filter_context = Column(JSON, default=dict, nullable=False)
+    source_fresh_at = Column(DateTime, nullable=True)
+    captured_at = Column(DateTime, nullable=False, default=_now_utc)
+    source_metadata = Column(JSON, default=dict, nullable=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+
+    scenario = relationship("DataAssertionScenario", back_populates="observations")
