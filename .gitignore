@@ -12,3 +12,19 @@ automation_framework/reports/*
 automation_framework/logs/*.log
 scans/test_context/
 automation_framework/storage/auth_state.json
+
+# Runtime screenshots, PDF render previews, and other generated image assets.
+# Existing tracked image assets remain tracked; this prevents new local/demo
+# captures from entering source control.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.avif
+*.bmp
+*.tif
+*.tiff
+*.ico
+*.heic
+*.svg
