@@ -242,6 +242,9 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
   approved, test/staging-only, and public metadata never returns SQL.
 - Added feature-gated routes for query registration, listing, lookup and one
   bounded read/compare operation under `/v3/database-queries`.
+- Dashboard assertion scenarios can now reference an approved database query
+  definition, preserving the API → dashboard → database lineage without
+  changing existing API-only scenarios.
 - Proof: `python -m pytest
   automation_framework/tests/test_v3_database_assertion_phase4.py
   automation_framework/tests/test_v3_api_contract_phase2.py
@@ -251,8 +254,8 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 
 ### Remaining Phase 4 wiring
 
-- Bind a registered query to a dashboard data-assertion scenario and include
-  the query ID and comparison lineage in the persisted observation export.
+- Execute the bound query during dashboard evaluation and include the query ID
+  and comparison lineage in the persisted observation export.
 - Add a rendered-browser flow proving registration, read, mismatch and blocked
   outcomes; service/API tests do not count as browser proof.
 - Run the rendered-browser/dashboard proof in Phase 5; no browser proof is

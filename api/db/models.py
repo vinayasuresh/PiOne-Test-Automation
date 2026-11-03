@@ -622,6 +622,7 @@ class DataAssertionScenario(Base):
     ui_selector = Column(String(1024), nullable=False)
     metric_label = Column(String(255), nullable=False, default="")
     source_operation_id = Column(String(80), ForeignKey("api_operations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    database_query_id = Column(String(80), ForeignKey("database_query_definitions.query_id", ondelete="RESTRICT"), nullable=True, index=True)
     source_field = Column(String(255), nullable=False)
     source_timestamp_field = Column(String(255), nullable=False, default="")
     expected_filters = Column(JSON, default=dict, nullable=False)

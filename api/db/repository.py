@@ -1639,6 +1639,7 @@ class DBRepository:
             "ui_selector": scenario.ui_selector,
             "metric_label": scenario.metric_label,
             "source_operation_id": scenario.source_operation_id,
+            "database_query_id": scenario.database_query_id,
             "source_field": scenario.source_field,
             "source_timestamp_field": scenario.source_timestamp_field,
             "expected_filters": scenario.expected_filters or {},
@@ -1659,9 +1660,18 @@ class DBRepository:
                 raise LookupError("Approved source operation was not found")
             if not source.safe_read_only or not source.is_enabled:
                 raise ValueError("Source operation must be an enabled read-only operation")
+            database_query_id = safe.get("database_query_id")
+            if database_query_id:
+                query = session.query(DatabaseQueryDefinition).filter(
+                    DatabaseQueryDefinition.query_id == database_query_id,
+                    DatabaseQueryDefinition.is_approved.is_(True),
+                ).first()
+                if not query:
+                    raise ValueError("Approved database query was not found")
             scenario = DataAssertionScenario(
                 name=safe["name"], route=safe["route"], ui_selector=safe["ui_selector"],
                 metric_label=safe.get("metric_label", ""), source_operation_id=safe["source_operation_id"],
+                database_query_id=database_query_id,
                 source_field=safe["source_field"], source_timestamp_field=safe.get("source_timestamp_field", ""),
                 expected_filters=safe.get("expected_filters", {}), timezone=safe.get("timezone", "UTC"),
                 freshness_window_minutes=safe.get("freshness_window_minutes", 60), tolerance=safe.get("tolerance", "0"),
