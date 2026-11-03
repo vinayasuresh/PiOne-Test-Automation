@@ -479,7 +479,7 @@ def get_data_assertion_scenario(scenario_id: str) -> dict:
 
 @router.post("/data-assertion-scenarios/{scenario_id}/evaluate", status_code=status.HTTP_201_CREATED)
 def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEvaluationRequest) -> dict:
-    """Compare a captured UI value to the scenario's approved API source only."""
+    """Compare UI to API and, when bound, API to an approved DB read."""
     _require_v3()
     _validate_id(scenario_id, "data assertion scenario ID")
     scenario = DBRepository.get_v3_data_assertion_scenario(scenario_id)
@@ -517,6 +517,61 @@ def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEva
             eval_dict["classification"] = ui_cap.get("classification", "ui_capture_failed")
 
     comparison = compare_dashboard_data(scenario, eval_dict, source_reading)
+    database_comparison = None
+    database_query_id = scenario.get("database_query_id")
+    if database_query_id:
+        definition = DBRepository.get_v3_database_query_definition(database_query_id)
+        if not definition or not definition["is_approved"]:
+            database_comparison = {
+                "result": "blocked",
+                "classification": "database_query_not_approved",
+            }
+        else:
+            approved = ApprovedDatabaseQuery(
+                query_id=definition["query_id"], sql=definition["sql"],
+                parameter_names=tuple(definition.get("parameter_names", [])),
+                database_ref=definition["database_ref"], environment=definition["environment"],
+            )
+            database_reading = read_approved_database(
+                get_engine(), approved, request.database_parameters,
+            )
+            database_value = None
+            rows = database_reading.get("rows") or []
+            if not rows and database_reading.get("result") == "ok":
+                database_reading = {
+                    **database_reading,
+                    "result": "blocked",
+                    "classification": "database_result_empty",
+                }
+            elif rows:
+                first_row = rows[0]
+                if len(first_row) == 1:
+                    database_value = next(iter(first_row.values()))
+                else:
+                    database_reading = {
+                        **database_reading,
+                        "result": "blocked",
+                        "classification": "database_result_ambiguous",
+                    }
+            database_comparison = compare_api_and_database(
+                source_reading.get("source_value"), database_value,
+                tolerance=scenario.get("tolerance", "0"),
+                api_result=source_reading.get("result", "blocked"),
+                database_result=database_reading.get("result", "blocked"),
+            )
+        if database_comparison["result"] != "pass":
+            comparison = {
+                **comparison,
+                "result": "blocked" if database_comparison["result"] == "blocked" else "fail",
+                "classification": database_comparison["classification"],
+            }
+        comparison["database_query_id"] = database_query_id
+        comparison["database_comparison"] = database_comparison
+        comparison["source_metadata"] = {
+            **(comparison.get("source_metadata") or {}),
+            "database_query_id": database_query_id,
+            "database_comparison": database_comparison,
+        }
     evidence_id = request.evidence_manifest_id
     if request.job_id and not evidence_id and screenshot_loc:
         manifest = DBRepository.add_v3_evidence_manifest(request.job_id, {

@@ -5,8 +5,10 @@ from sqlalchemy.orm import sessionmaker
 from fastapi import HTTPException
 
 import api.db.repository as repository_module
+import api.routers.v3_assurance as assurance_router
 from api.db.repository import DBRepository
 from api.models.v3_database_models import DatabaseQueryRegistrationRequest, DatabaseReadRequest
+from api.models.v3_data_assertion_models import DataAssertionEvaluationRequest
 from pydantic import ValidationError
 from api.routers.v3_assurance import register_database_query
 from api.services.v3_database_assertion_service import (
@@ -165,4 +167,37 @@ def test_database_query_registration_rejects_unapproved_and_production(monkeypat
         assert "Production" in str(exc.detail)
     else:
         raise AssertionError("production query was accepted")
+
+
+def test_bound_database_query_is_included_in_dashboard_lineage(monkeypatch):
+    monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
+    monkeypatch.setattr(assurance_router.DBRepository, "get_v3_data_assertion_scenario", lambda _: {
+        "data_assertion_scenario_id": "scenario-1", "name": "Metric", "route": "/dashboard",
+        "ui_selector": "#metric", "source_operation_id": "op-1", "database_query_id": "metric-db",
+        "source_field": "total", "source_timestamp_field": "", "expected_filters": {},
+        "freshness_window_minutes": 60, "tolerance": "0", "value_format": "number", "is_approved": True,
+    })
+    monkeypatch.setattr(assurance_router.DBRepository, "get_v3_api_operation", lambda _: {
+        "contract": {"base_url": "https://example.test"}, "operation": {"path": "/metrics"},
+    })
+    monkeypatch.setattr(assurance_router, "read_approved_source", lambda *args: {
+        "result": "ok", "source_value": "10", "source_fresh_at": None,
+        "source_metadata": {"path": "/metrics"},
+    })
+    monkeypatch.setattr(assurance_router.DBRepository, "get_v3_database_query_definition", lambda _: {
+        "query_id": "metric-db", "sql": "SELECT total FROM metrics", "parameter_names": [],
+        "database_ref": "configured-test", "environment": "test", "is_approved": True,
+    })
+    monkeypatch.setattr(assurance_router, "read_approved_database", lambda *args: {
+        "result": "ok", "rows": [{"total": 9}], "source_metadata": {"query_id": "metric-db"},
+    })
+    monkeypatch.setattr(assurance_router.DBRepository, "add_v3_data_assertion_observation", lambda payload: payload)
+
+    result = assurance_router.evaluate_data_assertion_scenario(
+        "scenario-1", DataAssertionEvaluationRequest(ui_value="10"),
+    )
+    assert result["comparison"]["result"] == "fail"
+    assert result["comparison"]["classification"] == "database_api_mismatch"
+    assert result["comparison"]["database_query_id"] == "metric-db"
+    assert result["observation"]["source_metadata"]["database_query_id"] == "metric-db"
 

@@ -245,6 +245,10 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 - Dashboard assertion scenarios can now reference an approved database query
   definition, preserving the API → dashboard → database lineage without
   changing existing API-only scenarios.
+- Bound database definitions are now executed during scenario evaluation with
+  transient declared parameters; API↔database comparison and the query ID are
+  included in the persisted comparison lineage. Empty, unavailable and
+  ambiguous database results remain blocked rather than becoming UI failures.
 - Database driver errors are normalized before evidence export so SQL text,
   schema names and bound values are not echoed in API responses. Tolerance
   values are finite, non-negative decimals; invalid values are blocked.
@@ -257,8 +261,6 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 
 ### Remaining Phase 4 wiring
 
-- Execute the bound query during dashboard evaluation and include the query ID
-  and comparison lineage in the persisted observation export.
 - Add a rendered-browser flow proving registration, read, mismatch and blocked
   outcomes; service/API tests do not count as browser proof.
 - Run the rendered-browser/dashboard proof in Phase 5; no browser proof is

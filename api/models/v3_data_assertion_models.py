@@ -81,6 +81,9 @@ class DataAssertionEvaluationRequest(_StrictModel):
     ui_value: str = Field(default="", max_length=1024)
     filter_context: dict[str, Any] = Field(default_factory=dict)
     source_filter_context: dict[str, Any] = Field(default_factory=dict)
+    # Values are transient inputs for the approved database definition. They
+    # are never persisted in the observation or returned in evidence.
+    database_parameters: dict[str, Any] = Field(default_factory=dict, max_length=20)
     job_id: str | None = None
     run_id: str | None = None
     evidence_manifest_id: str | None = None
