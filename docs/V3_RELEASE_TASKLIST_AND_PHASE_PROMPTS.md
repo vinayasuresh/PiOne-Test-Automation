@@ -199,6 +199,19 @@ Keep V2 unchanged.
 - A dashboard metric comparison detects a deliberate mismatch and explains it
   with the UI value, source value, filters, tolerance and evidence.
 
+### Phase 3 verification evidence (2026-11-03)
+
+- `python -m pytest automation_framework/tests/test_v3_dashboard_data_phase3.py
+  automation_framework/tests/test_v3_dashboard_data_phase8.py -q` passed **6
+  service and persistence tests**; **7 browser-marked tests were deselected**.
+- Verified matching values, currency and percentage normalization, rounding
+  tolerance, stale data, missing source data, filter mismatch, visual/source
+  mismatch, unsafe source-operation blocking, redacted observation persistence,
+  and timezone normalization.
+- The service-level exit criteria are met. Rendered-browser capture and live
+  dashboard proof remain explicitly unverified and belong to Phase 5 release
+  proof; this phase does not claim them as complete.
+
 ### Implementation prompt
 
 ```text
