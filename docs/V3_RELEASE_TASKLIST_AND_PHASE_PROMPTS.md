@@ -150,6 +150,21 @@ rollback and redaction. Do not change the V2 user flow or replace existing table
 - Request metadata, response validation, latency and evidence are visible and
   redacted.
 
+### Phase 2 final matrix proof (2026-11-03)
+
+- `python -m pytest automation_framework/tests/test_v3_api_contract_phase2.py
+  automation_framework/tests/test_v3_api_contract_phase7.py -q` passed **17
+  tests**. The matrix covers OpenAPI/Postman normalization, nested JSON Schema
+  and local `$ref` handling, required fields, status codes, latency, timeout,
+  authentication boundaries, traversal/parameter guards, mutation blocking,
+  redaction, persistence and observation export.
+- The combined V3 regression slice also passed **31 tests** across API contract,
+  dashboard-data and orchestration coverage (`7 deselected` browser-marked
+  cases). No browser proof is claimed by this phase; the rendered-browser gate
+  remains Phase 5 work.
+- The generated `output/` directory was intentionally left untracked and is
+  not part of the release commit.
+
 ### Implementation prompt
 
 ```text
