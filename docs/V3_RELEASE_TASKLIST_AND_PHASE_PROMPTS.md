@@ -29,13 +29,31 @@ IoT command testing.
 
 ### Tasks
 
-- [ ] Start from a clean branch and record `git status`.
-- [ ] Run focused V2 tests for scan lifecycle, checkpoint recovery, generation,
+- [x] Start from a clean branch and record `git status`.
+- [x] Run focused V2 tests for scan lifecycle, checkpoint recovery, generation,
   execution, exports and assessment-mode isolation.
-- [ ] Map existing `ScanRun`, execution, checkpoint and artifact records that
+- [x] Map existing `ScanRun`, execution, checkpoint and artifact records that
   V3 must reference.
-- [ ] Add a single `V3_ASSURANCE_ENABLED` feature flag, defaulting off.
-- [ ] Document the existing V2 routes/UI contract that must not change.
+- [x] Add a single `V3_ASSURANCE_ENABLED` feature flag, defaulting off.
+- [x] Document the existing V2 routes/UI contract that must not change.
+
+### Phase 0 evidence (2026-11-03)
+
+- The working tree was inspected before this phase; the only pre-existing
+  untracked item was the generated status PDF under `output/`, and it was not
+  included in the phase commit.
+- Focused non-browser V2 persistence checks passed: checkpoint save/resume,
+  interrupted scan recovery, regression-suite duplicate protection, baseline
+  comparison, DB status/fallback and credential redaction (`7 passed`).
+- V3 feature-boundary tests passed (`3 passed`): the flag is disabled when
+  absent, accepts only explicit true values, and exposes only additive version
+  metadata.
+- The compatibility contract is recorded in `docs/V3_V2_COMPATIBILITY_MAP.md`.
+  The existing V2 scan, module, crawl, analyse, generation, execution and
+  report flow remains the system of record.
+- Browser-marked release-gate tests were not counted as Phase 0 proof in this
+  Windows run because the local browser/async test harness did not complete
+  within the diagnostic timeout. They remain a Phase 6 rendered-browser gate.
 
 ### Exit criteria
 
