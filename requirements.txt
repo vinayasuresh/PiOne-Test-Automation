@@ -6,6 +6,7 @@ loguru
 pandas
 openpyxl
 python-dotenv
+jsonschema>=4.23.0,<5.0
 
 # API server
 fastapi>=0.111.0
