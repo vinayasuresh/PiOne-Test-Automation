@@ -60,6 +60,9 @@
             <button id="btn-nav-artifacts" type="button" class="px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition">
               <i class="fa-solid fa-box-archive text-[10px]"></i> Artifacts
             </button>
+            <button id="btn-nav-assurance" type="button" class="hidden px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition" title="V3 feature-flagged internal operator view">
+              <i class="fa-solid fa-shield-heart text-[10px]"></i> Assurance Desk
+            </button>
           </div>
 
           <!-- Database Connectivity Indicator -->
@@ -1272,6 +1275,35 @@
       </div>
     </section>
 
+    <!-- V3 is intentionally hidden unless the backend explicitly enables it. -->
+    <section id="view-assurance" class="hidden space-y-5">
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+        <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
+          <div><h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-shield-heart text-violet-600"></i> V3 Assurance Desk</h2><p class="text-xs text-slate-500 mt-1">Internal view for approved, bounded verification. It does not replace the V2 scan workflow.</p></div>
+          <button id="btn-refresh-assurance" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+        </div>
+        <div class="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-950"><strong>Operator boundary:</strong> schedule records are saved definitions only; this screen never starts an unattended scheduler.</div>
+        <details class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-800">Create support incident</summary>
+          <form id="assurance-intake-form" class="grid md:grid-cols-2 gap-3 mt-4 text-xs">
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Summary</span><input id="assurance-summary" required maxlength="4000" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="Describe the user-reported problem" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Affected feature</span><input id="assurance-feature" required maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. Reports" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Expected behaviour</span><input id="assurance-expected" required maxlength="4000" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="What should happen?" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Actual behaviour</span><input id="assurance-actual" required maxlength="4000" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="What happened instead?" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Approved target origin</span><input id="assurance-target" required maxlength="1024" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="https://staging.example.com" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Authorized role</span><input id="assurance-role" maxlength="120" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. analyst" /></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Priority</span><select id="assurance-priority" class="w-full px-3 py-2 border border-slate-300 rounded"><option>Low</option><option selected>Medium</option><option>High</option><option>Critical</option></select></label>
+            <label class="space-y-1"><span class="font-semibold text-slate-700">Retry allowance</span><input id="assurance-retry-limit" type="number" min="0" max="5" value="1" class="w-full px-3 py-2 border border-slate-300 rounded" /></label>
+            <div class="md:col-span-2 flex justify-end"><button id="btn-create-assurance-incident" type="submit" class="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-ticket"></i> Create incident</button></div>
+          </form>
+        </details>
+        <div class="border border-slate-200 rounded-lg overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-slate-100 text-slate-700"><tr><th class="table-cell text-left">Incident</th><th class="table-cell text-left">Feature</th><th class="table-cell text-left">Owner</th><th class="table-cell text-center">Outcome</th><th class="table-cell text-left">Next action</th></tr></thead><tbody id="assurance-incidents-body"><tr><td colspan="5" class="table-cell text-center text-slate-500 py-6">No V3 incidents loaded.</td></tr></tbody></table></div>
+        <div id="assurance-incident-detail" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs"></div>
+        <div class="border border-slate-200 rounded-lg overflow-x-auto"><div class="bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Saved critical-check definitions <span class="font-normal text-slate-500">(manual trigger only)</span></div><table class="min-w-full text-xs"><thead class="bg-white text-slate-700"><tr><th class="table-cell text-left">Name</th><th class="table-cell text-left">Environment</th><th class="table-cell text-left">Last manual trigger</th><th class="table-cell text-right">Action</th></tr></thead><tbody id="assurance-schedules-body"><tr><td colspan="4" class="table-cell text-center text-slate-500 py-4">No saved definitions loaded.</td></tr></tbody></table></div>
+        <div id="assurance-desk-message" class="hidden text-xs rounded-lg px-3 py-2"></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Screenshot Modal Dialog -->
@@ -1972,6 +2004,7 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       fetchBuildInfo();
+      await initializeAssuranceDesk();
       renderStepper();
       bindAllEvents();
       checkDBStatus();
@@ -2228,6 +2261,9 @@
       document.getElementById("btn-nav-saved-runs").onclick = () => switchView("saved-runs");
       document.getElementById("btn-nav-suites").onclick = () => switchView("suites");
       document.getElementById("btn-nav-artifacts").onclick = () => switchView("artifacts");
+      document.getElementById("btn-nav-assurance").onclick = () => switchView("assurance");
+      document.getElementById("btn-refresh-assurance").onclick = loadAssuranceDesk;
+      document.getElementById("assurance-intake-form").addEventListener("submit", createAssuranceIncident);
 
       // Saved Runs View
       document.getElementById("btn-refresh-saved-runs").onclick = loadSavedRuns;
@@ -4217,13 +4253,14 @@
 
     function switchView(viewName) {
       state.activeView = viewName;
-      const views = ["workflow", "saved-runs", "suites", "artifacts"];
+      const views = ["workflow", "saved-runs", "suites", "artifacts", "assurance"];
       views.forEach(v => {
         const btn = document.getElementById(`btn-nav-${v}`);
         const sec = v === "workflow" ? document.getElementById("view-workflow") :
                     v === "saved-runs" ? document.getElementById("view-saved-runs") :
                     v === "suites" ? document.getElementById("view-regression-suites") :
-                    document.getElementById("view-artifacts");
+                    v === "artifacts" ? document.getElementById("view-artifacts") :
+                    document.getElementById("view-assurance");
         if (btn) {
           if (v === viewName) {
             btn.className = "px-3 py-1 rounded-md text-xs font-semibold bg-blue-600 text-white shadow-sm flex items-center gap-1.5 transition";
@@ -4246,6 +4283,176 @@
       if (viewName === "saved-runs") loadSavedRuns();
       if (viewName === "suites") loadRegressionSuites();
       if (viewName === "artifacts") loadArtifactsList();
+      if (viewName === "assurance") loadAssuranceDesk();
+    }
+
+    async function initializeAssuranceDesk() {
+      try {
+        const response = await fetch(`${API_BASE}/version`);
+        const version = await response.json();
+        if (version.v3_assurance_enabled === true) {
+          document.getElementById("btn-nav-assurance").classList.remove("hidden");
+        }
+      } catch (_) { /* V3 must remain invisible if metadata cannot be verified. */ }
+    }
+
+    function assuranceEscape(value) {
+      return String(value || "").replace(/[&<>\"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+
+    let assuranceScenarios = [];
+    let activeAssuranceIncidentId = "";
+
+    function showAssuranceMessage(message, kind = "success") {
+      const box = document.getElementById("assurance-desk-message");
+      if (!box) return;
+      box.className = `text-xs rounded-lg px-3 py-2 ${kind === "error" ? "bg-rose-50 border border-rose-200 text-rose-800" : "bg-emerald-50 border border-emerald-200 text-emerald-800"}`;
+      box.textContent = message;
+    }
+
+    async function createAssuranceIncident(event) {
+      event.preventDefault();
+      const button = document.getElementById("btn-create-assurance-incident");
+      if (button?.disabled) return;
+      if (button) button.disabled = true;
+      try {
+        const correlationId = `operator-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const feature = document.getElementById("assurance-feature").value.trim();
+        const target = document.getElementById("assurance-target").value.trim();
+        const payload = {
+          correlation_id: correlationId,
+          grouping_key: `${feature.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "incident"}:${new URL(target).origin}`,
+          summary: document.getElementById("assurance-summary").value.trim(),
+          affected_feature: feature,
+          reporter_role: document.getElementById("assurance-role").value.trim(),
+          expected_behavior: document.getElementById("assurance-expected").value.trim(),
+          actual_behavior: document.getElementById("assurance-actual").value.trim(),
+          priority: document.getElementById("assurance-priority").value,
+          target,
+          authorized_role: document.getElementById("assurance-role").value.trim(),
+          retry_limit: Number(document.getElementById("assurance-retry-limit").value || 0),
+          mode: "functional_only",
+          links: {}
+        };
+        const response = await fetch(`${API_BASE}/v3/incidents/intake`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Incident creation failed");
+        document.getElementById("assurance-intake-form").reset();
+        document.getElementById("assurance-retry-limit").value = "1";
+        showAssuranceMessage(`Incident ${data.incident.incident_id} created with one durable verification job.`);
+        await loadAssuranceDesk();
+        await showAssuranceIncident(data.incident.incident_id);
+      } catch (error) {
+        showAssuranceMessage(error.message, "error");
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function loadAssuranceDesk() {
+      const body = document.getElementById("assurance-incidents-body");
+      const schedulesBody = document.getElementById("assurance-schedules-body");
+      if (!body) return;
+      body.innerHTML = `<tr><td colspan="5" class="table-cell text-center text-slate-500 py-6">Loading approved assurance incidents...</td></tr>`;
+      try {
+        const [response, scheduleResponse, scenarioResponse] = await Promise.all([fetch(`${API_BASE}/v3/incidents`), fetch(`${API_BASE}/v3/monitoring-schedules`), fetch(`${API_BASE}/v3/scenarios`)]);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "V3 assurance is unavailable");
+        const incidents = data.incidents || [];
+        body.innerHTML = incidents.length ? incidents.map(item => `<tr class="hover:bg-slate-50"><td class="table-cell font-mono"><button class="text-blue-700 hover:underline" data-assurance-incident="${assuranceEscape(item.incident_id)}">${assuranceEscape(item.incident_id)}</button></td><td class="table-cell">${assuranceEscape(item.affected_feature)}</td><td class="table-cell">${assuranceEscape(item.owner_team)}</td><td class="table-cell text-center">${assuranceEscape(item.last_outcome)}</td><td class="table-cell">${assuranceEscape(item.next_action)}</td></tr>`).join("") : `<tr><td colspan="5" class="table-cell text-center text-slate-500 py-6">No V3 incidents have been recorded.</td></tr>`;
+        body.querySelectorAll("[data-assurance-incident]").forEach(button => button.onclick = () => showAssuranceIncident(button.dataset.assuranceIncident));
+        const scheduleData = await scheduleResponse.json();
+        if (!scheduleResponse.ok) throw new Error(scheduleData.detail || "Saved monitoring definitions are unavailable");
+        const schedules = scheduleData.schedules || [];
+        if (schedulesBody) schedulesBody.innerHTML = schedules.length ? schedules.map(item => `<tr><td class="table-cell">${assuranceEscape(item.name)}</td><td class="table-cell">${assuranceEscape(item.environment)}</td><td class="table-cell">${assuranceEscape(item.last_triggered_at || "Never")}</td><td class="table-cell text-right"><button class="text-blue-700 hover:underline font-semibold" data-assurance-schedule="${assuranceEscape(item.schedule_id)}">Create verification job</button></td></tr>`).join("") : `<tr><td colspan="4" class="table-cell text-center text-slate-500 py-4">No saved critical-check definitions.</td></tr>`;
+        schedulesBody?.querySelectorAll("[data-assurance-schedule]").forEach(button => button.onclick = () => triggerAssuranceSchedule(button.dataset.assuranceSchedule));
+        const scenarioData = await scenarioResponse.json();
+        if (!scenarioResponse.ok) throw new Error(scenarioData.detail || "Approved scenarios are unavailable");
+        assuranceScenarios = (scenarioData.scenarios || []).filter(item => item.is_approved === true);
+      } catch (error) {
+        body.innerHTML = `<tr><td colspan="5" class="table-cell text-center text-amber-700 py-6">${assuranceEscape(error.message)}</td></tr>`;
+        if (schedulesBody) schedulesBody.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-amber-700 py-4">${assuranceEscape(error.message)}</td></tr>`;
+      }
+    }
+
+    async function showAssuranceIncident(incidentId) {
+      const detail = document.getElementById("assurance-incident-detail");
+      if (!detail) return;
+      detail.classList.remove("hidden");
+      detail.textContent = "Loading incident details...";
+      try {
+        const response = await fetch(`${API_BASE}/v3/incidents/${encodeURIComponent(incidentId)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Incident details are unavailable");
+        const item = data.incident;
+        activeAssuranceIncidentId = item.incident_id;
+        const latestJob = (item.jobs || [])[item.jobs.length - 1] || null;
+        const jobs = (item.jobs || []).map(job => `<li><span class="font-mono">${assuranceEscape(job.job_id)}</span> — ${assuranceEscape(job.state)} / ${assuranceEscape(job.verdict)} (${assuranceEscape(job.technical_category || "no technical category")}); ${job.attempts?.length || 0} attempt(s), ${job.evidence_manifests?.length || 0} evidence manifest(s)</li>`).join("") || "<li>No verification job recorded.</li>";
+        const scenarioOptions = assuranceScenarios.map(scenario => `<option value="${assuranceEscape(scenario.scenario_id)}" ${latestJob?.scenario_id === scenario.scenario_id ? "selected" : ""}>${assuranceEscape(scenario.name)} — ${assuranceEscape(scenario.environment)} / ${assuranceEscape(scenario.authorized_role || "any role")} / ${assuranceEscape(scenario.target_origin)}</option>`).join("");
+        const canRun = latestJob && ["created", "queued"].includes(latestJob.state);
+        const canRetry = latestJob && ["blocked", "failed", "inconclusive"].includes(latestJob.state);
+        detail.innerHTML = `<div class="flex items-center justify-between gap-3"><strong>Incident ${assuranceEscape(item.incident_id)}</strong><button class="text-slate-500 hover:text-slate-800" id="btn-close-assurance-detail">Close</button></div><div class="grid md:grid-cols-2 gap-2 mt-3"><p><b>Status:</b> ${assuranceEscape(item.status)} &nbsp; <b>Outcome:</b> ${assuranceEscape(item.last_outcome)}</p><p><b>Priority:</b> ${assuranceEscape(item.priority)} &nbsp; <b>Owner:</b> ${assuranceEscape(item.owner_team || "Unassigned")}</p><p><b>Expected:</b> ${assuranceEscape(item.expected_behavior)}</p><p><b>Actual:</b> ${assuranceEscape(item.actual_behavior)}</p><p class="md:col-span-2"><b>Next action:</b> ${assuranceEscape(item.next_action)}</p></div><div class="mt-3"><b>Verification timeline</b><ul class="list-disc ml-5 mt-1 space-y-1">${jobs}</ul></div><div class="grid md:grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-200"><label class="space-y-1 md:col-span-2"><span class="font-semibold">Approved scenario</span><select id="assurance-scenario-select" class="w-full px-3 py-2 border border-slate-300 rounded"><option value="">Select an approved scenario</option>${scenarioOptions}</select></label><label class="space-y-1"><span class="font-semibold">Owner team</span><input id="assurance-owner-team" value="${assuranceEscape(item.owner_team)}" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="Responsible team" /></label><label class="space-y-1"><span class="font-semibold">Next action</span><input id="assurance-next-action" value="${assuranceEscape(item.next_action)}" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="Action for the owner" /></label><div class="md:col-span-2 flex flex-wrap gap-2"><button id="btn-assurance-run" ${canRun ? "" : "disabled"} class="bg-violet-600 text-white font-semibold px-3 py-2 rounded disabled:opacity-40"><i class="fa-solid fa-play"></i> Run approved verification</button><button id="btn-assurance-retry" ${canRetry ? "" : "disabled"} class="bg-blue-600 text-white font-semibold px-3 py-2 rounded disabled:opacity-40"><i class="fa-solid fa-rotate-right"></i> Retry same scenario</button><button id="btn-assurance-assign" class="bg-slate-800 text-white font-semibold px-3 py-2 rounded"><i class="fa-solid fa-user-check"></i> Assign owner</button></div></div>`;
+        document.getElementById("btn-close-assurance-detail").onclick = () => detail.classList.add("hidden");
+        document.getElementById("btn-assurance-run").onclick = () => runAssuranceVerification(latestJob?.job_id, false);
+        document.getElementById("btn-assurance-retry").onclick = () => runAssuranceVerification(latestJob?.job_id, true);
+        document.getElementById("btn-assurance-assign").onclick = () => assignAssuranceIncident(item.incident_id);
+      } catch (error) { detail.textContent = error.message; }
+    }
+
+    async function runAssuranceVerification(jobId, retry) {
+      if (!jobId) return;
+      const button = document.getElementById(retry ? "btn-assurance-retry" : "btn-assurance-run");
+      if (button?.disabled) return;
+      const scenarioId = document.getElementById("assurance-scenario-select")?.value;
+      if (!retry && !scenarioId) return showAssuranceMessage("Select an approved scenario before running verification.", "error");
+      if (button) button.disabled = true;
+      try {
+        const response = await fetch(`${API_BASE}/v3/jobs/${encodeURIComponent(jobId)}/${retry ? "retry" : "orchestrate"}`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(retry ? {} : {scenario_id: scenarioId})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Verification could not be completed");
+        showAssuranceMessage(`${retry ? "Retest" : "Verification"} finished: ${data.job?.verdict || data.status}. Evidence manifest ${data.evidence_manifest?.manifest_id || "recorded"}.`);
+        await loadAssuranceDesk();
+        await showAssuranceIncident(activeAssuranceIncidentId);
+      } catch (error) {
+        showAssuranceMessage(error.message, "error");
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function assignAssuranceIncident(incidentId) {
+      const button = document.getElementById("btn-assurance-assign");
+      if (button?.disabled) return;
+      const ownerTeam = document.getElementById("assurance-owner-team").value.trim();
+      const nextAction = document.getElementById("assurance-next-action").value.trim();
+      if (!ownerTeam || !nextAction) return showAssuranceMessage("Owner team and next action are required.", "error");
+      button.disabled = true;
+      try {
+        const response = await fetch(`${API_BASE}/v3/incidents/${encodeURIComponent(incidentId)}/assign`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({owner_team: ownerTeam, next_action: nextAction})});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Owner assignment failed");
+        showAssuranceMessage(`Incident assigned to ${data.incident.owner_team}.`);
+        await loadAssuranceDesk();
+        await showAssuranceIncident(incidentId);
+      } catch (error) {
+        showAssuranceMessage(error.message, "error");
+        button.disabled = false;
+      }
+    }
+
+    async function triggerAssuranceSchedule(scheduleId) {
+      if (!window.confirm("Create one verification job from this saved definition? This does not start a background schedule or run the check automatically.")) return;
+      const message = document.getElementById("assurance-desk-message");
+      try {
+        const response = await fetch(`${API_BASE}/v3/monitoring-schedules/${encodeURIComponent(scheduleId)}/trigger`, {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "Could not create verification job");
+        message.className = "text-xs rounded-lg px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800";
+        message.textContent = `Created verification job ${data.incident.jobs?.[0]?.job_id || ""}. Review it before orchestration.`;
+        await loadAssuranceDesk();
+      } catch (error) {
+        message.className = "text-xs rounded-lg px-3 py-2 bg-rose-50 border border-rose-200 text-rose-800";
+        message.textContent = error.message;
+      }
     }
 
     async function checkDBStatus() {

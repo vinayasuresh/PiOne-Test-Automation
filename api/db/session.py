@@ -34,6 +34,35 @@ _SCHEMA_INITIALIZED: bool = False
 _SCHEMA_INIT_LOCK = threading.Lock()
 
 
+def _apply_sqlite_additive_schema(engine: Engine) -> None:
+    """Bridge legacy local SQLite files created by ``create_all`` before Alembic.
+
+    Production migrations remain authoritative.  This only makes strictly
+    additive V3 columns available in an already-running developer SQLite file;
+    it never drops, renames, or changes existing user data.
+    """
+    if engine.dialect.name != "sqlite":
+        return
+    additions = {
+        "support_incidents": {
+            "owner_team": "VARCHAR(255) NOT NULL DEFAULT 'Unassigned'",
+            "next_action": "VARCHAR(500) NOT NULL DEFAULT 'Review verification outcome'",
+            "last_outcome": "VARCHAR(40) NOT NULL DEFAULT 'pending'",
+            "resolved_at": "DATETIME",
+        },
+        "verification_jobs": {
+            "scenario_id": "VARCHAR(80)",
+            "policy_decision": "JSON NOT NULL DEFAULT '{}'",
+        },
+    }
+    with engine.begin() as connection:
+        for table, columns in additions.items():
+            existing = {row[1] for row in connection.execute(text(f"PRAGMA table_info({table})"))}
+            for name, definition in columns.items():
+                if name not in existing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+
+
 def get_default_sqlite_url() -> str:
     REPORT_PATH.mkdir(parents=True, exist_ok=True)
     db_file = REPORT_PATH / "pione_testmate.db"
@@ -189,6 +218,7 @@ def init_db(engine: Engine | None = None) -> None:
             return
         import api.db.models  # noqa: F401
         Base.metadata.create_all(bind=target_engine)
+        _apply_sqlite_additive_schema(target_engine)
         if engine is None:
             _SCHEMA_INITIALIZED = True
         logger.info(f"[DB] Initialized database tables on dialect '{target_engine.dialect.name}'")

@@ -20,6 +20,8 @@ from api.db.models import (
     ApiContract,
     ApiObservation,
     ApiOperation,
+    AssuranceScenario,
+    AssignmentRule,
     ApplicationTarget,
     Artifact,
     AuditEvent,
@@ -41,6 +43,7 @@ from api.db.models import (
     TestPlan,
     VerificationAttempt,
     VerificationJob,
+    MonitoringSchedule,
 )
 from api.db.session import execute_with_retry, get_db_session
 from automation_framework.utils.logger import logger
@@ -965,6 +968,7 @@ class DBRepository:
             "execution_id": job.execution_id,
             "checkpoint_id": job.checkpoint_id,
             "artifact_id": job.artifact_id,
+            "scenario_id": job.scenario_id,
             "scenario_version": job.scenario_version,
             "target": job.target,
             "authorized_role": job.authorized_role,
@@ -974,6 +978,7 @@ class DBRepository:
             "technical_category": job.technical_category,
             "grouping_key": job.grouping_key,
             "retry_limit": job.retry_limit,
+            "policy_decision": job.policy_decision or {},
             "attempts": [DBRepository._v3_attempt_to_dict(item) for item in attempts],
             "evidence_manifests": [DBRepository._v3_manifest_to_dict(item) for item in manifests],
             "created_at": job.created_at.isoformat() if job.created_at else None,
@@ -995,6 +1000,10 @@ class DBRepository:
             "actual_behavior": incident.actual_behavior,
             "priority": incident.priority,
             "status": incident.status,
+            "owner_team": incident.owner_team,
+            "next_action": incident.next_action,
+            "last_outcome": incident.last_outcome,
+            "resolved_at": incident.resolved_at.isoformat() if incident.resolved_at else None,
             "jobs": [DBRepository._v3_job_to_dict(session, item) for item in jobs],
             "created_at": incident.created_at.isoformat() if incident.created_at else None,
             "updated_at": incident.updated_at.isoformat() if incident.updated_at else None,
@@ -1051,6 +1060,17 @@ class DBRepository:
         return execute_with_retry(_op)
 
     @staticmethod
+    def list_v3_incidents(status: str | None = None, owner_team: str | None = None) -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            query = session.query(SupportIncident)
+            if status:
+                query = query.filter(SupportIncident.status == status)
+            if owner_team:
+                query = query.filter(SupportIncident.owner_team == owner_team)
+            return [DBRepository._v3_incident_to_dict(session, row) for row in query.order_by(desc(SupportIncident.updated_at)).all()]
+        return execute_with_retry(_op)
+
+    @staticmethod
     def get_v3_job(job_id: str) -> dict[str, Any] | None:
         def _op(session: Session) -> dict[str, Any] | None:
             job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
@@ -1071,15 +1091,250 @@ class DBRepository:
             if target_state in {"blocked", "inconclusive"} and verdict not in {target_state, None}:
                 raise ValueError(f"{target_state} jobs may only use the matching verdict")
             job.state = target_state
-            if verdict:
+            if target_state == "queued":
+                # A bounded recovery attempt starts cleanly but retains prior
+                # attempts and evidence for auditability.
+                job.verdict = "pending"
+                job.technical_category = ""
+            elif verdict:
                 job.verdict = verdict
             elif target_state in {"blocked", "inconclusive"}:
                 job.verdict = target_state
             if technical_category:
                 job.technical_category = redact_sensitive_data(technical_category)
+            incident = session.query(SupportIncident).filter(SupportIncident.id == job.incident_id).first()
+            if incident and target_state in {"completed", "blocked", "inconclusive", "failed"}:
+                incident.last_outcome = job.verdict
+                if job.verdict == "not_reproduced":
+                    incident.status = "resolved"
+                    incident.next_action = "Monitor the approved scenario for recurrence"
+                    incident.resolved_at = _now_utc()
+                elif job.verdict == "reproduced":
+                    incident.status = "open"
+                    incident.next_action = "Assign the responsible engineering team"
+                elif job.verdict in {"blocked", "inconclusive"}:
+                    incident.status = "blocked"
+                    incident.next_action = "Review authorization, evidence, or test data"
             job.updated_at = _now_utc()
             session.flush()
             return DBRepository._v3_job_to_dict(session, job)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def retry_v3_job(job_id: str) -> dict[str, Any]:
+        """Queue a bounded retry without deleting prior attempts or evidence."""
+        def _op(session: Session) -> dict[str, Any]:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            if not job:
+                raise LookupError("Verification job not found")
+            if job.state not in {"blocked", "failed", "inconclusive"}:
+                raise ValueError("Only blocked, failed, or inconclusive jobs can be retried")
+            attempt_count = session.query(func.count(VerificationAttempt.id)).filter(VerificationAttempt.job_id == job_id).scalar() or 0
+            if attempt_count > job.retry_limit:
+                raise ValueError("Retry limit has been reached")
+            job.state = "queued"
+            job.verdict = "pending"
+            job.technical_category = ""
+            job.updated_at = _now_utc()
+            session.flush()
+            return DBRepository._v3_job_to_dict(session, job)
+        return execute_with_retry(_op)
+
+    # -------------------------------------------------------------------
+    # 6.4 V3 approved orchestration and helpdesk metadata
+    # -------------------------------------------------------------------
+    @staticmethod
+    def _scenario_to_dict(item: AssuranceScenario) -> dict[str, Any]:
+        return {
+            "scenario_id": item.id, "name": item.name, "feature": item.feature,
+            "environment": item.environment, "authorized_role": item.authorized_role,
+            "target_origin": item.target_origin, "scenario_type": item.scenario_type,
+            "reference_id": item.reference_id, "max_actions": item.max_actions,
+            "is_approved": item.is_approved,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        }
+
+    @staticmethod
+    def register_v3_assurance_scenario(payload: dict[str, Any]) -> dict[str, Any]:
+        safe = redact_sensitive_data(payload)
+        def _op(session: Session) -> dict[str, Any]:
+            reference_id = safe["reference_id"]
+            existing = session.query(AssuranceScenario).filter(AssuranceScenario.reference_id == reference_id).first()
+            if existing:
+                return DBRepository._scenario_to_dict(existing)
+            if safe["scenario_type"] == "api_contract":
+                source = session.query(ApiOperation).filter(ApiOperation.id == reference_id).first()
+                if not source or not source.is_enabled or not source.safe_read_only:
+                    raise ValueError("Scenario requires an enabled read-only API operation")
+            elif safe["scenario_type"] == "data_assertion":
+                source = session.query(DataAssertionScenario).filter(DataAssertionScenario.id == reference_id).first()
+                if not source or not source.is_approved:
+                    raise ValueError("Scenario requires an approved data assertion")
+            else:
+                raise ValueError("Unsupported assurance scenario type")
+            item = AssuranceScenario(**safe)
+            session.add(item); session.flush()
+            return DBRepository._scenario_to_dict(item)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_assurance_scenario(scenario_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            item = session.query(AssuranceScenario).filter(AssuranceScenario.id == scenario_id).first()
+            return DBRepository._scenario_to_dict(item) if item else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_v3_assurance_scenarios() -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            return [DBRepository._scenario_to_dict(item) for item in session.query(AssuranceScenario).order_by(AssuranceScenario.name).all()]
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def bind_v3_job_scenario(job_id: str, scenario_id: str, policy_decision: dict[str, Any]) -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            job = session.query(VerificationJob).filter(VerificationJob.id == job_id).first()
+            scenario = session.query(AssuranceScenario).filter(AssuranceScenario.id == scenario_id).first()
+            if not job: raise LookupError("Verification job not found")
+            if not scenario: raise LookupError("Assurance scenario not found")
+            if job.state not in {"created", "queued"}: raise ValueError("A scenario can only be bound before execution")
+            job.scenario_id = scenario.id
+            job.scenario_version = f"scenario:{scenario.id}"
+            job.policy_decision = redact_sensitive_data(policy_decision)
+            session.flush()
+            return DBRepository._v3_job_to_dict(session, job)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def create_v3_assignment_rule(payload: dict[str, Any]) -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            rule = AssignmentRule(**redact_sensitive_data(payload)); session.add(rule); session.flush()
+            return {"rule_id": rule.id, "feature": rule.feature, "owner_team": rule.owner_team,
+                    "severity_threshold": rule.severity_threshold, "is_enabled": rule.is_enabled}
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def assign_v3_incident(incident_id: str, owner_team: str, next_action: str) -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            incident = session.query(SupportIncident).filter(SupportIncident.id == incident_id).first()
+            if not incident: raise LookupError("Incident not found")
+            incident.owner_team = redact_sensitive_data(owner_team)
+            incident.next_action = redact_sensitive_data(next_action)
+            if incident.status == "open": incident.status = "assigned"
+            session.flush(); return DBRepository._v3_incident_to_dict(session, incident)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def auto_assign_v3_incident(incident_id: str) -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            incident = session.query(SupportIncident).filter(SupportIncident.id == incident_id).first()
+            if not incident: raise LookupError("Incident not found")
+            rules = session.query(AssignmentRule).filter(AssignmentRule.is_enabled.is_(True)).all()
+            exact = [r for r in rules if r.feature and r.feature.casefold() == incident.affected_feature.casefold()]
+            selected = (exact or rules or [None])[0]
+            if selected:
+                incident.owner_team = selected.owner_team
+                incident.next_action = f"Investigate {incident.affected_feature or 'reported feature'}"
+                if incident.status == "open": incident.status = "assigned"
+            session.flush(); return DBRepository._v3_incident_to_dict(session, incident)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def create_v3_monitoring_schedule(payload: dict[str, Any]) -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            scenario = session.query(AssuranceScenario).filter(AssuranceScenario.id == payload["scenario_id"]).first()
+            if not scenario: raise LookupError("Assurance scenario not found")
+            item = MonitoringSchedule(**redact_sensitive_data(payload)); session.add(item); session.flush()
+            return {"schedule_id": item.id, "name": item.name, "scenario_id": item.scenario_id,
+                    "target": item.target, "environment": item.environment, "grouping_key": item.grouping_key,
+                    "interval_minutes": item.interval_minutes, "is_enabled": item.is_enabled,
+                    "last_triggered_at": None}
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_v3_monitoring_schedules() -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            return [{"schedule_id": item.id, "name": item.name, "scenario_id": item.scenario_id,
+                     "target": item.target, "environment": item.environment, "grouping_key": item.grouping_key,
+                     "interval_minutes": item.interval_minutes, "is_enabled": item.is_enabled,
+                     "last_triggered_at": item.last_triggered_at.isoformat() if item.last_triggered_at else None}
+                    for item in session.query(MonitoringSchedule).order_by(MonitoringSchedule.created_at).all()]
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def trigger_v3_monitoring_schedule(schedule_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Create one durable *manual* verification job from a saved schedule.
+
+        The method intentionally does not execute a scenario. It gives an
+        operator a traceable job to review and run, without implying a
+        production scheduler exists.
+        """
+        safe = redact_sensitive_data(payload)
+
+        def _op(session: Session) -> dict[str, Any]:
+            schedule = session.query(MonitoringSchedule).filter(MonitoringSchedule.id == schedule_id).first()
+            if not schedule:
+                raise LookupError("Monitoring schedule not found")
+            if not schedule.is_enabled:
+                raise ValueError("Monitoring schedule is disabled")
+            scenario = session.query(AssuranceScenario).filter(AssuranceScenario.id == schedule.scenario_id).first()
+            if not scenario or not scenario.is_approved:
+                raise ValueError("Monitoring schedule requires an approved assurance scenario")
+
+            correlation_id = f"manual-monitor-{schedule.id}-{uuid4().hex[:12]}"
+            incident = (
+                session.query(SupportIncident)
+                .filter(
+                    SupportIncident.grouping_key == schedule.grouping_key,
+                    SupportIncident.last_outcome == "reproduced",
+                    SupportIncident.status.in_(["open", "assigned"]),
+                )
+                .order_by(desc(SupportIncident.updated_at))
+                .first()
+            )
+            grouped = incident is not None
+            if not incident:
+                incident = SupportIncident(
+                    correlation_id=correlation_id,
+                    ticket_reference=None,
+                    grouping_key=schedule.grouping_key,
+                    summary=f"Manual monitoring check: {schedule.name}",
+                    affected_feature=scenario.feature,
+                    reporter_role=safe.get("authorized_role") or scenario.authorized_role,
+                    expected_behavior=safe["expected_behavior"],
+                    actual_behavior=safe["actual_behavior"],
+                    priority="Medium",
+                    status="open",
+                    owner_team="Unassigned",
+                    next_action="Review and run the approved monitoring scenario",
+                    last_outcome="pending",
+                )
+                session.add(incident)
+                session.flush()
+            job = VerificationJob(
+                incident_id=incident.id,
+                run_id=None,
+                state="created",
+                verdict="pending",
+                scenario_id=scenario.id,
+                scenario_version=f"scenario:{scenario.id}",
+                authorized_role=safe.get("authorized_role") or scenario.authorized_role,
+                target=schedule.target,
+                mode="functional_only",
+                grouping_key=schedule.grouping_key,
+                retry_limit=0,
+                policy_decision={"trigger": "manual_monitoring", "schedule_id": schedule.id},
+            )
+            session.add(job)
+            schedule.last_triggered_at = _now_utc()
+            session.flush()
+            return {
+                "schedule": {"schedule_id": schedule.id, "last_triggered_at": schedule.last_triggered_at.isoformat()},
+                "grouped_into_existing_incident": grouped,
+                "incident": DBRepository._v3_incident_to_dict(session, incident),
+            }
+
         return execute_with_retry(_op)
 
     @staticmethod

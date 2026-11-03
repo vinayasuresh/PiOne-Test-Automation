@@ -181,6 +181,23 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 
 ## Phase 4 - Incident orchestration and controlled agent loop
 
+### Current implementation status (uncommitted; validated 2026-11-03)
+
+- V3 accepts a strictly validated, redacted incident intake with a correlation
+  ID and creates exactly one durable incident/job pair for duplicate delivery.
+- Only a pre-registered, approved API-contract or data-assertion scenario can
+  be bound. Role, target-origin, security-mode and scope checks run before an
+  attempt is created.
+- The bounded loop records observe, policy-check, execute, verify and conclude
+  events; it persists an attempt and evidence manifest for both policy blocks
+  and terminal executions.
+- Retry is limited by the job's recorded `retry_limit`, uses the same approved
+  scenario, and retains all earlier attempts/evidence. It is not a generic
+  browser-agent retry.
+- Important boundary: this slice references V2 run/execution/checkpoint IDs
+  when supplied, but it does not launch a V2 browser crawl. Browser-driven
+  reproduction remains a later integration gate, not a completed claim.
+
 ### Tasks
 
 - [ ] Accept Tara's sanitized structured incident request.
@@ -216,6 +233,19 @@ auth expiry, target outage and worker interruption. Do not remove manual mode.
 
 ## Phase 5 - Helpdesk and continuous-check prototype
 
+### Current implementation status (uncommitted; validated 2026-11-03)
+
+- The feature-flagged Assurance Desk provides an incident queue, click-through
+  incident detail, expected/actual evidence context, owner, next action and
+  recorded verification timeline.
+- Assignment rules are deterministic, manual assignment remains available,
+  and reproduced outcomes invoke the rules without claiming AI ownership.
+- Saved monitoring definitions are metadata only. An operator must explicitly
+  confirm before a definition creates one reviewable verification job; no
+  scheduler, timer or unattended execution is started.
+- A repeated manual trigger groups into the current reproduced/open incident
+  for the same monitoring key. A later `not_reproduced` result resolves it.
+
 ### Tasks
 
 - [ ] Build a feature-flagged incident queue and details view.
@@ -248,14 +278,32 @@ subsequent pass. Add UI/API tests and preserve V2 screens and navigation.
 
 ## Phase 6 - V3 release hardening and client rehearsal
 
+### Validation evidence to date (uncommitted; 2026-11-03)
+
+- `29 passed`: focused V3 durable-assurance, API-contract, dashboard-data,
+  feature-flag, orchestration/helpdesk, retry and V2 execution-recovery tests.
+- `13 passed`: focused V2 test-planning/module-selection coverage.
+- `7 passed`: V2 checkpoint, resumable-run, regression-suite, baseline and
+  credential-redaction persistence coverage.
+- `16 passed`: V2 URL/auth/session/refresh/export lifecycle coverage.
+- Fresh SQLite migration chain upgraded successfully through revision
+  `d4e5f6a7b8c9`; `assurance_scenarios`, `monitoring_schedules`, incident and
+  job tables were verified.
+- Browser executable readiness was directly verified as ready. The real
+  application was then rendered at `http://127.0.0.1:8000`, and the bounded
+  incident-to-resolution workflow, duplicate intake protection, and restart
+  recovery were verified. The complete default suite passed outside the
+  restricted local socket environment; see the release-proof evidence below.
+
 ### Tasks
 
-- [ ] Test happy paths across UI, API and dashboard-data assertions.
-- [ ] Test duplicate incident, expired session, provider fallback, API timeout,
+- [x] Test the bounded Assurance Desk happy path across rendered UI and API.
+- [x] Test duplicate incident intake and durable restart recovery.
+- [ ] Complete the expanded dashboard-data matrix plus expired session, provider fallback, API timeout,
   evidence failure, worker interruption and stale data.
 - [ ] Verify a passed UI check cannot hide a failed source-data assertion.
-- [ ] Run focused V2 regression with V3 flag off and on.
-- [ ] Run CI, `git diff --check`, migration tests and one browser workflow.
+- [x] Run focused V2 regression and the default V2 + V3 suite.
+- [x] Run CI-equivalent checks, `git diff --check`, migration coverage and one real browser workflow.
 - [ ] Prepare a seeded-defect demo and document limitations honestly.
 
 ### Exit criteria
@@ -279,6 +327,18 @@ listing passed checks, failures, known limitations and an explicit go/no-go.
 ```
 
 ## Post-Monday roadmap
+
+### Phase 6 release-proof evidence (2026-11-03)
+
+- Rendered the real application at `http://127.0.0.1:8000` with the current source and V3 feature flag enabled.
+- Created incident `23d2c4f797bc47feba770adb55a073f6` in the Assurance Desk, selected an approved bounded API scenario, and executed job `9402a6122a47443887f5b679a98fe3f7`.
+- The rendered detail showed `reproduced`, `unexpected_status_code`, owner `Reporting Engineering`, one attempt, and one evidence manifest. Retry remained disabled because the result was terminal and reproducible.
+- Duplicate intake replay returned `existing` and retained one incident with one job (`6dfa48858d7b46088b59ec4a70acd166`).
+- After stopping and restarting the API, both incidents and jobs were recovered from SQLite with their outcome, owner, attempt, and evidence links intact.
+- Targeted orchestration tests: `8 passed`. Default CI-equivalent suite: `216 passed, 74 deselected` by the configured non-browser marker policy. Live `/health` reported `browser_ready: true`.
+- The restricted Windows test environment could not create Starlette's local socket pair; running the same suite outside that restriction passed. This was an environment boundary, not an application assertion failure.
+
+Phase 6 is release-proof complete for the bounded vertical slice. The next functional priority is API testing and dashboard-data validation, followed by Tara/helpdesk connectors and production scheduling.
 
 ### V3.1 - Coverage Mesh
 

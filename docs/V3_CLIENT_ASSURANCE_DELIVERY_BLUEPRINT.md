@@ -267,3 +267,18 @@ production connectors unless actually delivered and tested.
 ## 10. Client demo line
 
 > Tara understands the complaint and creates a ticket. PiOne Testmate checks the same journey, API contract and dashboard data with an approved test role. The responsible team receives evidence, not a vague complaint. The same saved check can then detect a recurrence and verify the fix.
+
+## 11. Phase 6 verified release proof (2026-11-03)
+
+The bounded support-to-verification slice is now browser-proven in the real
+application on port 8000. An operator created an incident, chose an approved
+scenario, ran verification, received a classified outcome and evidence manifest,
+and confirmed deterministic owner assignment. Idempotent replay reused the original
+incident/job, and an API restart preserved the records, attempt, evidence, owner, and
+outcome. Focused V3 tests passed 8/8; the default V2+V3 suite passed 216 tests with
+74 browser-marked tests excluded by the repository's normal marker policy.
+
+This proof does not claim production scheduling, external Tara/helpdesk connectors,
+physical-IoT validation, or complete active VAPT coverage. The next delivery order
+remains API contract testing and dashboard-data validation, then Tara/helpdesk
+integration, then durable production scheduling and notifications.

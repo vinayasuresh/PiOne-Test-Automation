@@ -374,6 +374,10 @@ class SupportIncident(Base):
     actual_behavior = Column(Text, default="")
     priority = Column(String(30), default="Medium", nullable=False)
     status = Column(String(40), default="open", nullable=False, index=True)
+    owner_team = Column(String(255), nullable=False, default="Unassigned", index=True)
+    next_action = Column(String(500), nullable=False, default="Review verification outcome")
+    last_outcome = Column(String(40), nullable=False, default="pending")
+    resolved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
 
@@ -391,6 +395,7 @@ class VerificationJob(Base):
     execution_id = Column(String(80), ForeignKey("executions.id", ondelete="SET NULL"), nullable=True, index=True)
     checkpoint_id = Column(String(80), ForeignKey("checkpoints.id", ondelete="SET NULL"), nullable=True, index=True)
     artifact_id = Column(String(80), ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True, index=True)
+    scenario_id = Column(String(80), ForeignKey("assurance_scenarios.id", ondelete="SET NULL"), nullable=True, index=True)
     scenario_version = Column(String(100), nullable=False, default="unassigned")
     target = Column(String(1024), nullable=False, default="")
     authorized_role = Column(String(120), nullable=False, default="")
@@ -400,12 +405,14 @@ class VerificationJob(Base):
     technical_category = Column(String(100), default="")
     grouping_key = Column(String(255), nullable=False, index=True)
     retry_limit = Column(Integer, nullable=False, default=0)
+    policy_decision = Column(JSON, default=dict, nullable=False)
     created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
 
     incident = relationship("SupportIncident", back_populates="jobs")
     attempts = relationship("VerificationAttempt", back_populates="job", cascade="all, delete-orphan")
     evidence_manifests = relationship("EvidenceManifest", back_populates="job", cascade="all, delete-orphan")
+    scenario = relationship("AssuranceScenario", back_populates="jobs")
 
 
 class VerificationAttempt(Base):
@@ -457,6 +464,45 @@ class AssignmentRule(Base):
     escalation_window_minutes = Column(Integer, default=0)
     is_enabled = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=_now_utc, nullable=False)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+
+class AssuranceScenario(Base):
+    """An approved, bounded V3 verification recipe; never arbitrary agent code."""
+
+    __tablename__ = "assurance_scenarios"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    name = Column(String(255), nullable=False)
+    feature = Column(String(255), nullable=False, default="", index=True)
+    environment = Column(String(80), nullable=False, default="staging", index=True)
+    authorized_role = Column(String(120), nullable=False, default="")
+    target_origin = Column(String(1024), nullable=False)
+    scenario_type = Column(String(40), nullable=False)  # api_contract | data_assertion
+    reference_id = Column(String(80), nullable=False, unique=True, index=True)
+    max_actions = Column(Integer, nullable=False, default=3)
+    is_approved = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    jobs = relationship("VerificationJob", back_populates="scenario")
+
+
+class MonitoringSchedule(Base):
+    """Saved continuous-check definition. A scheduler is intentionally out of scope."""
+
+    __tablename__ = "monitoring_schedules"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    name = Column(String(255), nullable=False)
+    scenario_id = Column(String(80), ForeignKey("assurance_scenarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    target = Column(String(1024), nullable=False)
+    environment = Column(String(80), nullable=False, default="staging")
+    grouping_key = Column(String(255), nullable=False, index=True)
+    interval_minutes = Column(Integer, nullable=False, default=60)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    last_triggered_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
 
 

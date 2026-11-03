@@ -1799,12 +1799,14 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
     )
 
 
-@router.api_route("/download-artifact/{run_id}", methods=["GET", "HEAD"], summary="Download specific artifact alias")
+@router.get("/download-artifact/{run_id}", summary="Download specific artifact alias", operation_id="download_artifact_alias")
+@router.head("/download-artifact/{run_id}", include_in_schema=False)
 async def download_artifact_alias(run_id: str, artifact_type: str = "excel"):
     return await download_artifact(run_id=run_id, artifact_type=artifact_type)
 
 
-@router.api_route("/reports/{run_id}/download/{artifact_type}", methods=["GET", "HEAD"], summary="Download specific artifact by stable run ID URL")
+@router.get("/reports/{run_id}/download/{artifact_type}", summary="Download specific artifact by stable run ID URL", operation_id="download_report_artifact")
+@router.head("/reports/{run_id}/download/{artifact_type}", include_in_schema=False)
 async def download_artifact(run_id: str, artifact_type: str):
     from fastapi.responses import FileResponse, Response
     import zipfile
@@ -1961,7 +1963,8 @@ async def download_artifact(run_id: str, artifact_type: str):
     )
 
 
-@router.api_route("/reports/{run_id}/screenshot/{filename}", methods=["GET", "HEAD"], summary="Download specific screenshot safely")
+@router.get("/reports/{run_id}/screenshot/{filename}", summary="Download specific screenshot safely", operation_id="download_report_screenshot")
+@router.head("/reports/{run_id}/screenshot/{filename}", include_in_schema=False)
 async def download_screenshot(run_id: str, filename: str):
     from fastapi.responses import FileResponse
 

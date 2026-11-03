@@ -187,6 +187,18 @@ reliability or safety. Do not add a shiny feature that makes the demo look corre
 while the persisted run state remains wrong.
 ```
 
+## Verified Phase 6 baseline (2026-11-03)
+
+The real port-8000 Assurance Desk now supports incident intake, approved-scenario
+selection, bounded verification, owner assignment, and guarded retry. Browser proof
+created incident `23d2c4f797bc47feba770adb55a073f6` and job
+`9402a6122a47443887f5b679a98fe3f7`; the result was `reproduced` with one attempt,
+one evidence manifest, and deterministic assignment to Reporting Engineering.
+Duplicate intake reused one incident and one job. Restart proof recovered the same
+records and evidence from SQLite. The orchestration gate passed 8 focused tests and
+the configured default suite passed 216 tests with 74 browser-marked cases excluded
+by policy. Preserve this verified baseline while implementing later phases.
+
 ## Why this prompt is strict
 
 It forces Antigravity to inspect the real repository first, preserve the current flow,
