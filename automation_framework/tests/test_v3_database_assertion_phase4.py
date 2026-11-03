@@ -6,7 +6,8 @@ from fastapi import HTTPException
 
 import api.db.repository as repository_module
 from api.db.repository import DBRepository
-from api.models.v3_database_models import DatabaseQueryRegistrationRequest
+from api.models.v3_database_models import DatabaseQueryRegistrationRequest, DatabaseReadRequest
+from pydantic import ValidationError
 from api.routers.v3_assurance import register_database_query
 from api.services.v3_database_assertion_service import (
     ApprovedDatabaseQuery,
@@ -61,6 +62,30 @@ def test_only_approved_parameters_are_accepted_and_missing_values_blocked():
     extra = read_approved_database(_engine(), query, {"tenant": "acme", "raw_sql": "x"})
     assert missing["classification"] == "database_parameters_invalid"
     assert extra["classification"] == "database_parameters_invalid"
+
+
+def test_database_driver_errors_do_not_echo_sql_or_schema_details():
+    query = ApprovedDatabaseQuery(
+        query_id="missing-table",
+        sql="SELECT secret FROM definitely_missing_table",
+    )
+    result = read_approved_database(_engine(), query)
+    assert result["classification"] == "database_unavailable"
+    assert result["source_metadata"]["error"] == "approved database read failed"
+    assert "definitely_missing_table" not in str(result)
+
+
+def test_negative_or_non_finite_tolerance_is_rejected():
+    for value in ("-1", "NaN", "Infinity"):
+        try:
+            DatabaseReadRequest(tolerance=value)
+        except ValidationError:
+            pass
+        else:
+            raise AssertionError(f"invalid tolerance accepted: {value}")
+
+    assert compare_api_and_database("10", "9", tolerance="-1")["classification"] == "invalid_tolerance"
+    assert compare_api_and_database("10", "10", tolerance="NaN")["classification"] == "invalid_tolerance"
 
 
 def test_query_definition_parameters_must_match_sql():

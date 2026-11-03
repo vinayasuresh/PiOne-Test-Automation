@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -47,3 +48,14 @@ class DatabaseReadRequest(_StrictModel):
     api_value: Any | None = None
     api_result: Literal["ok", "blocked"] = "ok"
     tolerance: str = Field(default="0", max_length=80)
+
+    @field_validator("tolerance")
+    @classmethod
+    def validate_tolerance(cls, value: str) -> str:
+        try:
+            parsed = Decimal(value)
+        except (InvalidOperation, ValueError):
+            raise ValueError("tolerance must be a finite non-negative decimal")
+        if not parsed.is_finite() or parsed < 0:
+            raise ValueError("tolerance must be a finite non-negative decimal")
+        return value

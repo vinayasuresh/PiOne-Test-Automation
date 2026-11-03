@@ -91,10 +91,13 @@ def read_approved_database(
         return {
             "result": "blocked",
             "classification": "database_unavailable",
-            "source_metadata": redact_sensitive_data({
+            # Do not return the driver message: SQLAlchemy may echo table names,
+            # bound values, or the approved query text into an API response.
+            "source_metadata": {
                 "query_id": query.query_id,
-                "error": str(exc),
-            }),
+                "error": "approved database read failed",
+                "error_type": type(exc).__name__,
+            },
         }
 
     safe_rows = redact_sensitive_data(rows)
@@ -129,12 +132,26 @@ def compare_api_and_database(
             "database_value": None,
         }
     try:
-        delta = abs(Decimal(str(api_value)) - Decimal(str(database_value)))
         allowed = Decimal(str(tolerance))
+    except (InvalidOperation, ValueError):
+        return {
+            "result": "blocked",
+            "classification": "invalid_tolerance",
+            "api_value": None,
+            "database_value": None,
+        }
+    if not allowed.is_finite() or allowed < 0:
+        return {
+            "result": "blocked",
+            "classification": "invalid_tolerance",
+            "api_value": None,
+            "database_value": None,
+        }
+    try:
+        delta = abs(Decimal(str(api_value)) - Decimal(str(database_value)))
     except (InvalidOperation, ValueError):
         matches = str(api_value) == str(database_value)
         delta = None
-        allowed = None
     else:
         matches = delta <= allowed
     return {

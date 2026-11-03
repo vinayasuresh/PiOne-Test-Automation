@@ -245,12 +245,15 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 - Dashboard assertion scenarios can now reference an approved database query
   definition, preserving the API → dashboard → database lineage without
   changing existing API-only scenarios.
+- Database driver errors are normalized before evidence export so SQL text,
+  schema names and bound values are not echoed in API responses. Tolerance
+  values are finite, non-negative decimals; invalid values are blocked.
 - Proof: `python -m pytest
   automation_framework/tests/test_v3_database_assertion_phase4.py
   automation_framework/tests/test_v3_api_contract_phase2.py
   automation_framework/tests/test_v3_dashboard_data_phase3.py
   automation_framework/tests/test_v3_orchestration_phase45.py -q` passed
-  **29 tests**.
+  **31 tests**. Deterministic Phase-7 security checks also passed (10 tests).
 
 ### Remaining Phase 4 wiring
 
@@ -260,6 +263,9 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
   outcomes; service/API tests do not count as browser proof.
 - Run the rendered-browser/dashboard proof in Phase 5; no browser proof is
   claimed by this service-level implementation.
+- Production authorization for V3 routes is still a Phase-8 gate. The V3
+  feature flag is disabled by default, but enabling it behind an internet
+  boundary without tenant/RBAC authentication is not release-safe.
 
 ## Supporting implementation - Incident orchestration and controlled agent loop
 
