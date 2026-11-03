@@ -237,18 +237,24 @@ tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
   environments, unknown parameters and missing parameters return `blocked`.
 - Added API/database comparison classification for exact, tolerance-based and
   mismatched values without converting a source outage into a product failure.
+- Added the `database_query_definitions` model and Alembic migration
+  `f6a7b8c9d0e1_v3_database_query_definitions.py`. Registration is explicitly
+  approved, test/staging-only, and public metadata never returns SQL.
+- Added feature-gated routes for query registration, listing, lookup and one
+  bounded read/compare operation under `/v3/database-queries`.
 - Proof: `python -m pytest
   automation_framework/tests/test_v3_database_assertion_phase4.py
   automation_framework/tests/test_v3_api_contract_phase2.py
-  automation_framework/tests/test_v3_dashboard_data_phase3.py -q` passed
-  **19 tests**.
+  automation_framework/tests/test_v3_dashboard_data_phase3.py
+  automation_framework/tests/test_v3_orchestration_phase45.py -q` passed
+  **29 tests**.
 
 ### Remaining Phase 4 wiring
 
-- Persist approved database query definitions and bind them to a data-assertion
-  scenario through an additive migration.
-- Expose the cross-read through the feature-gated assurance route and include
-  API/database/dashboard lineage in the observation export.
+- Bind a registered query to a dashboard data-assertion scenario and include
+  the query ID and comparison lineage in the persisted observation export.
+- Add a rendered-browser flow proving registration, read, mismatch and blocked
+  outcomes; service/API tests do not count as browser proof.
 - Run the rendered-browser/dashboard proof in Phase 5; no browser proof is
   claimed by this service-level implementation.
 

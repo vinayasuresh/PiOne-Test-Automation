@@ -28,6 +28,7 @@ from api.db.models import (
     Checkpoint,
     DataAssertionObservation,
     DataAssertionScenario,
+    DatabaseQueryDefinition,
     Execution,
     ExecutionStep,
     EvidenceManifest,
@@ -1551,7 +1552,82 @@ class DBRepository:
         return execute_with_retry(_op)
 
     # -----------------------------------------------------------------------
-    # 8. V3 dashboard-data assurance (additive; read-only source evidence)
+    # 8. V3 approved database cross-read definitions (read-only)
+    # -----------------------------------------------------------------------
+
+    @staticmethod
+    def _database_query_to_dict(query: DatabaseQueryDefinition) -> dict[str, Any]:
+        # Do not return SQL through the public metadata response.
+        return {
+            "database_query_id": query.id,
+            "query_id": query.query_id,
+            "name": query.name,
+            "parameter_names": query.parameter_names or [],
+            "database_ref": query.database_ref,
+            "environment": query.environment,
+            "is_approved": query.is_approved,
+            "created_at": query.created_at.isoformat() if query.created_at else None,
+            "updated_at": query.updated_at.isoformat() if query.updated_at else None,
+        }
+
+    @staticmethod
+    def register_v3_database_query(payload: dict[str, Any]) -> dict[str, Any]:
+        from api.services.v3_database_assertion_service import ApprovedDatabaseQuery, validate_approved_query
+
+        safe = redact_sensitive_data(payload)
+        definition = ApprovedDatabaseQuery(
+            query_id=safe["query_id"], sql=safe["sql"],
+            parameter_names=tuple(safe.get("parameter_names", [])),
+            database_ref=safe.get("database_ref", "configured-test"),
+            environment=safe.get("environment", "test"),
+        )
+        # The validator raises on any unsafe definition; successful return is
+        # the approval gate for this server-owned registration.
+        validate_approved_query(definition)
+        if not safe.get("approved", False):
+            raise ValueError("Database query must be explicitly approved before registration")
+
+        def _op(session: Session) -> dict[str, Any]:
+            if session.query(DatabaseQueryDefinition).filter(DatabaseQueryDefinition.query_id == definition.query_id).first():
+                raise ValueError("Database query ID is already registered")
+            row = DatabaseQueryDefinition(
+                query_id=definition.query_id, name=safe["name"], sql=definition.sql,
+                parameter_names=list(definition.parameter_names), database_ref=definition.database_ref,
+                environment=definition.environment, is_approved=True,
+            )
+            session.add(row)
+            session.flush()
+            return DBRepository._database_query_to_dict(row)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_database_query(query_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            row = session.query(DatabaseQueryDefinition).filter(DatabaseQueryDefinition.query_id == query_id).first()
+            return DBRepository._database_query_to_dict(row) if row else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_database_query_definition(query_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            row = session.query(DatabaseQueryDefinition).filter(DatabaseQueryDefinition.query_id == query_id).first()
+            if not row:
+                return None
+            return {
+                **DBRepository._database_query_to_dict(row),
+                "sql": row.sql,
+            }
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_v3_database_queries() -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            rows = session.query(DatabaseQueryDefinition).order_by(DatabaseQueryDefinition.created_at.desc()).all()
+            return [DBRepository._database_query_to_dict(row) for row in rows]
+        return execute_with_retry(_op)
+
+    # -----------------------------------------------------------------------
+    # 9. V3 dashboard-data assurance (additive; read-only source evidence)
     # -----------------------------------------------------------------------
 
     @staticmethod

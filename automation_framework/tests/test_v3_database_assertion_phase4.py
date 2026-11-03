@@ -1,7 +1,13 @@
 """Phase-4 tests for the approved, read-only database cross-read adapter."""
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from fastapi import HTTPException
 
+import api.db.repository as repository_module
+from api.db.repository import DBRepository
+from api.models.v3_database_models import DatabaseQueryRegistrationRequest
+from api.routers.v3_assurance import register_database_query
 from api.services.v3_database_assertion_service import (
     ApprovedDatabaseQuery,
     compare_api_and_database,
@@ -86,4 +92,52 @@ def test_production_database_and_api_mismatch_are_not_allowed_to_run():
     within_tolerance = compare_api_and_database("1000.00", "1000.004", tolerance="0.01")
     assert within_tolerance["result"] == "pass"
     assert within_tolerance["classification"] == "database_api_match"
+
+
+def test_database_query_registration_persists_approved_definition_without_sql(monkeypatch):
+    engine = create_engine("sqlite:///:memory:")
+    from api.db.session import Base
+    import api.db.models  # noqa: F401
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    monkeypatch.setattr(repository_module, "execute_with_retry", lambda operation: operation(session))
+    monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
+
+    response = register_database_query(DatabaseQueryRegistrationRequest(
+        query_id="asset-count",
+        name="Asset count by tenant",
+        sql="SELECT COUNT(*) AS total FROM assets WHERE tenant = :tenant",
+        parameter_names=["tenant"],
+        environment="staging",
+        approved=True,
+    ))
+    assert response["query"]["query_id"] == "asset-count"
+    assert "sql" not in response["query"]
+    assert DBRepository.get_v3_database_query("asset-count")["is_approved"] is True
+    session.close()
+
+
+def test_database_query_registration_rejects_unapproved_and_production(monkeypatch):
+    monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
+    request = DatabaseQueryRegistrationRequest(
+        query_id="not-approved", name="Not approved", sql="SELECT 1", approved=False,
+    )
+    try:
+        register_database_query(request)
+    except HTTPException as exc:
+        assert exc.status_code == 400
+        assert "explicitly approved" in str(exc.detail)
+    else:
+        raise AssertionError("unapproved query was registered")
+
+    production = DatabaseQueryRegistrationRequest(
+        query_id="production-query", name="Production", sql="SELECT 1", environment="production", approved=True,
+    )
+    try:
+        register_database_query(production)
+    except HTTPException as exc:
+        assert exc.status_code == 400
+        assert "Production" in str(exc.detail)
+    else:
+        raise AssertionError("production query was accepted")
 

@@ -27,6 +27,9 @@ from api.models.v3_api_contract_models import (
 )
 from api.services.v3_api_contract_service import normalize_contract, validate_registered_operation
 from api.models.v3_data_assertion_models import DataAssertionEvaluationRequest, DataAssertionScenarioRequest
+from api.models.v3_database_models import DatabaseQueryRegistrationRequest, DatabaseReadRequest
+from api.services.v3_database_assertion_service import ApprovedDatabaseQuery, compare_api_and_database, read_approved_database
+from api.db.session import get_engine
 from api.services.v3_data_assertion_service import capture_dashboard_ui_value, compare_dashboard_data, parse_timestamp, read_approved_source
 from api.services.v3_feature_flags import is_v3_assurance_enabled
 from api.models.v3_orchestration_models import (
@@ -383,6 +386,66 @@ def export_api_observations(contract_id: str) -> JSONResponse:
     if not DBRepository.get_v3_api_contract(contract_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API contract not found")
     return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_api_observations(contract_id)})
+
+
+@router.post("/database-queries", status_code=status.HTTP_201_CREATED)
+def register_database_query(request: DatabaseQueryRegistrationRequest) -> dict:
+    """Register one explicitly approved, read-only test/staging query."""
+    _require_v3()
+    if request.environment == "production":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Production database reads are not allowed")
+    try:
+        query = DBRepository.register_v3_database_query(request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"status": "created", "query": query}
+
+
+@router.get("/database-queries")
+def list_database_queries() -> dict:
+    _require_v3()
+    return {"status": "ok", "queries": DBRepository.list_v3_database_queries()}
+
+
+@router.get("/database-queries/{query_id}")
+def get_database_query(query_id: str) -> dict:
+    _require_v3(); _validate_id(query_id, "database query ID")
+    query = DBRepository.get_v3_database_query(query_id)
+    if not query:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database query not found")
+    return {"status": "ok", "query": query}
+
+
+@router.post("/database-queries/{query_id}/read")
+def read_database_query(query_id: str, request: DatabaseReadRequest) -> dict:
+    """Execute a registered query against the configured test/staging database."""
+    _require_v3(); _validate_id(query_id, "database query ID")
+    definition = DBRepository.get_v3_database_query_definition(query_id)
+    if not definition:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database query not found")
+    if not definition["is_approved"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database query is not approved")
+    approved = ApprovedDatabaseQuery(
+        query_id=definition["query_id"], sql=definition["sql"],
+        parameter_names=tuple(definition.get("parameter_names", [])),
+        database_ref=definition["database_ref"], environment=definition["environment"],
+    )
+    reading = read_approved_database(get_engine(), approved, request.parameters)
+    response: dict = {"status": "ok", "reading": reading}
+    if request.api_value is not None or request.api_result != "ok":
+        database_value = None
+        rows = reading.get("rows") or []
+        if rows:
+            first_row = rows[0]
+            if len(first_row) == 1:
+                database_value = next(iter(first_row.values()))
+            else:
+                database_value = first_row
+        response["comparison"] = compare_api_and_database(
+            request.api_value, database_value,
+            tolerance=request.tolerance, api_result=request.api_result, database_result=reading.get("result", "blocked"),
+        )
+    return response
 
 
 @router.post("/data-assertion-scenarios", status_code=status.HTTP_201_CREATED)

@@ -585,6 +585,28 @@ class ApiObservation(Base):
     operation = relationship("ApiOperation", back_populates="observations")
 
 
+class DatabaseQueryDefinition(Base):
+    """An approved, read-only database query definition for V3 comparisons.
+
+    The query is executed only against the application-configured test/staging
+    database.  Production and arbitrary connection details are intentionally
+    not represented by this model.
+    """
+
+    __tablename__ = "database_query_definitions"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    query_id = Column(String(80), nullable=False, unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    sql = Column(Text, nullable=False)
+    parameter_names = Column(JSON, default=list, nullable=False)
+    database_ref = Column(String(80), nullable=False, default="configured-test")
+    environment = Column(String(20), nullable=False, default="test")
+    is_approved = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+
 # ---------------------------------------------------------------------------
 # 7. V3 dashboard data assurance (feature-flagged, additive)
 # ---------------------------------------------------------------------------
