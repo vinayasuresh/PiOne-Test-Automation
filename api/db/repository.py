@@ -1405,6 +1405,8 @@ class DBRepository:
             "allow_unauthenticated_probe": operation.allow_unauthenticated_probe,
             "safe_read_only": operation.safe_read_only,
             "is_enabled": operation.is_enabled,
+            "response_schema": getattr(operation, "response_schema", None) or {},
+            "approved_parameters": getattr(operation, "approved_parameters", None) or [],
         }
 
     @staticmethod
@@ -1476,8 +1478,9 @@ class DBRepository:
     def configure_v3_api_operation(operation_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         safe = redact_sensitive_data(payload)
         allowed = {
-            "expected_status_codes", "required_fields", "max_latency_ms", "auth_requirement",
-            "auth_fixture_ref", "approved_role", "allow_unauthenticated_probe", "safe_read_only",
+            "expected_status_codes", "required_fields", "response_schema", "approved_parameters",
+            "max_latency_ms", "auth_requirement", "auth_fixture_ref", "approved_role",
+            "allow_unauthenticated_probe", "safe_read_only", "is_enabled",
         }
 
         def _op(session: Session) -> dict[str, Any]:
@@ -1598,6 +1601,13 @@ class DBRepository:
         def _op(session: Session) -> dict[str, Any] | None:
             scenario = session.query(DataAssertionScenario).filter(DataAssertionScenario.id == scenario_id).first()
             return DBRepository._data_scenario_to_dict(scenario) if scenario else None
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_v3_data_assertion_scenarios() -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            rows = session.query(DataAssertionScenario).order_by(DataAssertionScenario.created_at.desc()).all()
+            return [DBRepository._data_scenario_to_dict(item) for item in rows]
         return execute_with_retry(_op)
 
     @staticmethod

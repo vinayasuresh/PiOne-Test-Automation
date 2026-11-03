@@ -35,6 +35,8 @@ SENSITIVE_KEY_NAMES = {
     "credential",
     "credentials",
     "bearer",
+    "auth_fixture_ref",
+    "fixture_ref",
 }
 
 # Regex patterns for embedded tokens / credentials in text
@@ -91,6 +93,7 @@ def redact_sensitive_data(obj: Any) -> Any:
         is_password_field = str(obj.get("type", "")).lower() == "password" or str(obj.get("input_type", "")).lower() == "password"
         for k, v in obj.items():
             k_str = str(k).lower().strip()
+            k_norm = k_str.replace("-", "_")
             # Route graphs use complete URLs as dictionary keys.  A route such
             # as `/enrollment-tokens` is a public navigation identifier, not a
             # field named `token`; redacting its *value* corrupts the graph and
@@ -98,7 +101,7 @@ def redact_sensitive_data(obj: Any) -> Any:
             parsed_key = urlparse(str(k))
             is_url_key = parsed_key.scheme in {"http", "https"} and bool(parsed_key.netloc)
             # If the key itself indicates sensitive content, redact its value directly
-            if not is_url_key and any(sens in k_str for sens in SENSITIVE_KEY_NAMES):
+            if not is_url_key and any(sens in k_norm or sens in k_str for sens in SENSITIVE_KEY_NAMES):
                 cleaned[k] = "[REDACTED]"
             elif is_password_field and k_str in {"value", "default_value", "text", "val"}:
                 cleaned[k] = "[REDACTED]"

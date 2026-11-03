@@ -5,6 +5,12 @@ from api.main import app
 from api.services.browser_readiness import BROWSER_INSTALL_HINT, check_browser_readiness
 
 
+# These checks exercise the real Playwright executable and Starlette's async
+# TestClient lifecycle. Keep them out of the Windows-safe default suite; CI's
+# browser job can opt in with `pytest -m browser` after installing Chromium.
+pytestmark = pytest.mark.browser
+
+
 def test_browser_readiness_healthy():
     status = check_browser_readiness(force_refresh=True)
     assert status["ready"] is True

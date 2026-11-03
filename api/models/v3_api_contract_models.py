@@ -38,6 +38,8 @@ class ApiOperationRule(_StrictModel):
     method: str = Field(default="GET", max_length=10)
     expected_status_codes: list[int] = Field(default_factory=lambda: [200], min_length=1, max_length=10)
     required_fields: list[str] = Field(default_factory=list, max_length=50)
+    response_schema: dict[str, Any] = Field(default_factory=dict)
+    approved_parameters: list[dict[str, Any]] = Field(default_factory=list)
     max_latency_ms: int = Field(default=3000, ge=1, le=60000)
     auth_requirement: Literal["none", "fixture", "required"] = "none"
     auth_fixture_ref: str = Field(default="", max_length=160)
@@ -74,12 +76,15 @@ class ApiOperationConfigurationRequest(_StrictModel):
 
     expected_status_codes: list[int] = Field(default_factory=lambda: [200], min_length=1, max_length=10)
     required_fields: list[str] = Field(default_factory=list, max_length=50)
+    response_schema: dict[str, Any] | None = None
+    approved_parameters: list[dict[str, Any]] | None = None
     max_latency_ms: int = Field(default=3000, ge=1, le=60000)
     auth_requirement: Literal["none", "fixture", "required"] = "none"
     auth_fixture_ref: str = Field(default="", max_length=160)
     approved_role: str = Field(default="", max_length=120)
     allow_unauthenticated_probe: bool = False
     safe_read_only: bool = True
+    is_enabled: bool | None = None
 
     @field_validator("required_fields")
     @classmethod
@@ -93,6 +98,7 @@ class ApiOperationValidationRequest(_StrictModel):
     evidence_manifest_id: str | None = None
     scenario_version: str = Field(default="unassigned", max_length=100)
     negative_case: Literal["none", "unauthenticated"] = "none"
+    parameter_values: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("job_id", "run_id", "evidence_manifest_id")
     @classmethod

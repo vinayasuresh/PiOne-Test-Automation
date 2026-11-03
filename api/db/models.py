@@ -545,6 +545,8 @@ class ApiOperation(Base):
     path = Column(String(1024), nullable=False)
     expected_status_codes = Column(JSON, default=list, nullable=False)
     required_fields = Column(JSON, default=list, nullable=False)
+    response_schema = Column(JSON, default=dict, nullable=False)
+    approved_parameters = Column(JSON, default=list, nullable=False)
     max_latency_ms = Column(Integer, nullable=False, default=3000)
     auth_requirement = Column(String(30), nullable=False, default="none")
     auth_fixture_ref = Column(String(160), nullable=False, default="")

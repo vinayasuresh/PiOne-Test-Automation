@@ -31,7 +31,7 @@ class DataAssertionScenarioRequest(_StrictModel):
     timezone: str = "UTC"
     freshness_window_minutes: int = Field(default=60, ge=1, le=10080)
     tolerance: str = Field(default="0", max_length=80)
-    value_format: Literal["number", "currency", "percentage"] = "number"
+    value_format: Literal["number", "currency", "percentage", "table_rows", "chart_series", "table", "chart"] = "number"
     approved: bool = False
 
     @field_validator("source_operation_id")
@@ -70,7 +70,7 @@ class DataAssertionScenarioRequest(_StrictModel):
 
 
 class DataAssertionEvaluationRequest(_StrictModel):
-    ui_value: str = Field(min_length=1, max_length=1024)
+    ui_value: str = Field(default="", max_length=1024)
     filter_context: dict[str, Any] = Field(default_factory=dict)
     source_filter_context: dict[str, Any] = Field(default_factory=dict)
     job_id: str | None = None
@@ -78,6 +78,7 @@ class DataAssertionEvaluationRequest(_StrictModel):
     evidence_manifest_id: str | None = None
     scenario_version: str = Field(default="unassigned", max_length=100)
     captured_at: datetime | None = None
+    auto_capture: bool = False
 
     @field_validator("job_id", "run_id", "evidence_manifest_id")
     @classmethod

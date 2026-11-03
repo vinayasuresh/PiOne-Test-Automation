@@ -54,6 +54,10 @@ def _apply_sqlite_additive_schema(engine: Engine) -> None:
             "scenario_id": "VARCHAR(80)",
             "policy_decision": "JSON NOT NULL DEFAULT '{}'",
         },
+        "api_operations": {
+            "response_schema": "JSON NOT NULL DEFAULT '{}'",
+            "approved_parameters": "JSON NOT NULL DEFAULT '[]'",
+        },
     }
     with engine.begin() as connection:
         for table, columns in additions.items():

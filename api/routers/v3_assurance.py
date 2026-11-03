@@ -27,7 +27,7 @@ from api.models.v3_api_contract_models import (
 )
 from api.services.v3_api_contract_service import normalize_contract, validate_registered_operation
 from api.models.v3_data_assertion_models import DataAssertionEvaluationRequest, DataAssertionScenarioRequest
-from api.services.v3_data_assertion_service import compare_dashboard_data, parse_timestamp, read_approved_source
+from api.services.v3_data_assertion_service import capture_dashboard_ui_value, compare_dashboard_data, parse_timestamp, read_approved_source
 from api.services.v3_feature_flags import is_v3_assurance_enabled
 from api.models.v3_orchestration_models import (
     AssuranceScenarioRequest, AssignmentRequest, AssignmentRuleRequest,
@@ -129,8 +129,17 @@ def orchestrate_job(job_id: str, request: V3OrchestrateRequest) -> dict:
             job = DBRepository.transition_v3_job(job_id, "blocked", plan["verdict"], plan["category"])
             return {"status": "blocked", "job": job, "attempt": attempt, "evidence_manifest": evidence, "policy": plan["decision"]}
         DBRepository.transition_v3_job(job_id, "running")
-        registration = DBRepository.get_v3_api_operation(scenario["reference_id"]) if scenario["scenario_type"] == "api_contract" else None
-        outcome = execute_approved_scenario(scenario, registration)
+        data_scenario = None
+        if scenario["scenario_type"] == "api_contract":
+            registration = DBRepository.get_v3_api_operation(scenario["reference_id"])
+            outcome = execute_approved_scenario(scenario, registration)
+        elif scenario["scenario_type"] == "data_assertion":
+            data_scenario = DBRepository.get_v3_data_assertion_scenario(scenario["reference_id"])
+            registration = DBRepository.get_v3_api_operation(data_scenario["source_operation_id"]) if data_scenario else None
+            outcome = execute_approved_scenario(scenario, registration, data_assertion_scenario=data_scenario)
+        else:
+            outcome = {"verdict": "blocked", "category": "unsupported_scenario_type", "events": [{"event": "conclude", "detail": "blocked"}]}
+
         terminal_state = "completed" if outcome["verdict"] in {"reproduced", "not_reproduced"} else outcome["verdict"]
         attempt = DBRepository.add_v3_attempt(job_id, request.worker_id, terminal_state, outcome["verdict"], outcome["category"], outcome["events"])
         evidence = DBRepository.add_v3_evidence_manifest(job_id, {
@@ -138,6 +147,38 @@ def orchestrate_job(job_id: str, request: V3OrchestrateRequest) -> dict:
             "content_type": "application/json",
             "storage_location": f"v3://verification-jobs/{job_id}/attempts/{attempt['attempt_id']}",
         })
+        manifest_id = evidence.get("manifest_id") or evidence.get("id")
+        if outcome.get("screenshot_storage_location"):
+            DBRepository.add_v3_evidence_manifest(job_id, {
+                "source_step": f"Dashboard UI Capture: {scenario.get('name', 'KPI')}",
+                "source_route": data_scenario["route"] if data_scenario else scenario["target_origin"],
+                "content_type": "image/png",
+                "checksum": outcome.get("screenshot_checksum", ""),
+                "storage_location": outcome["screenshot_storage_location"],
+            })
+        if scenario["scenario_type"] == "data_assertion" and data_scenario and outcome.get("result"):
+            comp = outcome["result"]
+            try:
+                DBRepository.add_v3_data_assertion_observation({
+                    "scenario_id": data_scenario["data_assertion_scenario_id"],
+                    "job_id": job_id,
+                    "evidence_manifest_id": manifest_id,
+                    "scenario_version": job.get("scenario_version", "v3"),
+                    "result": comp.get("result", outcome["verdict"]),
+                    "classification": comp.get("classification", outcome["category"]),
+                    "ui_raw_value": str(comp.get("ui_raw_value", "")),
+                    "source_raw_value": str(comp.get("source_raw_value", "")),
+                    "normalized_ui_value": str(comp["normalized_ui_value"]) if comp.get("normalized_ui_value") is not None else None,
+                    "normalized_source_value": str(comp["normalized_source_value"]) if comp.get("normalized_source_value") is not None else None,
+                    "delta": str(comp["delta"]) if comp.get("delta") is not None else None,
+                    "filter_context": comp.get("filter_context", {}),
+                    "source_filter_context": comp.get("source_filter_context", {}),
+                    "source_fresh_at": parse_timestamp(comp.get("source_fresh_at")),
+                    "captured_at": parse_timestamp(outcome.get("ui_capture", {}).get("captured_at")) or datetime.now(timezone.utc),
+                    "source_metadata": comp.get("source_metadata", {}),
+                })
+            except Exception:
+                pass
         job = DBRepository.transition_v3_job(job_id, terminal_state, outcome["verdict"], outcome["category"])
         if outcome["verdict"] == "reproduced":
             DBRepository.auto_assign_v3_incident(job["incident_id"])
@@ -303,13 +344,23 @@ def validate_api_operation(operation_id: str, request: ApiOperationValidationReq
         registration["contract"],
         registration["operation"],
         negative_case=request.negative_case,
+        parameter_values=request.parameter_values,
     )
+    evidence_id = request.evidence_manifest_id
+    if request.job_id and not evidence_id:
+        manifest = DBRepository.add_v3_evidence_manifest(request.job_id, {
+            "source_step": f"API Contract: {registration['operation']['operation_key']}",
+            "source_route": registration["operation"]["path"],
+            "content_type": "application/json",
+            "storage_location": f"v3://contracts/{registration['contract'].get('contract_id') or registration['contract'].get('id')}/operations/{operation_id}",
+        })
+        evidence_id = manifest["id"]
     try:
         observation = DBRepository.add_v3_api_observation({
             "operation_id": operation_id,
             "job_id": request.job_id,
             "run_id": request.run_id,
-            "evidence_manifest_id": request.evidence_manifest_id,
+            "evidence_manifest_id": evidence_id,
             "scenario_version": request.scenario_version,
             "result": observation_result["result"],
             "classification": observation_result["classification"],
@@ -317,7 +368,7 @@ def validate_api_operation(operation_id: str, request: ApiOperationValidationReq
             "latency_ms": observation_result["latency_ms"],
             "request_metadata": observation_result["request_metadata"],
             "assertion_result": observation_result["assertion_result"],
-            "evidence_link": "",
+            "evidence_link": f"v3://contracts/{registration['contract'].get('contract_id') or registration['contract'].get('id')}/observations/{operation_id}",
         })
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
@@ -347,6 +398,12 @@ def register_data_assertion_scenario(request: DataAssertionScenarioRequest) -> d
     return {"status": "created", "scenario": scenario}
 
 
+@router.get("/data-assertion-scenarios")
+def list_data_assertion_scenarios() -> dict:
+    _require_v3()
+    return {"status": "ok", "scenarios": DBRepository.list_v3_data_assertion_scenarios()}
+
+
 @router.get("/data-assertion-scenarios/{scenario_id}")
 def get_data_assertion_scenario(scenario_id: str) -> dict:
     _require_v3()
@@ -374,30 +431,62 @@ def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEva
         source_registration["contract"], source_registration["operation"],
         scenario["source_field"], scenario["source_timestamp_field"],
     )
-    comparison = compare_dashboard_data(scenario, request.model_dump(), source_reading)
+    eval_dict = request.model_dump()
+    screenshot_loc = None
+    screenshot_sum = ""
+    if not eval_dict.get("ui_value") and (eval_dict.get("auto_capture") or not eval_dict.get("ui_value")):
+        base_url = source_registration["contract"]["base_url"]
+        ui_cap = capture_dashboard_ui_value(
+            base_url,
+            scenario["route"],
+            scenario["ui_selector"],
+            filter_context=scenario.get("expected_filters"),
+            value_format=scenario.get("value_format", "number"),
+        )
+        if ui_cap.get("result") == "ok":
+            eval_dict["ui_value"] = ui_cap.get("ui_value", "")
+            eval_dict["filter_context"] = ui_cap.get("filter_context", {})
+            eval_dict["captured_at"] = parse_timestamp(ui_cap.get("captured_at"))
+            screenshot_loc = ui_cap.get("screenshot_storage_location")
+            screenshot_sum = ui_cap.get("screenshot_checksum", "")
+        else:
+            eval_dict["ui_value"] = ""
+            eval_dict["classification"] = ui_cap.get("classification", "ui_capture_failed")
+
+    comparison = compare_dashboard_data(scenario, eval_dict, source_reading)
+    evidence_id = request.evidence_manifest_id
+    if request.job_id and not evidence_id and screenshot_loc:
+        manifest = DBRepository.add_v3_evidence_manifest(request.job_id, {
+            "source_step": f"Dashboard Capture: {scenario.get('name')}",
+            "source_route": scenario["route"],
+            "content_type": "image/png",
+            "checksum": screenshot_sum,
+            "storage_location": screenshot_loc,
+        })
+        evidence_id = manifest.get("manifest_id") or manifest.get("id")
     try:
         observation = DBRepository.add_v3_data_assertion_observation({
             "scenario_id": scenario_id,
             "job_id": request.job_id,
             "run_id": request.run_id,
-            "evidence_manifest_id": request.evidence_manifest_id,
+            "evidence_manifest_id": evidence_id,
             "scenario_version": request.scenario_version,
             "result": comparison["result"],
             "classification": comparison["classification"],
-            "ui_raw_value": comparison["ui_raw_value"],
-            "source_raw_value": comparison["source_raw_value"],
-            "normalized_ui_value": comparison.get("normalized_ui_value"),
-            "normalized_source_value": comparison.get("normalized_source_value"),
-            "delta": comparison.get("delta"),
+            "ui_raw_value": str(comparison.get("ui_raw_value", "")),
+            "source_raw_value": str(comparison.get("source_raw_value", "")),
+            "normalized_ui_value": str(comparison["normalized_ui_value"]) if comparison.get("normalized_ui_value") is not None else None,
+            "normalized_source_value": str(comparison["normalized_source_value"]) if comparison.get("normalized_source_value") is not None else None,
+            "delta": str(comparison["delta"]) if comparison.get("delta") is not None else None,
             "filter_context": comparison["filter_context"],
             "source_filter_context": comparison["source_filter_context"],
             "source_fresh_at": parse_timestamp(comparison.get("source_fresh_at")),
-            "captured_at": request.captured_at or datetime.now(timezone.utc),
+            "captured_at": eval_dict.get("captured_at") or datetime.now(timezone.utc),
             "source_metadata": comparison["source_metadata"],
         })
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-    return {"status": "created", "observation": observation}
+    return {"status": "created", "observation": observation, "comparison": comparison}
 
 
 @router.get("/data-assertion-scenarios/{scenario_id}/observations/export")

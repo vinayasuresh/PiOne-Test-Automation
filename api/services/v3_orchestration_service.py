@@ -6,10 +6,18 @@ does not generate Python, crawl arbitrary pages, or perform mutating actions.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
+
 from api.services.v3_api_contract_service import validate_registered_operation
+from api.services.v3_data_assertion_service import (
+    capture_dashboard_ui_value,
+    compare_dashboard_data,
+    read_approved_source,
+)
 from api.utils.security_guard import validate_target_url
 
 
@@ -40,11 +48,104 @@ def plan_assurance_job(job: dict[str, Any], incident: dict[str, Any], scenario: 
     return {"ready": True, "verdict": "pending", "category": "", "decision": decision}
 
 
-def execute_approved_scenario(scenario: dict[str, Any], registration: dict[str, Any] | None) -> dict[str, Any]:
-    """Execute a single approved read-only contract operation, or state limits honestly."""
+def execute_approved_scenario(
+    scenario: dict[str, Any],
+    registration: dict[str, Any] | None,
+    *,
+    data_assertion_scenario: dict[str, Any] | None = None,
+    auth_storage_state: str | Path | None = None,
+    page: Any | None = None,
+    client: httpx.Client | None = None,
+    is_mock: bool = False,
+) -> dict[str, Any]:
+    """Execute a single approved read-only contract operation or dashboard data validation."""
     events: list[dict[str, str]] = [{"event": "choose_action", "detail": scenario["scenario_type"]}]
+
     if scenario["scenario_type"] == "data_assertion":
-        return {"verdict": "inconclusive", "category": "ui_capture_required", "events": events + [{"event": "conclude", "detail": "awaiting a captured dashboard value"}]}
+        if not data_assertion_scenario:
+            return {
+                "verdict": "inconclusive",
+                "category": "ui_capture_required",
+                "events": events + [{"event": "conclude", "detail": "awaiting a captured dashboard value"}],
+            }
+
+        # Step 1: Headless browser capture of UI value & screenshot
+        ui_capture = capture_dashboard_ui_value(
+            scenario["target_origin"],
+            data_assertion_scenario["route"],
+            data_assertion_scenario["ui_selector"],
+            filter_context=data_assertion_scenario.get("expected_filters"),
+            value_format=data_assertion_scenario.get("value_format", "number"),
+            auth_storage_state=auth_storage_state,
+            page=page,
+            is_mock=is_mock,
+        )
+
+        if ui_capture.get("result") != "ok":
+            classification = ui_capture.get("classification", "ui_capture_failed")
+            if classification in {"target_timeout", "target_unavailable", "target_scope_invalid", "auth_expired"}:
+                verdict = "blocked"
+            else:
+                verdict = "reproduced"
+            events.extend([
+                {"event": "capture_ui", "detail": f"UI capture {classification}: {ui_capture.get('error', '')}"},
+                {"event": "verify", "detail": classification},
+                {"event": "conclude", "detail": verdict},
+            ])
+            return {
+                "verdict": verdict,
+                "category": classification,
+                "events": events,
+                "result": ui_capture,
+                "screenshot_storage_location": ui_capture.get("screenshot_storage_location"),
+                "screenshot_checksum": ui_capture.get("screenshot_checksum"),
+                "ui_capture": ui_capture,
+            }
+
+        events.append({"event": "capture_ui", "detail": f"captured UI value '{ui_capture.get('ui_value', '')}' from {data_assertion_scenario['route']}"})
+
+        # Step 2: Fetch source data from registered read-only API operation
+        if not registration or not registration.get("contract"):
+            return {"verdict": "blocked", "category": "approved_operation_unavailable", "events": events}
+
+        source_reading = read_approved_source(
+            registration["contract"],
+            registration["operation"],
+            data_assertion_scenario["source_field"],
+            data_assertion_scenario.get("source_timestamp_field", ""),
+            client=client,
+        )
+
+        # Step 3: Compare dashboard data - UI pass must never mask failed source data assertion
+        comparison = compare_dashboard_data(data_assertion_scenario, ui_capture, source_reading)
+        classification = comparison.get("classification", "unknown")
+
+        if comparison.get("result") == "pass":
+            verdict = "not_reproduced"
+        elif comparison.get("result") == "blocked":
+            verdict = "blocked"
+        elif classification in {"target_timeout", "target_unavailable", "target_scope_invalid", "source_unavailable", "source_authorization_failure", "auth_expired"}:
+            verdict = "blocked"
+        else:
+            verdict = "reproduced"
+
+        events.extend([
+            {"event": "read_source", "detail": f"source returned '{source_reading.get('source_value', '')}'"},
+            {"event": "verify", "detail": classification},
+            {"event": "conclude", "detail": verdict},
+        ])
+        return {
+            "verdict": verdict,
+            "category": classification,
+            "events": events,
+            "result": comparison,
+            "screenshot_storage_location": ui_capture.get("screenshot_storage_location"),
+            "screenshot_checksum": ui_capture.get("screenshot_checksum"),
+            "ui_capture": ui_capture,
+            "source_reading": source_reading,
+        }
+
+    # API contract verification
     if not registration or not registration.get("contract"):
         return {"verdict": "blocked", "category": "approved_operation_unavailable", "events": events}
     result = validate_registered_operation(registration["contract"], registration["operation"])

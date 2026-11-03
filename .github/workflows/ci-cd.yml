@@ -69,6 +69,16 @@ jobs:
           mkdir -p artifacts
           pytest -q --junitxml=artifacts/unit-results.xml
 
+      - name: Run browser readiness checks
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -vv -m browser \
+            automation_framework/tests/test_browser_readiness.py \
+            automation_framework/tests/test_v3_dashboard_data_phase8.py \
+            --junitxml=artifacts/browser-readiness-results.xml \
+            2>&1 | tee artifacts/browser-readiness.log
+
       - name: Upload test evidence
         if: always()
         uses: actions/upload-artifact@v4

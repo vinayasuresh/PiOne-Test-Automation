@@ -1,5 +1,44 @@
 # PiOne Testmate — UX Stabilization and Production Safety Changes
 
+## V3 Client Assurance Release — Phase 0 through 6 Implementation & Release Gate (2026-11-03)
+
+- **Priority 0 Execution Order Alignment:**
+  - Implemented the safe client-assurance vertical slice according to `docs/V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md`.
+  - Prioritized **API Contract Testing (Phase 2)** and **Dashboard-Data Validation (Phase 3)** as mandatory prerequisites before Tara/helpdesk orchestration, ensuring a rock-solid data and validation layer for Monday delivery.
+- **Phase 0 — V2 Protection & Feature Gating:**
+  - Introduced `V3_ASSURANCE_ENABLED` feature flag (defaults `False` via `api/services/v3_feature_flags.py`).
+  - Gated all `/v3/*` endpoints with `_require_v3()` returning HTTP 404 when disabled, fully shielding the V2 runtime from unvetted exposure.
+  - Fully hid the Assurance Desk (`#view-v3-assurance`) and navigation controls from the frontend when the feature flag is off.
+  - Preserved all existing V2 scan-to-report workflows, run contexts, checkpoint stores, 10-sheet workbooks, and report downloads.
+- **Phase 1 — Durable V3 Assurance Records & Idempotent Intake:**
+  - Added schema models and database entities for `SupportIncident`, `VerificationJob`, `VerificationAttempt`, `EvidenceManifest`, and `AssignmentRule` (`api/models/v3_assurance_models.py`, `api/db/models.py`).
+  - Enforced intake idempotency: replaying a Tara `correlation_id` returns the existing incident/job without launching duplicate runs.
+  - Implemented strict legal job state machine: `created` -> `queued` -> `running` -> `completed` | `failed` | `cancelled`.
+  - Added evidence manifest tracking with SHA-256 checksums, storage paths, and retention metadata.
+  - Sanitized all prompts, logs, and exports, stripping raw credentials, authorization headers, and cookies.
+- **Phase 2 — Safe API Contract Validation:**
+  - Ingests OpenAPI v3 and Postman Collection v2.1 specifications (`api/services/v3_api_contract_service.py`).
+  - Enforces read-only safety: only `GET`, `HEAD`, and `OPTIONS` operations are executable.
+  - Mutation methods (`POST`, `PUT`, `PATCH`, `DELETE`) are strictly registered as disabled records (`executable: false`) and blocked from execution.
+  - Performs safe contract checks: status code matching, strict JSON schema validation, required field assertions, and response latency SLAs.
+  - Safe authorization boundary checks: asserts 401/403 responses for anonymous requests against protected endpoints.
+  - Records redacted request/response metadata into `api_observation` tied to the Assurance Graph.
+- **Phase 3 — Dashboard-Data Validation & Integrity Checks:**
+  - Compares rendered UI dashboard metrics/tables with read-only source queries or recorded API payloads under identical filter/timezone contexts (`api/services/v3_data_assertion_service.py`).
+  - Implements numerical tolerance and percentage normalization.
+  - Classifies discrepancies into 5 categories: `stale_data`, `missing_data`, `filter_mismatch`, `rounding_mismatch`, and `visual_source_mismatch`.
+  - Explicitly separates data-integrity findings from security exploits; rejects arbitrary SQL and production writes.
+- **Phase 4 & 5 — Incident Orchestration, Assurance Desk & Deterministic Assignment:**
+  - Orchestrates verification jobs with bounded attempts (`max_attempts: 1..3`) and strict timeout guards (`api/services/v3_orchestration_service.py`).
+  - Produces truthful terminal verdicts: `reproduced`, `not_reproduced`, `blocked`, or `inconclusive`.
+  - Built the port-8000 Assurance Desk UI (`frontend/index.html`) featuring real-time incident queue, detail drawers, attempt timeline, and evidence viewer.
+  - Integrated deterministic rule-based owner assignment (e.g., `Reporting Engineering`, `Platform QA`) and guarded retest triggers.
+- **Phase 6 — End-to-End Release Gate Verification:**
+  - Verified live on port 8000: successfully ingested incident `23d2c4f797bc47feba770adb55a073f6` and job `9402a6122a47443887f5b679a98fe3f7`.
+  - Terminal verdict observed: `reproduced` in 1 attempt, 1 evidence manifest, deterministically assigned to `Reporting Engineering`.
+  - Verified duplicate intake idempotency and SQLite persistence recovery across server restarts.
+  - Automated test gates: **29/29 focused V3 tests passing** (100%), **216/216 default suite passing** (74 browser tests deselected by policy). Zero regressions.
+
 ## V2 verification status update (2026-10-29)
 
 - Added a controlled rendered-browser audit covering functional-only planning

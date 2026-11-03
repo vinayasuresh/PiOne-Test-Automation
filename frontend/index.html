@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PiOne Testmate - UI Scanner &amp; Test Intelligence Platform</title>
+  <title>PiOne Testmate — Pi One OmniTest Unified Assurance Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -38,7 +38,7 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate</h1>
+              <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate <span class="text-xs text-blue-400 font-normal">/ Pi One OmniTest</span></h1>
               <span class="bg-blue-500/20 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-500/30">v2.0 Enterprise</span>
             </div>
             <p class="text-[11px] text-slate-500">Deterministic UI Scanner &amp; Grounded Test Intelligence Platform</p>
@@ -61,7 +61,7 @@
               <i class="fa-solid fa-box-archive text-[10px]"></i> Artifacts
             </button>
             <button id="btn-nav-assurance" type="button" class="hidden px-3 py-1 rounded-md text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition" title="V3 feature-flagged internal operator view">
-              <i class="fa-solid fa-shield-heart text-[10px]"></i> Assurance Desk
+              <i class="fa-solid fa-shield-heart text-[10px]"></i> OmniTest Assurance Desk
             </button>
           </div>
 
@@ -1279,7 +1279,7 @@
     <section id="view-assurance" class="hidden space-y-5">
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
         <div class="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
-          <div><h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-shield-heart text-violet-600"></i> V3 Assurance Desk</h2><p class="text-xs text-slate-500 mt-1">Internal view for approved, bounded verification. It does not replace the V2 scan workflow.</p></div>
+          <div><h2 class="text-lg font-bold text-slate-900"><i class="fa-solid fa-shield-heart text-violet-600"></i> OmniTest Assurance Desk</h2><p class="text-xs text-slate-500 mt-1">Internal view for approved, bounded verification. It does not replace the V2 scan workflow.</p></div>
           <button id="btn-refresh-assurance" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-3 py-1.5 rounded-lg text-xs border border-slate-300"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
         </div>
         <div class="rounded-lg border border-violet-200 bg-violet-50 p-3 text-xs text-violet-950"><strong>Operator boundary:</strong> schedule records are saved definitions only; this screen never starts an unattended scheduler.</div>
@@ -1300,6 +1300,128 @@
         <div class="border border-slate-200 rounded-lg overflow-x-auto"><table class="min-w-full text-xs"><thead class="bg-slate-100 text-slate-700"><tr><th class="table-cell text-left">Incident</th><th class="table-cell text-left">Feature</th><th class="table-cell text-left">Owner</th><th class="table-cell text-center">Outcome</th><th class="table-cell text-left">Next action</th></tr></thead><tbody id="assurance-incidents-body"><tr><td colspan="5" class="table-cell text-center text-slate-500 py-6">No V3 incidents loaded.</td></tr></tbody></table></div>
         <div id="assurance-incident-detail" class="hidden rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs"></div>
         <div class="border border-slate-200 rounded-lg overflow-x-auto"><div class="bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Saved critical-check definitions <span class="font-normal text-slate-500">(manual trigger only)</span></div><table class="min-w-full text-xs"><thead class="bg-white text-slate-700"><tr><th class="table-cell text-left">Name</th><th class="table-cell text-left">Environment</th><th class="table-cell text-left">Last manual trigger</th><th class="table-cell text-right">Action</th></tr></thead><tbody id="assurance-schedules-body"><tr><td colspan="4" class="table-cell text-center text-slate-500 py-4">No saved definitions loaded.</td></tr></tbody></table></div>
+                <!-- OmniTest API Contract Assurance Section -->
+        <details class="rounded-lg border border-slate-200 bg-slate-50 p-4" id="details-api-contracts">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-800 flex items-center justify-between">
+            <span><i class="fa-solid fa-file-code text-indigo-600 mr-1.5"></i> OmniTest V3 API Contract Assurance</span>
+            <span class="text-xs text-slate-500 font-normal">Register &amp; validate OpenAPI/Postman contracts</span>
+          </summary>
+          <div class="mt-4 space-y-4 text-xs">
+            <form id="api-contract-register-form" class="grid md:grid-cols-2 gap-3 p-3 bg-white border border-slate-200 rounded-lg">
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Contract Name</span><input id="contract-name" required maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. Orders &amp; Billing API" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Version</span><input id="contract-version" maxlength="100" class="w-full px-3 py-2 border border-slate-300 rounded" value="1.0.0" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Source Type</span><select id="contract-source-type" class="w-full px-3 py-2 border border-slate-300 rounded"><option value="openapi">OpenAPI v3</option><option value="postman">Postman Collection v2.1</option></select></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Base URL</span><input id="contract-base-url" required maxlength="1024" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="https://api.staging.example.com" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Environment</span><select id="contract-environment" class="w-full px-3 py-2 border border-slate-300 rounded"><option value="staging" selected>Staging</option><option value="test">Test</option><option value="production">Production</option></select></label>
+              <label class="flex items-center gap-2 mt-6"><input id="contract-approved" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" /><span class="font-semibold text-slate-700">Approved for automated validation</span></label>
+              <label class="space-y-1 md:col-span-2"><span class="font-semibold text-slate-700">Contract Specification (JSON)</span><textarea id="contract-source-doc" required rows="5" class="w-full px-3 py-2 font-mono text-slate-800 border border-slate-300 rounded" placeholder='Paste OpenAPI JSON: {"paths": {"/health": {"get": {...}}}}'></textarea></label>
+              <div class="md:col-span-2 flex justify-end"><button id="btn-submit-contract" type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Register Contract</button></div>
+            </form>
+            <div class="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+              <div class="bg-slate-100 px-3 py-2 font-semibold text-slate-700 flex items-center justify-between">
+                <span>Registered Operations</span>
+                <span id="api-ops-count" class="text-slate-500 font-normal">0 operations</span>
+              </div>
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="table-cell text-left">Method</th>
+                    <th class="table-cell text-left">Operation Key</th>
+                    <th class="table-cell text-left">Path</th>
+                    <th class="table-cell text-center">Safety</th>
+                    <th class="table-cell text-center">Status</th>
+                    <th class="table-cell text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="api-operations-table-body">
+                  <tr><td colspan="6" class="table-cell text-center text-slate-500 py-4">No API operations registered.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="api-validation-result-panel" class="hidden rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div class="flex items-center gap-2">
+                  <span id="api-result-badge" class="px-2.5 py-0.5 rounded font-bold text-xs uppercase">PASS</span>
+                  <span id="api-result-classification" class="text-slate-700 font-semibold"></span>
+                </div>
+                <button id="btn-close-api-result" class="text-slate-400 hover:text-slate-700 text-sm font-bold">&times;</button>
+              </div>
+              <div class="grid md:grid-cols-3 gap-2 text-xs">
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Status Code</span><span id="api-result-status" class="font-mono font-bold text-slate-800"></span></div>
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Latency</span><span id="api-result-latency" class="font-mono text-slate-800"></span></div>
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Body SHA-256</span><span id="api-result-sha" class="font-mono text-[10px] text-slate-700 truncate block"></span></div>
+              </div>
+              <div id="api-result-schema-box" class="p-2.5 border rounded text-xs space-y-1"></div>
+              <details class="text-xs border border-slate-200 rounded p-2 bg-slate-50">
+                <summary class="cursor-pointer font-semibold text-slate-700">Redacted Headers &amp; Body Metadata</summary>
+                <pre id="api-result-headers" class="mt-2 text-[11px] font-mono bg-white p-2 rounded border overflow-x-auto text-slate-800"></pre>
+              </details>
+            </div>
+          </div>
+        </details>
+
+        <!-- OmniTest Dashboard Data Validation Section -->
+        <details class="rounded-lg border border-slate-200 bg-slate-50 p-4" id="details-dashboard-data">
+          <summary class="cursor-pointer text-sm font-semibold text-slate-800 flex items-center justify-between">
+            <span><i class="fa-solid fa-chart-line text-emerald-600 mr-1.5"></i> OmniTest V3 Dashboard Data Validation</span>
+            <span class="text-xs text-slate-500 font-normal">Cross-validate rendered KPIs, tables &amp; charts against approved read-only sources</span>
+          </summary>
+          <div class="mt-4 space-y-4 text-xs">
+            <form id="data-scenario-register-form" class="grid md:grid-cols-2 gap-3 p-3 bg-white border border-slate-200 rounded-lg">
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Scenario Name</span><input id="data-scenario-name" required maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. Monthly Revenue KPI" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Metric Label</span><input id="data-metric-label" maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. MRR" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Route Path</span><input id="data-route" required maxlength="1024" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="/dashboard" value="/dashboard" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">UI DOM Selector</span><input id="data-ui-selector" required maxlength="1024" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. #kpi-revenue, [data-metric='revenue']" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Source Operation ID</span><input id="data-source-op-id" required maxlength="80" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="Select or enter registered read-only Operation ID" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Source Data Field</span><input id="data-source-field" required maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. metrics.total_revenue" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Source Timestamp Field</span><input id="data-timestamp-field" maxlength="255" class="w-full px-3 py-2 border border-slate-300 rounded" placeholder="e.g. updated_at" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Value Format</span><select id="data-value-format" class="w-full px-3 py-2 border border-slate-300 rounded"><option value="number">Numeric</option><option value="currency">Currency ($ / € / £ / ₹)</option><option value="percentage">Percentage (%)</option><option value="table_rows">Table Rows</option><option value="chart_series">Chart Series</option></select></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Tolerance (Decimal)</span><input id="data-tolerance" maxlength="80" class="w-full px-3 py-2 border border-slate-300 rounded" value="0.01" /></label>
+              <label class="space-y-1"><span class="font-semibold text-slate-700">Freshness Window (Minutes)</span><input id="data-freshness-window" type="number" min="1" max="10080" class="w-full px-3 py-2 border border-slate-300 rounded" value="60" /></label>
+              <label class="space-y-1 md:col-span-2"><span class="font-semibold text-slate-700">Expected Filters (JSON)</span><input id="data-expected-filters" class="w-full px-3 py-2 font-mono text-slate-800 border border-slate-300 rounded" placeholder='{"period": "month"}' value="{}" /></label>
+              <label class="flex items-center gap-2 md:col-span-2"><input id="data-scenario-approved" type="checkbox" checked class="rounded border-slate-300 text-emerald-600" /><span class="font-semibold text-slate-700">Approved for automated data validation</span></label>
+              <div class="md:col-span-2 flex justify-end"><button id="btn-submit-data-scenario" type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus mr-1"></i> Register Data Assertion</button></div>
+            </form>
+            <div class="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+              <div class="bg-slate-100 px-3 py-2 font-semibold text-slate-700 flex items-center justify-between">
+                <span>Registered Data Assertions</span>
+                <span id="data-scenarios-count" class="text-slate-500 font-normal">0 scenarios</span>
+              </div>
+              <table class="min-w-full text-xs">
+                <thead class="bg-slate-50 text-slate-700">
+                  <tr>
+                    <th class="table-cell text-left">Scenario</th>
+                    <th class="table-cell text-left">Route &amp; Selector</th>
+                    <th class="table-cell text-left">Source Field</th>
+                    <th class="table-cell text-center">Format</th>
+                    <th class="table-cell text-center">Tolerance</th>
+                    <th class="table-cell text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="data-scenarios-table-body">
+                  <tr><td colspan="6" class="table-cell text-center text-slate-500 py-4">No data assertion scenarios registered.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="data-validation-result-panel" class="hidden rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div class="flex items-center gap-2">
+                  <span id="data-result-badge" class="px-2.5 py-0.5 rounded font-bold text-xs uppercase">PASS</span>
+                  <span id="data-result-classification" class="text-slate-700 font-semibold"></span>
+                </div>
+                <button id="btn-close-data-result" class="text-slate-400 hover:text-slate-700 text-sm font-bold">&times;</button>
+              </div>
+              <div class="grid md:grid-cols-4 gap-2 text-xs">
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">UI Rendered Value</span><span id="data-result-ui-val" class="font-mono font-bold text-slate-800"></span></div>
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Source API Value</span><span id="data-result-source-val" class="font-mono font-bold text-slate-800"></span></div>
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Delta</span><span id="data-result-delta" class="font-mono text-slate-800"></span></div>
+                <div class="p-2 bg-slate-50 border rounded"><span class="font-bold text-slate-500 block">Tolerance</span><span id="data-result-tolerance" class="font-mono text-slate-800"></span></div>
+              </div>
+              <div id="data-result-evidence-box" class="p-2.5 border rounded text-xs space-y-1"></div>
+            </div>
+          </div>
+        </details>
+
         <div id="assurance-desk-message" class="hidden text-xs rounded-lg px-3 py-2"></div>
       </div>
     </section>
@@ -2262,7 +2384,16 @@
       document.getElementById("btn-nav-suites").onclick = () => switchView("suites");
       document.getElementById("btn-nav-artifacts").onclick = () => switchView("artifacts");
       document.getElementById("btn-nav-assurance").onclick = () => switchView("assurance");
-      document.getElementById("btn-refresh-assurance").onclick = loadAssuranceDesk;
+      document.getElementById("btn-refresh-assurance").onclick = () => { loadAssuranceDesk(); loadApiOperations(); loadDataScenarios(); };
+      const dataForm = document.getElementById("data-scenario-register-form");
+      if (dataForm) dataForm.addEventListener("submit", handleRegisterDataScenario);
+      const btnCloseData = document.getElementById("btn-close-data-result");
+      if (btnCloseData) btnCloseData.onclick = () => document.getElementById("data-validation-result-panel").classList.add("hidden");
+      const apiForm = document.getElementById("api-contract-register-form");
+      if (apiForm) apiForm.addEventListener("submit", handleRegisterApiContract);
+      const btnCloseApiResult = document.getElementById("btn-close-api-result");
+      if (btnCloseApiResult) btnCloseApiResult.onclick = () => document.getElementById("api-validation-result-panel").classList.add("hidden");
+
       document.getElementById("assurance-intake-form").addEventListener("submit", createAssuranceIncident);
 
       // Saved Runs View
@@ -4349,6 +4480,294 @@
       }
     }
 
+
+    let registeredApiOperations = [];
+
+    async function loadApiOperations() {
+      const tbody = document.getElementById("api-operations-table-body");
+      const countEl = document.getElementById("api-ops-count");
+      if (!tbody) return;
+      try {
+        const resp = await fetch(`${API_BASE}/v3/scenarios`);
+        const data = await resp.json();
+        const scenarios = data.scenarios || [];
+        const apiScenarios = scenarios.filter(s => s.scenario_type === "api_contract");
+        if (countEl) countEl.textContent = `${apiScenarios.length} operations`;
+        if (!apiScenarios.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-slate-500 py-4">No API operations registered yet. Register a contract above.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = apiScenarios.map(s => {
+          const isSafe = s.is_approved && s.reference_id;
+          return `<tr class="hover:bg-slate-50">
+            <td class="table-cell font-mono font-bold text-blue-700">GET</td>
+            <td class="table-cell font-mono">${assuranceEscape(s.name)}</td>
+            <td class="table-cell font-mono text-slate-600">${assuranceEscape(s.target_origin)}</td>
+            <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${s.is_approved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${s.is_approved ? 'READ-ONLY' : 'MUTATION-BLOCKED'}</span></td>
+            <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">Active</span></td>
+            <td class="table-cell text-right"><button class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded text-[11px]" onclick="executeApiOperationValidation('${assuranceEscape(s.reference_id)}')"><i class="fa-solid fa-play text-[9px] mr-1"></i> Validate</button></td>
+          </tr>`;
+        }).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-rose-600 py-4">${assuranceEscape(err.message)}</td></tr>`;
+      }
+    }
+
+
+    let registeredDataScenarios = [];
+
+    async function loadDataScenarios() {
+      const tbody = document.getElementById("data-scenarios-table-body");
+      const countEl = document.getElementById("data-scenarios-count");
+      if (!tbody) return;
+      try {
+        const resp = await fetch(`${API_BASE}/v3/data-assertion-scenarios`);
+        const data = await resp.json();
+        registeredDataScenarios = data.scenarios || [];
+        if (countEl) countEl.textContent = `${registeredDataScenarios.length} scenarios`;
+        if (!registeredDataScenarios.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-slate-500 py-4">No data assertion scenarios registered yet.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = registeredDataScenarios.map(s => {
+          return `<tr class="hover:bg-slate-50">
+            <td class="table-cell font-mono font-semibold text-slate-800">${assuranceEscape(s.name)}</td>
+            <td class="table-cell font-mono text-slate-600">${assuranceEscape(s.route)} <span class="text-slate-400">(${assuranceEscape(s.ui_selector)})</span></td>
+            <td class="table-cell font-mono text-slate-700">${assuranceEscape(s.source_field)}</td>
+            <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">${assuranceEscape(s.value_format)}</span></td>
+            <td class="table-cell text-center font-mono text-slate-600">${assuranceEscape(s.tolerance)}</td>
+            <td class="table-cell text-right"><button class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2.5 py-1 rounded text-[11px]" onclick="executeDataScenarioValidation('${assuranceEscape(s.data_assertion_scenario_id)}')"><i class="fa-solid fa-play text-[9px] mr-1"></i> Validate</button></td>
+          </tr>`;
+        }).join("");
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="table-cell text-center text-rose-600 py-4">${assuranceEscape(err.message)}</td></tr>`;
+      }
+    }
+
+    async function handleRegisterDataScenario(event) {
+      event.preventDefault();
+      const btn = document.getElementById("btn-submit-data-scenario");
+      const name = document.getElementById("data-scenario-name").value.trim();
+      const metricLabel = document.getElementById("data-metric-label").value.trim();
+      const route = document.getElementById("data-route").value.trim();
+      const uiSelector = document.getElementById("data-ui-selector").value.trim();
+      const sourceOpId = document.getElementById("data-source-op-id").value.trim();
+      const sourceField = document.getElementById("data-source-field").value.trim();
+      const timestampField = document.getElementById("data-timestamp-field").value.trim();
+      const valueFormat = document.getElementById("data-value-format").value;
+      const tolerance = document.getElementById("data-tolerance").value.trim() || "0";
+      const freshness = parseInt(document.getElementById("data-freshness-window").value, 10) || 60;
+      const approved = document.getElementById("data-scenario-approved").checked;
+      let expectedFilters = {};
+      try {
+        const rawFilters = document.getElementById("data-expected-filters").value.trim();
+        if (rawFilters) expectedFilters = JSON.parse(rawFilters);
+      } catch (e) {
+        showToast("Invalid JSON in expected filters", "error");
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      try {
+        const resp = await fetch(`${API_BASE}/v3/data-assertion-scenarios`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            metric_label: metricLabel,
+            route,
+            ui_selector: uiSelector,
+            source_operation_id: sourceOpId,
+            source_field: sourceField,
+            source_timestamp_field: timestampField,
+            value_format: valueFormat,
+            tolerance,
+            freshness_window_minutes: freshness,
+            expected_filters: expectedFilters,
+            approved,
+          }),
+        });
+        const resData = await resp.json();
+        if (!resp.ok) throw new Error(resData.detail || "Failed to register data assertion scenario");
+        showToast("Data assertion scenario registered successfully", "success");
+        document.getElementById("data-scenario-register-form").reset();
+        await loadDataScenarios();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function executeDataScenarioValidation(scenarioId) {
+      if (!scenarioId) return;
+      const panel = document.getElementById("data-validation-result-panel");
+      const badge = document.getElementById("data-result-badge");
+      const classifEl = document.getElementById("data-result-classification");
+      const uiValEl = document.getElementById("data-result-ui-val");
+      const sourceValEl = document.getElementById("data-result-source-val");
+      const deltaEl = document.getElementById("data-result-delta");
+      const tolEl = document.getElementById("data-result-tolerance");
+      const box = document.getElementById("data-result-evidence-box");
+
+      panel.classList.remove("hidden");
+      badge.className = "px-2.5 py-0.5 rounded font-bold text-xs uppercase bg-slate-200 text-slate-700 animate-pulse";
+      badge.textContent = "VALIDATING";
+      classifEl.textContent = "Connecting to target browser & reading source...";
+
+      try {
+        const resp = await fetch(`${API_BASE}/v3/data-assertion-scenarios/${scenarioId}/evaluate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ auto_capture: true }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Data assertion validation failed");
+
+        const obs = data.observation || {};
+        const comp = data.comparison || {};
+        const isPass = obs.result === "pass";
+        const isBlocked = obs.result === "blocked";
+
+        badge.className = `px-2.5 py-0.5 rounded font-bold text-xs uppercase ${isPass ? 'bg-emerald-100 text-emerald-800' : isBlocked ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`;
+        badge.textContent = (obs.result || "UNKNOWN").toUpperCase();
+        classifEl.textContent = obs.classification || "";
+
+        uiValEl.textContent = obs.ui_raw_value || "(none)";
+        sourceValEl.textContent = obs.source_raw_value || "(none)";
+        deltaEl.textContent = obs.delta != null ? obs.delta : "N/A";
+        tolEl.textContent = comp.tolerance || "0";
+
+        box.className = `p-2.5 border rounded text-xs space-y-1 ${isPass ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : isBlocked ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`;
+        box.innerHTML = `<div class="font-bold flex items-center gap-1.5"><i class="fa-solid ${isPass ? 'fa-circle-check text-emerald-600' : isBlocked ? 'fa-circle-pause text-amber-600' : 'fa-circle-xmark text-rose-600'}"></i> ${isPass ? 'Dashboard Data Verification Succeeded' : isBlocked ? 'Dashboard Verification Blocked by Prerequisite' : 'Dashboard Data Mismatch Detected'}</div>
+          <div class="font-mono text-[11px] text-slate-700">Observation ID: ${assuranceEscape(obs.data_observation_id || "")}</div>
+          <div class="font-mono text-[11px] text-slate-700">Captured At: ${assuranceEscape(obs.captured_at || "")}</div>`;
+      } catch (err) {
+        badge.className = "px-2.5 py-0.5 rounded font-bold text-xs uppercase bg-rose-100 text-rose-800";
+        badge.textContent = "FAILED";
+        classifEl.textContent = err.message;
+        box.className = "p-2.5 border rounded text-xs space-y-1 bg-rose-50 border-rose-200 text-rose-900";
+        box.innerHTML = `<div class="font-bold">Execution Error</div><div class="text-[11px]">${assuranceEscape(err.message)}</div>`;
+      }
+    }
+
+    async function handleRegisterApiContract(event) {
+      event.preventDefault();
+      const btn = document.getElementById("btn-submit-contract");
+      const name = document.getElementById("contract-name").value.trim();
+      const version = document.getElementById("contract-version").value.trim() || "1.0.0";
+      const sourceType = document.getElementById("contract-source-type").value;
+      const baseUrl = document.getElementById("contract-base-url").value.trim();
+      const env = document.getElementById("contract-environment").value;
+      const approved = document.getElementById("contract-approved").checked;
+      const rawDoc = document.getElementById("contract-source-doc").value.trim();
+
+      let sourceDocument;
+      try {
+        sourceDocument = JSON.parse(rawDoc);
+      } catch (e) {
+        showToast("Invalid JSON in contract specification", "error");
+        return;
+      }
+
+      if (btn) btn.disabled = true;
+      try {
+        const resp = await fetch(`${API_BASE}/v3/api-contracts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            version,
+            source_type: sourceType,
+            base_url: baseUrl,
+            environment: env,
+            approved,
+            source_document: sourceDocument,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Registration failed");
+        showToast(`Registered API contract: ${data.contract?.name || name} (${data.contract?.operations?.length || 0} operations)`, "success");
+        // Also register scenarios for each operation
+        for (const op of (data.contract?.operations || [])) {
+          if (op.safe_read_only) {
+            await fetch(`${API_BASE}/v3/scenarios`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: op.operation_key,
+                feature: name,
+                environment: env,
+                authorized_role: op.approved_role || "analyst",
+                target_origin: baseUrl,
+                scenario_type: "api_contract",
+                reference_id: op.operation_id,
+                max_actions: 1,
+                is_approved: true,
+              }),
+            });
+          }
+        }
+        document.getElementById("api-contract-register-form").reset();
+        await loadApiOperations();
+        await loadAssuranceDesk();
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function executeApiOperationValidation(operationId) {
+      if (!operationId) return;
+      const panel = document.getElementById("api-validation-result-panel");
+      if (panel) {
+        panel.classList.remove("hidden");
+        document.getElementById("api-result-badge").className = "px-2.5 py-0.5 rounded font-bold text-xs uppercase bg-amber-100 text-amber-800";
+        document.getElementById("api-result-badge").textContent = "RUNNING";
+        document.getElementById("api-result-classification").textContent = "Validating contract...";
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/v3/api-operations/${encodeURIComponent(operationId)}/validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scenario_version: "omnitest-ui-v1" }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || "Validation failed");
+        const obs = data.observation || {};
+        const isPass = obs.result === "pass";
+        const isBlocked = obs.result === "blocked";
+        const badge = document.getElementById("api-result-badge");
+        badge.className = `px-2.5 py-0.5 rounded font-bold text-xs uppercase ${isPass ? 'bg-emerald-100 text-emerald-800' : isBlocked ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`;
+        badge.textContent = obs.result || "UNKNOWN";
+        document.getElementById("api-result-classification").textContent = obs.classification || "";
+        document.getElementById("api-result-status").textContent = obs.status_code != null ? `${obs.status_code}` : "N/A";
+        document.getElementById("api-result-latency").textContent = obs.latency_ms != null ? `${obs.latency_ms} ms` : "N/A";
+        const bodyMeta = obs.assertion_result?.body_metadata || {};
+        document.getElementById("api-result-sha").textContent = bodyMeta.sha256 || "None";
+
+        const schemaBox = document.getElementById("api-result-schema-box");
+        const schemaVal = obs.assertion_result?.schema_validation;
+        const schemaErrors = obs.assertion_result?.schema_errors || [];
+        if (schemaVal === "passed") {
+          schemaBox.className = "p-2.5 border border-emerald-200 bg-emerald-50 rounded text-xs text-emerald-900 space-y-1";
+          schemaBox.innerHTML = `<div><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> <b>JSON Schema Validation:</b> PASSED (all nested objects, types, formats, required fields satisfied)</div>`;
+        } else if (schemaVal === "failed") {
+          schemaBox.className = "p-2.5 border border-rose-200 bg-rose-50 rounded text-xs text-rose-900 space-y-1";
+          const errItems = schemaErrors.map(e => `<li><code class="font-mono bg-rose-100 px-1 rounded">${assuranceEscape(e.path)}</code>: ${assuranceEscape(e.message)}</li>`).join("");
+          schemaBox.innerHTML = `<div><i class="fa-solid fa-circle-xmark text-rose-600 mr-1"></i> <b>JSON Schema Validation:</b> FAILED (${schemaErrors.length} violation(s))</div><ul class="list-disc ml-5 mt-1 text-[11px] space-y-0.5">${errItems}</ul>`;
+        } else {
+          schemaBox.className = "p-2.5 border border-slate-200 bg-slate-50 rounded text-xs text-slate-700 space-y-1";
+          schemaBox.innerHTML = `<div><b>Schema Validation:</b> ${assuranceEscape(schemaVal || 'skipped')}</div>`;
+        }
+        document.getElementById("api-result-headers").textContent = JSON.stringify(obs.assertion_result?.response_headers || {}, null, 2);
+        showToast(`API operation: ${obs.result?.toUpperCase()} (${obs.classification})`, isPass ? "success" : isBlocked ? "warning" : "error");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
     async function loadAssuranceDesk() {
       const body = document.getElementById("assurance-incidents-body");
       const schedulesBody = document.getElementById("assurance-schedules-body");
@@ -4369,6 +4788,7 @@
         const scenarioData = await scenarioResponse.json();
         if (!scenarioResponse.ok) throw new Error(scenarioData.detail || "Approved scenarios are unavailable");
         assuranceScenarios = (scenarioData.scenarios || []).filter(item => item.is_approved === true);
+        await loadApiOperations();
       } catch (error) {
         body.innerHTML = `<tr><td colspan="5" class="table-cell text-center text-amber-700 py-6">${assuranceEscape(error.message)}</td></tr>`;
         if (schedulesBody) schedulesBody.innerHTML = `<tr><td colspan="4" class="table-cell text-center text-amber-700 py-4">${assuranceEscape(error.message)}</td></tr>`;
