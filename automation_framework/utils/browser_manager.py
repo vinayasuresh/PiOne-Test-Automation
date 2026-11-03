@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
@@ -5,9 +7,17 @@ from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_
 from automation_framework.config.settings import HEADLESS
 
 
+def _launch_headless() -> bool:
+    """Use headed mode for local interactive work, headless mode on CI/servers."""
+    if HEADLESS or os.getenv("CI", "").strip().lower() in {"1", "true", "yes"}:
+        return True
+    # Linux workers without a display cannot launch Chromium in headed mode.
+    return sys.platform.startswith("linux") and not os.getenv("DISPLAY")
+
+
 def start_browser() -> tuple[Playwright, Browser, Page]:
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=HEADLESS)
+    browser = playwright.chromium.launch(headless=_launch_headless())
     page = browser.new_page()
 
     return playwright, browser, page
@@ -17,7 +27,7 @@ def start_persistent_browser(
     storage_state_path: str | Path | None = None,
 ) -> tuple[Playwright, Browser, BrowserContext, Page]:
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=HEADLESS)
+    browser = playwright.chromium.launch(headless=_launch_headless())
 
     context_options = {}
     if storage_state_path and Path(storage_state_path).exists():
