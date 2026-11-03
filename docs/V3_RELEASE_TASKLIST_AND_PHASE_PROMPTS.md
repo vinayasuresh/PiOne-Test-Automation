@@ -225,7 +225,34 @@ arbitrary SQL or production writes. Add tests for matching values, rounding
 tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 ```
 
-## Phase 4 - Incident orchestration and controlled agent loop
+## Revised Phase 4 - API/database cross-read validation (Priority 0)
+
+### Phase 4 implementation evidence (2026-11-03)
+
+- Added `api/services/v3_database_assertion_service.py` with an approved-query
+  adapter for test/staging databases. It accepts server-owned query definitions
+  only, permits one `SELECT`/CTE read, binds declared parameters, caps evidence
+  at 500 rows, and redacts sensitive values before returning evidence.
+- Mutation statements, multi-statements, PRAGMA/admin commands, production
+  environments, unknown parameters and missing parameters return `blocked`.
+- Added API/database comparison classification for exact, tolerance-based and
+  mismatched values without converting a source outage into a product failure.
+- Proof: `python -m pytest
+  automation_framework/tests/test_v3_database_assertion_phase4.py
+  automation_framework/tests/test_v3_api_contract_phase2.py
+  automation_framework/tests/test_v3_dashboard_data_phase3.py -q` passed
+  **19 tests**.
+
+### Remaining Phase 4 wiring
+
+- Persist approved database query definitions and bind them to a data-assertion
+  scenario through an additive migration.
+- Expose the cross-read through the feature-gated assurance route and include
+  API/database/dashboard lineage in the observation export.
+- Run the rendered-browser/dashboard proof in Phase 5; no browser proof is
+  claimed by this service-level implementation.
+
+## Supporting implementation - Incident orchestration and controlled agent loop
 
 ### Current implementation status (uncommitted; validated 2026-11-03)
 
@@ -277,7 +304,7 @@ application defect. Add tests for duplicate intake, target denial, missing role,
 auth expiry, target outage and worker interruption. Do not remove manual mode.
 ```
 
-## Phase 5 - Helpdesk and continuous-check prototype
+## Supporting implementation - Helpdesk and continuous-check prototype
 
 ### Current implementation status (uncommitted; validated 2026-11-03)
 
@@ -322,7 +349,7 @@ repeated failures by scenario, target and environment; record recovery on a
 subsequent pass. Add UI/API tests and preserve V2 screens and navigation.
 ```
 
-## Phase 6 - V3 release hardening and client rehearsal
+## Supporting implementation - V3 release hardening and client rehearsal
 
 ### Validation evidence to date (uncommitted; 2026-11-03)
 
