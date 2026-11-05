@@ -63,6 +63,7 @@
     const securityOnly = mode === 'security_only' || mode === 'vapt_only';
     const vaptOnly = mode === 'vapt_only';
     const functionalOnly = mode === 'functional_only';
+    const apiTesting = mode === 'api_testing';
     const help = document.getElementById('assessment-mode-help');
     const firstHelp = document.getElementById('assessment-mode-first-help');
     const securityPanel = document.getElementById('security-review-panel');
@@ -73,6 +74,8 @@
         ? (vaptOnly ? 'VAPT assessment is enabled. Safe, bounded security checks run after the crawl; functional test planning and execution remain skipped.' : 'Security review is enabled. Test planning and execution remain skipped for this run.')
         : functionalOnly
           ? 'Security review is disabled. Continue with the normal test-planning and execution flow.'
+          : apiTesting
+            ? 'Import an OpenAPI, Swagger, or Postman contract, select approved operations, and run bounded API checks. This flow does not crawl browser modules.'
           : 'Run the normal test-planning/execution flow and start the security review separately when ready.';
     }
     if (firstHelp) {
@@ -82,6 +85,8 @@
           : 'Crawl and review modules as usual, then run the passive security review. Functional test planning and execution are skipped.')
         : functionalOnly
           ? 'Crawl and review modules as usual. Security review controls remain disabled and the normal test-planning/execution flow continues.'
+          : apiTesting
+            ? 'Import an OpenAPI, Swagger, or Postman contract, select approved operations, and run bounded API checks. This flow does not crawl browser modules.'
           : 'Crawl and review modules as usual, then use Analyze to run security review and/or continue to test planning.';
     }
     if (securityPanel) {

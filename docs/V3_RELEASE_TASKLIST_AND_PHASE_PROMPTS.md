@@ -430,6 +430,39 @@ listing passed checks, failures, known limitations and an explicit go/no-go.
 
 Phase 6 is release-proof complete for the bounded vertical slice. The next functional priority is API testing and dashboard-data validation, followed by Tara/helpdesk connectors and production scheduling.
 
+### Pre-Tara foundation slices implemented (2026-11-04)
+
+The next three implementation slices are now present in the feature-gated V3
+working tree. They extend the existing interactive-learning flow without
+changing the V2 browser workflow:
+
+- **Recovery-safe worker lifecycle:** stale interactive sessions can be marked
+  `recovery_required`, retain their last checkpoint, and be restarted through a
+  controlled retry/resume action. Terminal sessions are not reopened.
+- **Bounded interaction evidence:** manual clicks, inputs, selections,
+  navigation and assertions can be recorded against an allowed target origin
+  with route, CSS selector, XPath, source and page metadata. Input text is
+  stored only as a SHA-256/length summary; secrets, raw values and page HTML are
+  never persisted.
+- **Focused release gate:** feature-flag, evidence-lineage, recovery and
+  cross-origin rejection checks are covered by deterministic tests.
+
+Verification completed for this slice:
+
+- `compileall`: passed.
+- Interactive phase tests: `9 passed`.
+- Focused release-gate tests: `4 passed`.
+- V3-focused suite: `77 passed, 7 deselected`.
+- Fresh SQLite Alembic upgrade through the new evidence migration: passed.
+- `git diff --check`: passed.
+
+The rendered-browser proof is still an explicit follow-up gate because this
+Windows host currently cannot expose the local app socket to the browser
+bridge. No browser pass is claimed from these deterministic service tests. A
+socket-capable environment must still verify the visible multi-module flow,
+retry/resume interaction, evidence display and V2 regression with V3 disabled
+before Tara integration begins.
+
 ### V3.1 - Coverage Mesh
 
 - [ ] Excel row-by-row execution with no lost input rows.

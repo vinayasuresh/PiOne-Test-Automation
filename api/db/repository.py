@@ -10,6 +10,7 @@ Provides centralized, thread-safe database operations for:
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hmac
 from typing import Any
 from uuid import uuid4
 
@@ -32,6 +33,7 @@ from api.db.models import (
     Execution,
     ExecutionStep,
     EvidenceManifest,
+    ApiTestPlanState,
     RegressionSuite,
     RegressionSuiteCase,
     RouteEdge,
@@ -45,6 +47,8 @@ from api.db.models import (
     VerificationAttempt,
     VerificationJob,
     MonitoringSchedule,
+    InteractiveBrowserSession,
+    InteractiveBrowserEvidence,
 )
 from api.db.session import execute_with_retry, get_db_session
 from automation_framework.utils.logger import logger
@@ -1448,8 +1452,10 @@ class DBRepository:
             )
             session.add(contract)
             session.flush()
+            valid_keys = {c.name for c in ApiOperation.__table__.columns} - {'id', 'contract_id', 'created_at'}
             for item in safe_operations:
-                session.add(ApiOperation(contract_id=contract.id, **item))
+                filtered_item = {k: v for k, v in item.items() if k in valid_keys}
+                session.add(ApiOperation(contract_id=contract.id, **filtered_item))
             session.flush()
             return DBRepository._api_contract_to_dict(session, contract)
 
@@ -1549,6 +1555,74 @@ class DBRepository:
                     .all()
                 )
             ]
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def _api_plan_to_dict(row: ApiTestPlanState) -> dict[str, Any]:
+        """Return the same redacted shape used by the execution service."""
+        started_at = row.started_at.timestamp() if row.started_at else None
+        completed_at = row.completed_at.timestamp() if row.completed_at else None
+        return {
+            "plan_id": row.plan_id,
+            "contract_id": row.contract_id,
+            "status": row.status,
+            "total_operations": row.total_operations,
+            "completed_count": row.completed_count,
+            "passed_count": row.passed_count,
+            "failed_count": row.failed_count,
+            "blocked_count": row.blocked_count,
+            "checkpoints": row.checkpoints or {},
+            "operation_results": row.operation_results or [],
+            "resolved_parameters": row.resolved_parameters or {},
+            "coverage_gaps": row.coverage_gaps or [],
+            "start_time": started_at,
+            "end_time": completed_at,
+            "duration_ms": row.duration_ms or 0,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        }
+
+    @staticmethod
+    def save_v3_api_plan(plan: dict[str, Any]) -> dict[str, Any]:
+        """Upsert a redacted API plan checkpoint/state transactionally."""
+        safe = redact_sensitive_data(plan)
+        plan_id = str(safe.get("plan_id", ""))
+        contract_id = str(safe.get("contract_id", ""))
+        if not plan_id or not contract_id:
+            raise ValueError("API plan and contract identifiers are required")
+
+        def _op(session: Session) -> dict[str, Any]:
+            row = session.query(ApiTestPlanState).filter(ApiTestPlanState.plan_id == plan_id).first()
+            if row is None:
+                row = ApiTestPlanState(plan_id=plan_id, contract_id=contract_id)
+                session.add(row)
+            row.contract_id = contract_id
+            row.status = str(safe.get("status", row.status or "running"))
+            for field in ("total_operations", "completed_count", "passed_count", "failed_count", "blocked_count"):
+                if field in safe and safe[field] is not None:
+                    setattr(row, field, int(safe[field]))
+            for field, default in (("checkpoints", {}), ("operation_results", []), ("resolved_parameters", {}), ("coverage_gaps", [])):
+                if field in safe and safe[field] is not None:
+                    setattr(row, field, redact_sensitive_data(safe[field]))
+            if safe.get("duration_ms") is not None:
+                row.duration_ms = int(safe["duration_ms"])
+            if safe.get("end_time") is not None:
+                # The execution service uses a monotonic timer for duration;
+                # persist a real UTC completion timestamp instead of treating
+                # that monotonic value as a Unix epoch.
+                row.completed_at = _now_utc()
+            row.updated_at = _now_utc()
+            session.flush()
+            return DBRepository._api_plan_to_dict(row)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_v3_api_plan(plan_id: str) -> dict[str, Any] | None:
+        """Load a persisted API plan for progress, reporting, or resume."""
+        def _op(session: Session) -> dict[str, Any] | None:
+            row = session.query(ApiTestPlanState).filter(ApiTestPlanState.plan_id == plan_id).first()
+            return DBRepository._api_plan_to_dict(row) if row else None
         return execute_with_retry(_op)
 
     # -----------------------------------------------------------------------
@@ -1757,4 +1831,257 @@ class DBRepository:
                 .all()
             )
             return [DBRepository._data_observation_to_dict(item) for item in rows]
+        return execute_with_retry(_op)
+
+    # -------------------------------------------------------------------
+    # 9. V3 interactive browser sessions (additive, feature-gated by router)
+    # -------------------------------------------------------------------
+    @staticmethod
+    def _interactive_session_to_dict(item: InteractiveBrowserSession) -> dict[str, Any]:
+        return {
+            "session_id": item.id,
+            "run_id": item.run_id,
+            "organization_id": item.organization_id,
+            "owner_id": item.owner_id,
+            "target_origin": item.target_origin,
+            "allowed_origins": item.allowed_origins or [],
+            "status": item.status,
+            "phase": item.phase,
+            "checkpoint_id": item.checkpoint_id,
+            "module_id": item.module_id,
+            "route": item.route,
+            "worker_id": item.worker_id,
+            "expires_at": item.expires_at.isoformat() if item.expires_at else None,
+            "last_activity_at": item.last_activity_at.isoformat() if item.last_activity_at else None,
+            "metadata": redact_sensitive_data(item.metadata_json or {}),
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+        }
+
+    @staticmethod
+    def create_interactive_session(payload: dict[str, Any]) -> dict[str, Any]:
+        token_hash = str(payload.get("session_token_hash", ""))
+        if len(token_hash) != 64 or any(ch not in "0123456789abcdef" for ch in token_hash.lower()):
+            raise ValueError("interactive session token hash is invalid")
+        safe = redact_sensitive_data(payload)
+
+        def _op(session: Session) -> dict[str, Any]:
+            item = InteractiveBrowserSession(
+                id=safe["session_id"],
+                run_id=safe.get("run_id"),
+                organization_id=safe.get("organization_id", "default"),
+                owner_id=safe.get("owner_id", "operator"),
+                target_origin=safe["target_origin"],
+                allowed_origins=list(safe.get("allowed_origins") or []),
+                # Keep only the already-hashed opaque token.  The generic
+                # redactor intentionally masks fields containing ``token``;
+                # using the raw payload here avoids persisting a placeholder.
+                session_token_hash=token_hash,
+                status="created",
+                phase="control_plane",
+                checkpoint_id=safe.get("checkpoint_id"),
+                module_id=safe.get("module_id"),
+                route=safe.get("route"),
+                worker_id=safe.get("worker_id", "local-worker"),
+                expires_at=safe["expires_at"],
+                metadata_json=redact_sensitive_data(safe.get("metadata") or {}),
+            )
+            session.add(item)
+            session.flush()
+            return DBRepository._interactive_session_to_dict(item)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def get_interactive_session(session_id: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            item = session.query(InteractiveBrowserSession).filter(InteractiveBrowserSession.id == session_id).first()
+            if not item:
+                return None
+            now = _now_utc()
+            expires = item.expires_at
+            if expires and expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires and expires <= now and item.status not in {"completed", "cancelled", "failed", "expired"}:
+                item.status = "expired"
+                item.last_activity_at = now
+                session.flush()
+            return DBRepository._interactive_session_to_dict(item)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def authenticate_interactive_session(session_id: str, token_hash: str) -> dict[str, Any] | None:
+        def _op(session: Session) -> dict[str, Any] | None:
+            item = session.query(InteractiveBrowserSession).filter(InteractiveBrowserSession.id == session_id).first()
+            if not item or not hmac.compare_digest(item.session_token_hash or "", token_hash):
+                return None
+            expires = item.expires_at
+            if expires and expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires and expires <= _now_utc() and item.status not in {"completed", "cancelled", "failed", "expired"}:
+                item.status = "expired"
+                item.last_activity_at = _now_utc()
+                session.flush()
+                return None
+            return DBRepository._interactive_session_to_dict(item)
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def transition_interactive_session(session_id: str, new_status: str, reason: str = "") -> dict[str, Any]:
+        allowed = {
+            "created": {"starting", "cancelled", "expired"},
+            "starting": {"running", "failed", "cancelled", "expired"},
+            "running": {"paused", "waiting_for_user", "completed", "failed", "cancelled", "expired"},
+            "paused": {"running", "retrying", "completed", "cancelled", "expired"},
+            "waiting_for_user": {"running", "retrying", "completed", "cancelled", "expired"},
+            "retrying": {"running", "failed", "cancelled", "expired"},
+            "failed": {"retrying", "cancelled", "expired"},
+            "completed": set(), "cancelled": set(), "expired": set(),
+        }
+
+        def _op(session: Session) -> dict[str, Any]:
+            item = session.query(InteractiveBrowserSession).filter(InteractiveBrowserSession.id == session_id).first()
+            if not item:
+                raise LookupError("Interactive browser session not found")
+            if new_status != item.status and new_status not in allowed.get(item.status, set()):
+                raise ValueError(f"Cannot transition interactive session from {item.status} to {new_status}")
+            item.status = new_status
+            item.last_activity_at = _now_utc()
+            metadata = dict(item.metadata_json or {})
+            if reason:
+                metadata["last_transition_reason"] = redact_sensitive_data(reason)
+            item.metadata_json = metadata
+            session.flush()
+            return DBRepository._interactive_session_to_dict(item)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def touch_interactive_session(session_id: str, client_state: str = "connected") -> dict[str, Any]:
+        def _op(session: Session) -> dict[str, Any]:
+            item = session.query(InteractiveBrowserSession).filter(InteractiveBrowserSession.id == session_id).first()
+            if not item:
+                raise LookupError("Interactive browser session not found")
+            if item.status in {"completed", "cancelled", "expired", "failed"}:
+                return DBRepository._interactive_session_to_dict(item)
+            item.last_activity_at = _now_utc()
+            metadata = dict(item.metadata_json or {})
+            metadata["last_client_state"] = redact_sensitive_data(client_state)
+            item.metadata_json = metadata
+            session.flush()
+            return DBRepository._interactive_session_to_dict(item)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def recover_stale_interactive_sessions(stale_before: datetime, organization_id: str | None = None) -> list[dict[str, Any]]:
+        """Mark abandoned in-process workers failed without losing checkpoints.
+
+        A process restart cannot restore a Playwright object.  Persisting a
+        truthful ``failed`` state lets an operator explicitly retry from the
+        saved checkpoint rather than leaving a misleading ``running`` job.
+        Terminal sessions are never touched and the operation is idempotent.
+        """
+
+        def _op(session: Session) -> list[dict[str, Any]]:
+            query = session.query(InteractiveBrowserSession).filter(
+                InteractiveBrowserSession.status.in_(["starting", "running", "retrying"]),
+                InteractiveBrowserSession.last_activity_at < stale_before,
+            )
+            if organization_id:
+                query = query.filter(InteractiveBrowserSession.organization_id == organization_id)
+            recovered: list[dict[str, Any]] = []
+            for item in query.order_by(InteractiveBrowserSession.last_activity_at.asc()).all():
+                item.status = "failed"
+                item.phase = "recovery_required"
+                item.last_activity_at = _now_utc()
+                metadata = dict(item.metadata_json or {})
+                metadata["recovery_reason"] = "worker_lease_expired"
+                metadata["recovery_checkpoint_id"] = item.checkpoint_id or ""
+                item.metadata_json = redact_sensitive_data(metadata)
+                recovered.append(DBRepository._interactive_session_to_dict(item))
+            session.flush()
+            return recovered
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def mark_interactive_session_recovery_required(session_id: str) -> dict[str, Any]:
+        """Explicitly convert a non-terminal session into a retryable state."""
+
+        def _op(session: Session) -> dict[str, Any]:
+            item = session.query(InteractiveBrowserSession).filter(InteractiveBrowserSession.id == session_id).first()
+            if not item:
+                raise LookupError("Interactive browser session not found")
+            if item.status in {"completed", "cancelled", "expired"}:
+                return DBRepository._interactive_session_to_dict(item)
+            item.status = "failed"
+            item.phase = "recovery_required"
+            item.last_activity_at = _now_utc()
+            metadata = dict(item.metadata_json or {})
+            metadata["recovery_reason"] = "operator_requested_recovery"
+            metadata["recovery_checkpoint_id"] = item.checkpoint_id or ""
+            item.metadata_json = redact_sensitive_data(metadata)
+            session.flush()
+            return DBRepository._interactive_session_to_dict(item)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def _interactive_evidence_to_dict(item: InteractiveBrowserEvidence) -> dict[str, Any]:
+        return {
+            "evidence_id": item.id,
+            "session_id": item.session_id,
+            "organization_id": item.organization_id,
+            "event_type": item.event_type,
+            "page_url": item.page_url,
+            "route": item.route,
+            "label": item.label,
+            "selector": item.selector,
+            "xpath": item.xpath,
+            "source": item.source,
+            "text_sha256": item.text_sha256,
+            "text_length": item.text_length,
+            "metadata": redact_sensitive_data(item.metadata_json or {}),
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+        }
+
+    @staticmethod
+    def add_interactive_evidence(payload: dict[str, Any]) -> dict[str, Any]:
+        """Persist locator evidence without accepting raw input/page content."""
+
+        def _op(session: Session) -> dict[str, Any]:
+            item = InteractiveBrowserEvidence(
+                id=payload["evidence_id"],
+                session_id=payload["session_id"],
+                organization_id=payload["organization_id"],
+                event_type=payload["event_type"],
+                page_url=payload["page_url"],
+                route=payload.get("route", ""),
+                label=payload.get("label", ""),
+                selector=payload.get("selector", ""),
+                xpath=payload.get("xpath", ""),
+                source=payload.get("source", "manual_interaction"),
+                text_sha256=payload.get("text_sha256", ""),
+                text_length=int(payload.get("text_length", 0)),
+                metadata_json=redact_sensitive_data(payload.get("metadata") or {}),
+            )
+            session.add(item)
+            session.flush()
+            return DBRepository._interactive_evidence_to_dict(item)
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_interactive_evidence(session_id: str, limit: int = 200) -> list[dict[str, Any]]:
+        def _op(session: Session) -> list[dict[str, Any]]:
+            rows = (
+                session.query(InteractiveBrowserEvidence)
+                .filter(InteractiveBrowserEvidence.session_id == session_id)
+                .order_by(InteractiveBrowserEvidence.created_at.asc())
+                .limit(max(1, min(limit, 500)))
+                .all()
+            )
+            return [DBRepository._interactive_evidence_to_dict(row) for row in rows]
+
         return execute_with_retry(_op)

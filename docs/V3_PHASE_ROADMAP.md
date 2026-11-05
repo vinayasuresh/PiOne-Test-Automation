@@ -4,6 +4,14 @@
 **Audience:** Product, engineering, QA, security and senior reviewers
 **Last reviewed:** 2026-10-26
 
+**Implementation update (2026-11-04):** The pre-Tara interactive-browser
+foundation is now implemented as an additive, opt-in control plane. Phases 0–1
+(V2 protection and durable session lifecycle) and the Phase 2 worker boundary
+are unit-verified; Phase 3 currently provides authenticated lifecycle/heartbeat
+WebSocket control only. Remote Chromium media, click capture and multi-worker
+queueing remain explicitly unproven follow-up work. See
+[Phases 0–3 Execution Proof](OMNITEST_PHASE_0_3_EXECUTION_PROOF_2026-11-04.md).
+
 > **Current delivery priority:** [The V3 Client Assurance Release Blueprint](V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
 > defines the demo-ready Monday vertical slice. API contract testing and dashboard-data
 > validation are the first delivery priorities, followed by Tara incident verification,

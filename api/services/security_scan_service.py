@@ -327,7 +327,7 @@ def _enrich_finding(item, run_id, module="Web"):
         "actual_result": item.get("actual_result") or item.get("evidence", ""),
         "business_impact": item.get("business_impact") or item.get("impact", ""),
         "status": status,
-        "source_file": "PiOne Testmate",
+        "source_file": "OmniTest by PiOne",
         "source_sheet": "VAPT Assessment",
         "platform": "Web",
         "module": module,

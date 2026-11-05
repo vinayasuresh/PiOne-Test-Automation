@@ -12,6 +12,7 @@ import os
 
 
 V3_ASSURANCE_ENABLED_ENV = "V3_ASSURANCE_ENABLED"
+INTERACTIVE_BROWSER_ENABLED_ENV = "INTERACTIVE_BROWSER_ENABLED"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
@@ -25,3 +26,15 @@ def is_v3_assurance_enabled() -> bool:
 
     value = os.getenv(V3_ASSURANCE_ENABLED_ENV, "").strip().lower()
     return value in _TRUE_VALUES
+
+
+def is_interactive_browser_enabled() -> bool:
+    """Return whether the additive interactive browser control plane is enabled.
+
+    The browser capability has its own opt-in so a V3 API/data deployment can
+    remain enabled without exposing a remote browser session surface.  Both
+    flags must be enabled before any interactive route is available.
+    """
+
+    value = os.getenv(INTERACTIVE_BROWSER_ENABLED_ENV, "").strip().lower()
+    return is_v3_assurance_enabled() and value in _TRUE_VALUES

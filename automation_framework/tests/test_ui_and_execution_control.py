@@ -1,7 +1,7 @@
 """test_ui_and_execution_control.py: Deterministic tests for Phase 6.
 
 Covers:
-1. Branding consistency: 'PiOne Testmate' in main API, exports, and frontend.
+1. Branding consistency: 'OmniTest by PiOne' in main API, exports, and frontend.
 2. Module selection: select all, clear all, single module, validation on empty selection.
 3. Live scan controls: pause, resume, continue, retry, end scan & save.
 4. Live telemetry: WebSocket event schema validation, status transitions, metric updates.
@@ -72,17 +72,17 @@ def client():
 
 # 1. Branding Consistency Tests
 def test_branding_consistency(client: TestClient):
-    """Verify that visible product branding is consistently 'PiOne Testmate'."""
+    """Verify that visible product branding is consistently 'OmniTest by PiOne'."""
     # Main API health check
     health_resp = client.get("/health")
     assert health_resp.status_code == 200
-    assert health_resp.json()["service"] == "PiOne Testmate API"
+    assert health_resp.json()["service"] == "OmniTest by PiOne API"
 
     # Frontend index.html
     html_resp = client.get("/")
     assert html_resp.status_code == 200
-    assert "PiOne Testmate" in html_resp.text
-    assert "<title>PiOne Testmate" in html_resp.text
+    assert "OmniTest by PiOne" in html_resp.text
+    assert "<title>OmniTest by PiOne" in html_resp.text
 
     # Crawl exporter summary heading
     sample_crawl = {
@@ -98,7 +98,7 @@ def test_branding_consistency(client: TestClient):
     with tempfile.TemporaryDirectory() as tmp_dir:
         paths = export_crawl_results(sample_crawl, output_dir=tmp_dir, run_id="test_branding")
         md_text = paths["markdown"].read_text(encoding="utf-8")
-        assert "# PiOne Testmate - Scan Summary" in md_text
+        assert "# OmniTest by PiOne - Scan Summary" in md_text
 
 
 # 2. Module Selection Logic Tests

@@ -276,6 +276,9 @@ def test_live_security_panel_against_local_fixture(store, monkeypatch, tmp_path)
                 # This is a focused security-panel test, using a seeded crawl fixture.
                 # It does not stand in for an end-to-end live crawler acceptance run.
                 page.evaluate("state.runId = 'run_a'; document.getElementById('panel-1').classList.add('hidden'); document.getElementById('panel-5').classList.remove('hidden')")
+                # The security assessment is intentionally collapsed by default;
+                # reveal its controls as a real user must before interacting.
+                page.locator('#security-review-panel > summary').click()
                 page.locator('#security-authorized').check()
                 page.locator('#security-active').check()
                 page.locator('#security-start').click()

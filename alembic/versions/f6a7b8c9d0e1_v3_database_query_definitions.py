@@ -7,6 +7,7 @@ Create Date: 2026-11-03
 
 from alembic import op
 import sqlalchemy as sa
+from migration_compat import table_exists
 
 
 revision = "f6a7b8c9d0e1"
@@ -16,6 +17,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if table_exists("database_query_definitions"):
+        return
     op.create_table(
         "database_query_definitions",
         sa.Column("id", sa.String(length=80), primary_key=True),

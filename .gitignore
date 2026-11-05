@@ -13,6 +13,10 @@ automation_framework/logs/*.log
 scans/test_context/
 automation_framework/storage/auth_state.json
 
+# Local V3/browser proof output and temporary test logs.
+output/
+omnitest-v3-test*.log
+
 # Runtime screenshots, PDF render previews, and other generated image assets.
 # Existing tracked image assets remain tracked; this prevents new local/demo
 # captures from entering source control.

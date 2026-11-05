@@ -1,4 +1,4 @@
-# Enterprise UI Automation Intelligence Platform
+# OmniTest by PiOne — Enterprise Assurance Platform
 
 **Version**: `2.1.0` (Enterprise Lifecycle & Session Resiliency Edition)
 **Core Architecture**: Playwright Sync Engine + Deterministic DOM State Fingerprinting + Bounded Safe Crawler + Multi-Provider LLM Test Planning + Session Lifecycle Guard + 10-Sheet Audit-Ready Workbook
@@ -126,7 +126,7 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 
 ### 3.1 Verified V2 status — 2026-10-29
 
-PiOne Testmate is a **V2 baseline under active verification**, not an
+OmniTest by PiOne is a **V2 baseline under active verification**, not an
 unqualified production certification. The following evidence is current:
 
 - deterministic planning was browser-verified to honour requested counts of
@@ -149,7 +149,7 @@ For complete release specifications, requirements, end-to-end user guides, and v
 
 ## 3.2 Product Positioning & V3 Direction
 
-PiOne Testmate is currently a strong local/product foundation for **evidence-first
+OmniTest by PiOne is currently a strong local/product foundation for **evidence-first
 functional assurance**. Its differentiator is not generic AI test generation. It is
 the traceable chain from a real scanned route and UI element to a generated step,
 execution result, screenshot, security observation and regression decision.
@@ -180,19 +180,22 @@ tracked as future work and coverage gaps.
 
 ### 3.3 Verified V3 Client Assurance Baseline — 2026-11-03
 
-PiOne Testmate V3 introduces the **Client Assurance Release vertical slice**, prioritizing **API Contract Testing** and **Dashboard-Data Validation** as mandatory foundations before Tara/helpdesk orchestration:
+OmniTest by PiOne V3 introduces the **Client Assurance Release vertical slice**, prioritizing **API Contract Testing** and **Dashboard-Data Validation** as mandatory foundations before Tara/helpdesk orchestration:
 
 - **Strict Priority Order**: Enforces safe, read-only API contract checks (OpenAPI v3 / Postman v2.1) and dashboard metric verification (comparing rendered UI values against read-only sources or recorded payloads) prior to automated incident orchestration.
 - **Feature Flag Gated**: Gated behind `V3_ASSURANCE_ENABLED=true` (defaults `False`). When disabled, all `/v3/*` endpoints return 404 and V3 UI views are completely hidden, preserving the V2 runtime intact.
 - **Durable Assurance Records**: Standardized `support_incident`, `verification_job`, `verification_attempt`, `api_observation`, `data_assertion`, and `evidence_manifest` records tied to the core `run_id` and Assurance Graph.
-- **Verified Phase 6 Release Gate**: Rendered browser and API proof on port 8000 successfully ingested incident `23d2c4f797bc47feba770adb55a073f6` and job `9402a6122a47443887f5b679a98fe3f7`, observed terminal verdict `reproduced` with 1 attempt and 1 evidence manifest, routed deterministically to `Reporting Engineering`, proved intake idempotency, and verified SQLite recovery across restarts.
-- **Automated Verification**: 29/29 focused V3 tests pass; 216/216 default suite tests pass (74 browser-marked tests deselected by policy).
+- **Release evidence is explicitly bounded**: focused V3/API/dashboard/database/orchestration tests pass, but rendered V3 and Tara browser proof remains a release-gate item when the host cannot bind port 8000 or expose the browser bridge. See the dated proof reports for verified versus blocked evidence.
+- **Interactive browser foundation**: opt in with `INTERACTIVE_BROWSER_ENABLED=true`; an actual Playwright worker launches only when `INTERACTIVE_BROWSER_LAUNCH=true`. The default is safe and does not expose CDP/VNC or remote page execution.
 
 Key release documentation:
 - [V3 Client Assurance Delivery Blueprint](docs/V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
 - [V3 Release Tasklist and Phase Prompts](docs/V3_RELEASE_TASKLIST_AND_PHASE_PROMPTS.md)
-- [PiOne Testmate Security Architecture & Assurance Boundary Guide](docs/SECURITY_REVIEW.md)
+- [OmniTest by PiOne Security Architecture & Assurance Boundary Guide](docs/SECURITY_REVIEW.md)
 - [Antigravity V3 Execution Prompt](docs/ANTIGRAVITY_V3_EXECUTION_PROMPT.md)
+- [OmniTest Phases 0–3 Execution Proof](docs/OMNITEST_PHASE_0_3_EXECUTION_PROOF_2026-11-04.md)
+- [OmniTest Pre-Tara Phases 4–6 Proof](docs/OMNITEST_PRE_TARA_PHASES_4_6_PROOF_2026-11-04.md)
+- [OmniTest Phases 2–5 Release Proof](docs/OMNITEST_PHASES_2_5_RELEASE_PROOF_2026-11-04.md)
 
 
 ---
@@ -300,7 +303,7 @@ ollama pull llama3.1:8b
 uvicorn api.main:app --reload --port 8000
 ```
 
-PiOne Testmate auto-loads `.env` at startup. Keep `.env` local only; it is ignored by Git.
+OmniTest by PiOne auto-loads `.env` at startup. Keep `.env` local only; it is ignored by Git.
 
 ---
 
@@ -408,7 +411,7 @@ Cleanup does not delete saved runs automatically. This preserves checkpoints and
 
 ## 7. Security & Safety Controls
 
-PiOne Testmate enforces strict security and safety boundaries across both V2 crawling/functional execution and V3 Client Assurance workflows. For complete specifications, consult the authoritative [Security Architecture & Assurance Boundary Guide](docs/SECURITY_REVIEW.md) and the [V2 Bounded Security Scope](docs/v2_release/SECURITY_REVIEW.md).
+OmniTest by PiOne enforces strict security and safety boundaries across both V2 crawling/functional execution and V3 Client Assurance workflows. For complete specifications, consult the authoritative [Security Architecture & Assurance Boundary Guide](docs/SECURITY_REVIEW.md) and the [V2 Bounded Security Scope](docs/v2_release/SECURITY_REVIEW.md).
 
 - **Mode Isolation**: Functional-only mode never executes or displays security checks; Security-only mode never executes functional test planning or mutations.
 - **SSRF Protection (`security_guard.py`)**: Rejects localhost, loopback, private RFC 1918 addresses, and link-local cloud metadata addresses (`169.254.169.254`).
@@ -417,4 +420,4 @@ PiOne Testmate enforces strict security and safety boundaries across both V2 cra
 - **Data Integrity vs Vulnerability Separation**: Dashboard-data discrepancies are classified strictly as data-integrity findings (`stale_data`, `missing_data`, `filter_mismatch`, `rounding_mismatch`, `visual_source_mismatch`), never as security vulnerabilities. Arbitrary SQL execution is prohibited.
 - **Zero Credential Leakage**: Credentials, cookies, authorization headers (`Authorization`, `Cookie`, `Set-Cookie`, `X-API-Key`), and raw tokens are redacted from all exports, logs, database records, and LLM prompts.
 - **Zero Destructive Actions**: The crawler and execution workers will never automatically click delete, submit, save, payment, logout, or file upload buttons; all candidate mutations are diverted to the reviewable **Parking Lot**.
-- **Explicit Security Boundaries**: PiOne Testmate does NOT claim active SQL injection, XSS, SSRF, IDOR, or complete OWASP Top 10 coverage. Specialist DAST tools (OWASP ZAP, Burp Suite) must be integrated via external adapters for active penetration testing.
+- **Explicit Security Boundaries**: OmniTest by PiOne does NOT claim active SQL injection, XSS, SSRF, IDOR, or complete OWASP Top 10 coverage. Specialist DAST tools (OWASP ZAP, Burp Suite) must be integrated via external adapters for active penetration testing.

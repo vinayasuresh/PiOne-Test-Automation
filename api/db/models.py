@@ -506,6 +506,73 @@ class MonitoringSchedule(Base):
     updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
 
 
+class InteractiveBrowserSession(Base):
+    """Durable, tenant-scoped lifecycle record for a guided browser session.
+
+    Only a hash of the opaque connection token is stored.  Browser cookies,
+    credentials, CDP endpoints, and page content never belong in this row.
+    """
+
+    __tablename__ = "interactive_browser_sessions"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    run_id = Column(String(80), nullable=True, index=True)
+    organization_id = Column(String(120), nullable=False, default="default", index=True)
+    owner_id = Column(String(120), nullable=False, default="operator")
+    target_origin = Column(String(1024), nullable=False)
+    allowed_origins = Column(JSON, default=list, nullable=False)
+    session_token_hash = Column(String(128), nullable=False)
+    status = Column(String(40), nullable=False, default="created", index=True)
+    phase = Column(String(40), nullable=False, default="control_plane")
+    checkpoint_id = Column(String(80), nullable=True, index=True)
+    module_id = Column(String(160), nullable=True)
+    route = Column(String(1024), nullable=True)
+    worker_id = Column(String(120), nullable=False, default="local-worker")
+    expires_at = Column(DateTime, nullable=False, index=True)
+    last_activity_at = Column(DateTime, nullable=False, default=_now_utc, index=True)
+    metadata_json = Column(JSON, default=dict, nullable=False)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    __table_args__ = (
+        Index("ix_interactive_browser_org_status", "organization_id", "status"),
+    )
+
+
+class InteractiveBrowserEvidence(Base):
+    """Bounded, redacted evidence captured during an interactive session.
+
+    This is deliberately an evidence ledger, not a page recorder.  It keeps
+    the route and stable locator metadata needed to reproduce a user action,
+    while never persisting input values, cookies, page HTML, or screenshots.
+    Binary artifacts can be linked later through the existing artifact store.
+    """
+
+    __tablename__ = "interactive_browser_evidence"
+
+    id = Column(String(80), primary_key=True, default=_gen_id)
+    session_id = Column(String(80), ForeignKey("interactive_browser_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    organization_id = Column(String(120), nullable=False, default="default", index=True)
+    event_type = Column(String(30), nullable=False)
+    page_url = Column(String(2048), nullable=False)
+    route = Column(String(1024), nullable=False, default="")
+    label = Column(String(255), nullable=False, default="")
+    selector = Column(String(2048), nullable=False, default="")
+    xpath = Column(String(2048), nullable=False, default="")
+    source = Column(String(80), nullable=False, default="manual_interaction")
+    text_sha256 = Column(String(64), nullable=False, default="")
+    text_length = Column(Integer, nullable=False, default=0)
+    metadata_json = Column(JSON, nullable=False, default=dict)
+    created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+
+    session = relationship("InteractiveBrowserSession")
+
+    __table_args__ = (
+        Index("ix_interactive_browser_evidence_session_created", "session_id", "created_at"),
+        Index("ix_interactive_browser_evidence_org_created", "organization_id", "created_at"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # 6. V3 API contract assurance (feature-flagged, additive)
 # ---------------------------------------------------------------------------
@@ -583,6 +650,35 @@ class ApiObservation(Base):
     created_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
 
     operation = relationship("ApiOperation", back_populates="observations")
+
+
+class ApiTestPlanState(Base):
+    """Durable V3 API-plan state used for restart-safe checkpoints.
+
+    API-plan execution is intentionally separate from the V2 ``TestPlan``
+    model.  The row contains only normalized, redacted execution state; auth
+    fixtures and request secrets remain in the ephemeral server-side vault.
+    """
+
+    __tablename__ = "api_test_plan_states"
+
+    plan_id = Column(String(80), primary_key=True)
+    contract_id = Column(String(80), nullable=False, index=True)
+    status = Column(String(30), nullable=False, default="running", index=True)
+    total_operations = Column(Integer, nullable=False, default=0)
+    completed_count = Column(Integer, nullable=False, default=0)
+    passed_count = Column(Integer, nullable=False, default=0)
+    failed_count = Column(Integer, nullable=False, default=0)
+    blocked_count = Column(Integer, nullable=False, default=0)
+    checkpoints = Column(JSON, default=dict, nullable=False)
+    operation_results = Column(JSON, default=list, nullable=False)
+    resolved_parameters = Column(JSON, default=dict, nullable=False)
+    coverage_gaps = Column(JSON, default=list, nullable=False)
+    duration_ms = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    updated_at = Column(DateTime, default=_now_utc, onupdate=_now_utc, nullable=False, index=True)
 
 
 class DatabaseQueryDefinition(Base):

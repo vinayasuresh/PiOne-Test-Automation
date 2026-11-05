@@ -7,6 +7,7 @@ Create Date: 2026-11-03
 
 from alembic import op
 import sqlalchemy as sa
+from migration_compat import column_exists
 
 
 revision = "g7b8c9d0e1f2"
@@ -16,6 +17,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if column_exists("data_assertion_scenarios", "database_query_id"):
+        return
     with op.batch_alter_table("data_assertion_scenarios") as batch_op:
         batch_op.add_column(sa.Column("database_query_id", sa.String(length=80), nullable=True))
         batch_op.create_index("ix_data_assertion_scenarios_database_query_id", ["database_query_id"], unique=False)

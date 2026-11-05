@@ -925,7 +925,7 @@ def _write_artifacts(
     )
     markdown.write_text(
         "\n".join((
-            "# PiOne Testmate - Test Execution Summary",
+            "# OmniTest by PiOne - Test Execution Summary",
             "",
             f"- Total steps: {summary.total}",
             f"- Passed: {summary.passed}",
