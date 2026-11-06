@@ -293,12 +293,43 @@ def test_baseline_save_and_comparison():
 # ---------------------------------------------------------------------------
 # 6. Database Health & Fallback Verification
 # ---------------------------------------------------------------------------
-def test_db_status_and_sqlite_fallback():
+def test_db_status_and_sqlite_fallback(monkeypatch):
+    """Exercise the health response with an isolated DB, not the developer's .env."""
+    import api.db.session as db_session
+
+    # Keep this unit test deterministic when a developer configures local
+    # PostgreSQL-only mode. The app's configured PostgreSQL connection is
+    # covered by the deployment/live database checks, not this unit test.
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "false")
+    monkeypatch.setattr(db_session, "_ENGINE", None)
+    monkeypatch.setattr(db_session, "_SESSION_FACTORY", None)
+    monkeypatch.setattr(db_session, "_IS_FALLBACK", False)
+    monkeypatch.setattr(db_session, "_LAST_ERROR", None)
+
     status = check_db_status()
     assert "status" in status
-    assert status["status"] in {"connected", "degraded"}
-    assert "engine" in status
-    assert status["engine"] in {"sqlite", "postgresql"}
+    assert status["status"] == "connected"
+    assert status["engine"] == "sqlite"
+    assert status["is_fallback"] is False
+    db_session.get_engine().dispose()
+
+
+def test_configured_database_failure_can_fail_closed(monkeypatch):
+    """Local PostgreSQL-only mode must never silently split data into SQLite."""
+    import api.db.session as db_session
+
+    def unavailable_engine(*args, **kwargs):
+        raise RuntimeError("driver failure containing a password=do-not-log value")
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://user:secret@127.0.0.1/test")
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "false")
+    monkeypatch.setattr(db_session, "create_engine", unavailable_engine)
+
+    with pytest.raises(RuntimeError, match="fallback is disabled") as exc_info:
+        db_session.build_engine_and_factory()
+    assert "secret" not in str(exc_info.value)
+    assert "do-not-log" not in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------

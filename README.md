@@ -309,22 +309,27 @@ OmniTest by PiOne auto-loads `.env` at startup. Keep `.env` local only; it is ig
 
 ## Database Configuration
 
-Local development uses SQLite automatically when no `DATABASE_URL` is present:
+Local application runs use PostgreSQL. Configure the connection in the ignored
+`.env` file before starting the API. SQLite is retained only as an isolated
+test fallback when `DATABASE_URL` is absent; local `.env` disables fallback so
+an unavailable PostgreSQL server fails visibly rather than splitting app data.
 
-```text
-automation_framework/reports/pione_testmate.db
-```
-
-To use PostgreSQL, configure `.env` and restart the API:
+Example configuration (never commit real credentials):
 
 ```env
-DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/pione_testmate
+DATABASE_URL=postgresql+psycopg://<role>:<password>@localhost:5432/Omni_Test
+DATABASE_FALLBACK_ENABLED=false
 DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=10
 DATABASE_SSL_MODE=prefer
 ```
 
-The dashboard database indicator and `GET /system/db-status` show the active engine and connection state. PostgreSQL is optional for a single-user local run and becomes useful for shared history, concurrent users, scheduled regression, and audit retention.
+The local `Omni_Test` database is the application store. Its schema and existing
+SQLite records were migrated with `scripts/migrate_sqlite_to_postgres.py`; a
+pre-migration SQLite backup remains under the ignored reports directory. The
+dashboard database indicator and `GET /system/db-status` show the active engine
+and connection state. Keep the backup until the owner approves its retention
+period and a restore check is recorded.
 
 ## Cleanup Controls
 

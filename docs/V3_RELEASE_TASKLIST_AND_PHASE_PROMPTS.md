@@ -71,6 +71,17 @@ IoT command testing.
   approvals. Review the recommended decisions and sign-off fields in
   `docs/PHASE0_GOVERNANCE_DECISION_PACK_2026-11-06.md`. Do not mark these rows
   complete based on draft recommendations or connectivity evidence alone.
+- **Local database decision and migration: COMPLETE (2026-11-06).** Per the
+  owner's local-development decision, `.env` now selects PostgreSQL
+  `Omni_Test` and disables SQLite fallback. The 32 ORM tables plus
+  `alembic_version` were created/migrated; all source/destination row counts
+  matched, and the app reports PostgreSQL connected with no fallback. A
+  timestamped SQLite backup is preserved. Four source FK relationships had
+  385 pre-existing orphan rows; those rows were retained and the corresponding
+  PostgreSQL constraints are `NOT VALID`, which still enforces future writes.
+  This closes only the local DB implementation item. Shared/production DB
+  topology, privileges, TLS, backup/restore drill, rollback, retention and
+  accountable DBA/DevOps approval remain open.
 
 ### Exit criteria
 
@@ -501,3 +512,5 @@ before Tara integration begins.
 - [ ] Production schedules, webhooks and approved Jira/TestRail/GitHub/Teams
   connectors.
 - [ ] Retention, deletion, audit policy and signed report manifests.
+
+**Local database operational follow-up (2026-11-06):** Migration and parity checks are complete, but the latest recheck found the PostgreSQL service not listening on port 5432. The app fails closed (no SQLite split). Service recovery requires local Windows DBA/admin access; preserve the stale postmaster.pid and database directory until an administrator verifies the actual service state.
