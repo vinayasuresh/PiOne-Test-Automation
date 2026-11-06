@@ -4,6 +4,15 @@
 **Audience:** Product, engineering, QA, security and senior reviewers
 **Last reviewed:** 2026-10-26
 
+**Phase 0 update (2026-11-06):** the V2-disabled rendered Mock Demo workflow
+and recorded regression suite passed for the local run documented in
+[`OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md`](OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md).
+This closes the **technical V2-protection gate for that run**. Governance
+approvals GOV-01–GOV-04 remain open; review
+[`PHASE0_GOVERNANCE_DECISION_PACK_2026-11-06.md`](PHASE0_GOVERNANCE_DECISION_PACK_2026-11-06.md)
+and record the accountable owners' decisions before treating Phase 0 as fully
+complete. The report does not certify customer-target behavior or the CI host.
+
 **Implementation update (2026-11-04):** The pre-Tara interactive-browser
 foundation is now implemented as an additive, opt-in control plane. Phases 0–1
 (V2 protection and durable session lifecycle) and the Phase 2 worker boundary

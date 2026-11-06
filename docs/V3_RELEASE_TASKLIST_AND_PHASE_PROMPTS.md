@@ -39,6 +39,8 @@ IoT command testing.
 
 ### Phase 0 evidence (2026-11-03)
 
+> Historical evidence below was recorded before the later rendered-browser run.
+
 - The working tree was inspected before this phase; the only pre-existing
   untracked item was the generated status PDF under `output/`, and it was not
   included in the phase commit.
@@ -54,6 +56,21 @@ IoT command testing.
 - Browser-marked release-gate tests were not counted as Phase 0 proof in this
   Windows run because the local browser/async test harness did not complete
   within the diagnostic timeout. They remain a Phase 6 rendered-browser gate.
+
+### Phase 0 verification update (2026-11-06)
+
+- The later rendered-browser V2 regression is recorded in
+  `docs/OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md`: the V2 Mock
+  Demo flow completed with V3 disabled; 262 default tests, 83 browser-marked
+  tests, and the focused 49-test V2 slice passed in the recorded run.
+- **Technical V2 protection exit: PASS for that local run.** The evidence is
+  limited to the source revision, local environment, and Mock Demo described in
+  the proof; it is not customer-site or CI-host evidence.
+- **Governance Phase 0: OPEN.** GOV-01–GOV-04 remain `In progress` pending
+  accountable product, security, QA/release, pilot-owner, and DBA/DevOps
+  approvals. Review the recommended decisions and sign-off fields in
+  `docs/PHASE0_GOVERNANCE_DECISION_PACK_2026-11-06.md`. Do not mark these rows
+  complete based on draft recommendations or connectivity evidence alone.
 
 ### Exit criteria
 
