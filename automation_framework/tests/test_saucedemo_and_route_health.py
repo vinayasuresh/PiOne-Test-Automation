@@ -36,6 +36,21 @@ from api.services.test_execution_service import execute_test_cases
 from api.services.mock_service import get_mock_response
 from api.services.test_planning_service import build_test_cases
 from api.utils.response_builder import build_scan_response
+
+
+def test_route_console_messages_are_available_and_redacted():
+    from api.utils.response_builder import _build_route
+
+    route = _build_route(
+        "https://example.test/live-events",
+        {"route_validation": {"console_errors": [
+            "error: Failed to fetch https://example.test/api?token=secret123",
+            "warning: map loading",
+        ]}},
+    )
+    assert len(route.console_messages) == 2
+    assert "secret123" not in route.console_messages[0]
+    assert route.console_messages[1] == "warning: map loading"
 from automation_framework.crawler.action_classifier import (
     ActionType,
     classify_action,

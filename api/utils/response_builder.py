@@ -181,6 +181,7 @@ def _build_route(route_url: str, route_doc: dict, validations: dict | None = Non
     failed_api_responses = int(route_val.get("failed_api_responses", 0))
     interaction_success_rate = float(route_val.get("interaction_success_rate", 0.0))
 
+    from automation_framework.utils.redactor import redact_text
     return RouteResult(
         path=path,
         url=str(route_url),
@@ -199,6 +200,7 @@ def _build_route(route_url: str, route_doc: dict, validations: dict | None = Non
         api_response_present=api_response_present,
         failed_api_responses=failed_api_responses,
         interaction_success_rate=interaction_success_rate,
+        console_messages=[redact_text(str(message)) for message in route_val.get("console_errors", [])[:25]],
     )
 
 

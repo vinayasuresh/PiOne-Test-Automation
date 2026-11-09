@@ -23,6 +23,9 @@ class RunContext(BaseModel):
     allowed_path_namespace: str = "/"
     auth_session_id: Optional[str] = None
     auth_status: str = "none"  # "authenticated" | "expired" | "none"
+    # Same-origin protected page reached after login, stored without query or
+    # fragment so auth checks never persist URL tokens or rely on a blank menu href.
+    auth_probe_path: Optional[str] = None
     username: Optional[str] = None
     assessment_mode: str = "both"  # "both" | "functional_only" | "security_only" | "vapt_only"
     interactive_mode: bool = False

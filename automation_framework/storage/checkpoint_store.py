@@ -122,8 +122,12 @@ class CheckpointStore:
                 run_id = data.get("session_id") or self.checkpoint_path.stem.removeprefix("checkpoint_")
                 if run_id:
                     DBRepository.save_checkpoint(run_id, payload)
+                    DBRepository.register_artifacts(
+                        run_id,
+                        {"checkpoint": str(self.checkpoint_path)},
+                    )
             except Exception as db_exc:
-                logger.debug("[DB] Checkpoint DB sync note: %s", db_exc)
+                logger.exception("[DB] Checkpoint persistence/metadata registration failed: %s", db_exc)
 
             return True
         except Exception:

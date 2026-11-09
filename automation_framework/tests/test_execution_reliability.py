@@ -7,12 +7,66 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from api.models.scan_models import ExecutionResultRow, TestCase, TestStep
 from api.services.test_execution_service import (
+    _assert_search_results,
     _copy_execution_artifacts_to_run,
     _failure_category,
     _is_transient_execution_error,
     _save_execution_checkpoint,
     execute_test_cases,
 )
+
+
+def test_search_result_assertion_proves_linked_input_and_grounded_result(monkeypatch):
+    import api.services.test_execution_service as execution_service
+
+    class InputLocator:
+        def input_value(self):
+            return "High temperature alert"
+
+    class ResultLocator:
+        def inner_text(self):
+            return "High temperature alert raised for Device A"
+
+    def find_locator(_page, selector, _label, _timeout):
+        if selector["value"] == "#search":
+            return InputLocator(), "css: #search"
+        return ResultLocator(), "css: #alert-row-42"
+
+    monkeypatch.setattr(execution_service, "_find_target_locator", find_locator)
+    step = TestStep(
+        step_id="S03", action="assert_search_results", route="/live-events",
+        target_label="High temperature alert", selector={"strategy": "css", "value": "#alert-row-42"},
+        value="High temperature alert", search_input_label="Search alerts",
+        search_input_selector={"strategy": "css", "value": "#search"},
+    )
+
+    assert _assert_search_results(object(), step, 1000) == "search: css: #search; result: css: #alert-row-42"
+
+
+def test_search_result_assertion_rejects_unproven_input_state(monkeypatch):
+    import api.services.test_execution_service as execution_service
+
+    class InputLocator:
+        def input_value(self):
+            return ""
+
+    def find_locator(*_args):
+        return InputLocator(), "css: #search"
+
+    monkeypatch.setattr(execution_service, "_find_target_locator", find_locator)
+    step = TestStep(
+        step_id="S03", action="assert_search_results", route="/live-events",
+        target_label="High temperature alert", selector={"strategy": "css", "value": "#alert-row-42"},
+        value="High temperature alert", search_input_label="Search alerts",
+        search_input_selector={"strategy": "css", "value": "#search"},
+    )
+
+    try:
+        _assert_search_results(object(), step, 1000)
+    except AssertionError as exc:
+        assert "does not retain" in str(exc)
+    else:
+        raise AssertionError("Unproven search input must not pass a result assertion")
 
 
 def test_transient_failures_are_retryable():

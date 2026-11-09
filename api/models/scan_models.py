@@ -199,6 +199,7 @@ class RouteResult(BaseModel):
     api_response_present: bool = False
     failed_api_responses: int = 0
     interaction_success_rate: float = 0.0
+    console_messages: list[str] = []
 
 
 class ScanSummary(BaseModel):
@@ -249,6 +250,37 @@ class ScanResponse(BaseModel):
 class ErrorResponse(BaseModel):
     status: str = "error"
     detail: str
+
+
+class ParkingLotReviewRequest(BaseModel):
+    action_index: int
+    decision: str
+    assertion: Optional[str] = None
+    confirmed: bool = False
+
+    @field_validator("decision")
+    @classmethod
+    def validate_decision(cls, value: str) -> str:
+        if value not in {"approve_for_test_planning", "keep_parked"}:
+            raise ValueError("decision must be approve_for_test_planning or keep_parked")
+        return value
+
+    @field_validator("assertion")
+    @classmethod
+    def validate_assertion(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if len(cleaned) > 2000:
+            raise ValueError("assertion must be 2000 characters or fewer")
+        return cleaned or None
+
+    @field_validator("action_index")
+    @classmethod
+    def validate_action_index(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("action_index must be non-negative")
+        return value
 
 
 # ---------------------------------------------------------------------------
@@ -341,6 +373,11 @@ class TestStep(BaseModel):
     expected_result: str = ""
     source: str = "scan"
     value: str = ""
+    # A search assertion is only trustworthy when it is linked to the exact
+    # input that supplied the query.  Keeping this evidence in the plan also
+    # lets execution prove the filter state rather than only checking a row.
+    search_input_label: str = ""
+    search_input_selector: dict[str, Any] = {}
     element_identity: str = ""
     safety_classification: str = ""
 
@@ -487,6 +524,7 @@ class RefreshSessionResponse(BaseModel):
     status: str = "success"
     run_id: str
     auth_session_id: str
+    verified: bool = False
     message: str = "Session refreshed successfully"
 
 

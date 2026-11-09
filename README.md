@@ -26,7 +26,7 @@ The platform:
 8. **Protects session lifecycle**: Detects session expiry before execution and offers an **in-place session refresh** (`/session/refresh`) without losing scan results or run IDs.
 9. **Executes controlled tests**: Executes safe visual and functional assertions, recording the exact locator used and capturing per-step screenshots.
 10. **Tracks regression diffs**: Replays tests and calculates status changes, newly passing, and newly failing tests.
-11. **Persists run history**: Stores runs, checkpoints, routes, elements, test plans, regression suites, executions, artifacts, and audit metadata in SQLite or PostgreSQL.
+11. **Persists run history**: Stores runs, checkpoints, routes, elements, test plans, regression suites, executions, artifacts, and audit metadata in PostgreSQL for application use; SQLite is limited to explicit isolated-test/recovery use.
 12. **Supports controlled cleanup**: Provides explicit Delete All controls for regression suites and generated artifacts while preserving the database and authentication state.
 
 > **Guiding Principle**: *Deterministic scanner first, AI-assisted test intelligence second.*
@@ -88,7 +88,7 @@ Every crawl produces an audit-ready `.xlsx` workbook with all 10 standard enterp
 
 ### Persistence, Saved Runs & Regression Suites (`api/db/`)
 - `api/db/models.py` defines persistence tables for runs, modules, routes, elements, checkpoints, test plans, regression suites, executions, artifacts, and audit events.
-- `api/db/session.py` selects PostgreSQL when `DATABASE_URL` is configured and otherwise uses SQLite at `automation_framework/reports/pione_testmate.db`.
+- `api/db/session.py` uses PostgreSQL as the application database. SQLite is available only when `DATABASE_FALLBACK_ENABLED=true` is explicitly set, primarily for isolated tests.
 - `api/db/repository.py` centralizes database transactions, retries, run recovery, suite management, and artifact metadata.
 - The dashboard exposes Saved Runs, Regression Suites, and Artifacts views.
 - Explicit Delete All controls remove regression suites or generated artifacts after confirmation.
@@ -310,14 +310,14 @@ OmniTest by PiOne auto-loads `.env` at startup. Keep `.env` local only; it is ig
 ## Database Configuration
 
 Local application runs use PostgreSQL. Configure the connection in the ignored
-`.env` file before starting the API. SQLite is retained only as an isolated
-test fallback when `DATABASE_URL` is absent; local `.env` disables fallback so
-an unavailable PostgreSQL server fails visibly rather than splitting app data.
+`.env` file before starting the API. SQLite is available only when explicitly
+enabled as a fallback; the normal local and deployed configuration fails
+startup if PostgreSQL is missing or unavailable instead of splitting app data.
 
 Example configuration (never commit real credentials):
 
 ```env
-DATABASE_URL=postgresql+psycopg://<role>:<password>@localhost:5432/Omni_Test
+DATABASE_URL=postgresql+psycopg://omnitest_user:replace_me@localhost:5432/Omni_Test
 DATABASE_FALLBACK_ENABLED=false
 DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=10
@@ -329,7 +329,8 @@ SQLite records were migrated with `scripts/migrate_sqlite_to_postgres.py`; a
 pre-migration SQLite backup remains under the ignored reports directory. The
 dashboard database indicator and `GET /system/db-status` show the active engine
 and connection state. Keep the backup until the owner approves its retention
-period and a restore check is recorded.
+period and a restore check is recorded. The `.env.example` URL is a template;
+replace `omnitest_user` and `replace_me` only in the ignored local `.env` file.
 
 ## Cleanup Controls
 

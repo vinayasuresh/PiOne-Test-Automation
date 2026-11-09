@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 import hmac
 from typing import Any
 from uuid import uuid4
+from pathlib import Path
 
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
@@ -51,6 +52,7 @@ from api.db.models import (
     InteractiveBrowserEvidence,
 )
 from api.db.session import execute_with_retry, get_db_session
+from automation_framework.config.settings import LOG_PATH, REPORT_PATH
 from automation_framework.utils.logger import logger
 from automation_framework.utils.redactor import redact_sensitive_data
 
@@ -70,6 +72,7 @@ class DBRepository:
     def create_or_update_run(
         run_id: str,
         base_url: str,
+        display_name: str | None = None,
         allowed_path_namespace: str = "/",
         status: str = "initialized",
         auth_status: str = "none",
@@ -85,6 +88,7 @@ class DBRepository:
             if not run:
                 run = ScanRun(
                     id=run_id,
+                    display_name=display_name,
                     base_url=base_url,
                     allowed_path_namespace=allowed_path_namespace,
                     status=status,
@@ -102,6 +106,8 @@ class DBRepository:
             else:
                 run.status = status
                 run.auth_status = auth_status
+                if display_name is not None:
+                    run.display_name = display_name
                 if username:
                     run.username = username
                 if selected_modules is not None:
@@ -147,6 +153,7 @@ class DBRepository:
 
                 results.append({
                     "run_id": r.id,
+                    "display_name": r.display_name,
                     "application_url": r.base_url,
                     "allowed_scope": r.allowed_path_namespace,
                     "status": r.status,
@@ -193,6 +200,7 @@ class DBRepository:
 
         return {
             "run_id": run.id,
+            "display_name": run.display_name,
             "application_url": run.base_url,
             "allowed_scope": run.allowed_path_namespace,
             "status": run.status,
@@ -257,6 +265,7 @@ class DBRepository:
 
             dup = ScanRun(
                 id=target_run_id,
+                display_name=source.display_name,
                 base_url=source.base_url,
                 allowed_path_namespace=source.allowed_path_namespace,
                 status="initialized",
@@ -701,6 +710,147 @@ class DBRepository:
             for record in records:
                 session.delete(record)
             return count
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def register_artifacts(
+        run_id: str,
+        artifacts: dict[str, Any],
+        execution_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Persist metadata for generated files without copying file contents into PostgreSQL.
+
+        Only existing files beneath the configured report/log roots are accepted. The
+        database stores a portable relative storage key, run/execution lineage, and
+        size; the files themselves remain in the artifact filesystem.
+        """
+        if not run_id or not isinstance(artifacts, dict):
+            return []
+
+        root_map = {
+            REPORT_PATH.resolve(): "reports",
+            LOG_PATH.resolve(): "logs",
+        }
+        prepared: list[tuple[str, str, int]] = []
+        for artifact_type, raw_path in artifacts.items():
+            if not isinstance(raw_path, (str, Path)):
+                continue
+            try:
+                path = Path(raw_path).resolve(strict=True)
+                if not path.is_file():
+                    continue
+                storage_key = None
+                for root, prefix in root_map.items():
+                    if path.is_relative_to(root):
+                        storage_key = f"{prefix}/{path.relative_to(root).as_posix()}"
+                        break
+                if storage_key:
+                    safe_type = "".join(ch for ch in str(artifact_type).lower() if ch.isalnum() or ch in "_- ")[:50].strip()
+                    if safe_type:
+                        prepared.append((safe_type, storage_key, path.stat().st_size))
+            except (OSError, RuntimeError, ValueError):
+                continue
+
+        if not prepared:
+            return []
+
+        def _op(session: Session) -> list[dict[str, Any]]:
+            if not session.query(ScanRun.id).filter(ScanRun.id == run_id).first():
+                logger.warning("Skipping artifact metadata for run without a persisted scan record: %s", run_id)
+                return []
+            registered: list[dict[str, Any]] = []
+            for artifact_type, storage_key, file_size in prepared:
+                record = (
+                    session.query(Artifact)
+                    .filter(
+                        Artifact.run_id == run_id,
+                        Artifact.artifact_type == artifact_type,
+                        Artifact.file_path == storage_key,
+                    )
+                    .first()
+                )
+                created = record is None
+                if record is None:
+                    record = Artifact(
+                        id=f"artifact_{uuid4().hex}",
+                        run_id=run_id,
+                        execution_id=execution_id,
+                        artifact_type=artifact_type,
+                        file_path=storage_key,
+                        file_size=file_size,
+                    )
+                    session.add(record)
+                else:
+                    record.execution_id = execution_id or record.execution_id
+                    record.file_size = file_size
+                if created:
+                    session.add(AuditEvent(
+                        run_id=run_id,
+                        event_type="artifact_created",
+                        details={"artifact_id": record.id, "artifact_type": artifact_type, "file_size": file_size},
+                    ))
+                registered.append({
+                    "id": record.id,
+                    "run_id": run_id,
+                    "execution_id": execution_id or record.execution_id,
+                    "artifact_type": artifact_type,
+                    "file_path": storage_key,
+                    "file_size": file_size,
+                })
+            return registered
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def record_artifact_download(
+        run_id: str,
+        artifact_id: str | None,
+        artifact_type: str,
+        filename: str,
+        file_size: int,
+    ) -> bool:
+        """Audit a successful artifact GET using only safe display metadata."""
+        safe_filename = redact_sensitive_data({"filename": Path(filename).name[:255]}).get("filename", "artifact")
+        safe_type = "".join(ch for ch in str(artifact_type).lower() if ch.isalnum() or ch in "_- ")[:50].strip()
+
+        def _op(session: Session) -> bool:
+            if not session.query(ScanRun.id).filter(ScanRun.id == run_id).first():
+                return False
+            session.add(AuditEvent(
+                run_id=run_id,
+                event_type="artifact_downloaded",
+                details={
+                    "artifact_id": artifact_id,
+                    "artifact_type": safe_type,
+                    "filename": safe_filename,
+                    "file_size": max(0, int(file_size)),
+                },
+            ))
+            return True
+
+        return execute_with_retry(_op)
+
+    @staticmethod
+    def list_artifacts(run_id: str | None = None) -> list[dict[str, Any]]:
+        """List artifact metadata from the configured database."""
+        def _op(session: Session) -> list[dict[str, Any]]:
+            query = session.query(Artifact)
+            if run_id:
+                query = query.filter(Artifact.run_id == run_id)
+            rows = query.order_by(desc(Artifact.created_at)).all()
+            return [
+                {
+                    "id": row.id,
+                    "run_id": row.run_id,
+                    "execution_id": row.execution_id,
+                    "artifact_type": row.artifact_type,
+                    "file_path": row.file_path,
+                    "file_size": row.file_size or 0,
+                    "created_at": row.created_at.isoformat() if row.created_at else None,
+                }
+                for row in rows
+            ]
 
         return execute_with_retry(_op)
 

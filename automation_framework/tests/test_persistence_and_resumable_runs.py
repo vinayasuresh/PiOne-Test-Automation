@@ -50,6 +50,37 @@ from automation_framework.storage.checkpoint_store import (
 from automation_framework.utils.redactor import redact_sensitive_data
 
 
+@pytest.fixture(autouse=True)
+def isolated_repository_database(monkeypatch):
+    """Keep repository-contract tests independent of a developer's live database.
+
+    These tests exercise persistence semantics, not the availability of the
+    locally configured PostgreSQL service.  Using an explicit in-memory
+    SQLite URL makes the dependency visible and prevents a blocked/unavailable
+    developer database from turning a unit-test failure into a product failure.
+    PostgreSQL connectivity is covered separately by environment integration
+    checks.
+    """
+    import api.db.session as db_session
+
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "true")
+    db_session._ENGINE = None
+    db_session._SESSION_FACTORY = None
+    db_session._IS_FALLBACK = False
+    db_session._LAST_ERROR = None
+    db_session._SCHEMA_INITIALIZED = False
+
+    yield
+
+    # Do not leak the in-memory engine into later test modules.
+    db_session._ENGINE = None
+    db_session._SESSION_FACTORY = None
+    db_session._IS_FALLBACK = False
+    db_session._LAST_ERROR = None
+    db_session._SCHEMA_INITIALIZED = False
+
+
 # ---------------------------------------------------------------------------
 # 1. Checkpoint Save & Atomic Replace
 # ---------------------------------------------------------------------------
@@ -293,7 +324,7 @@ def test_baseline_save_and_comparison():
 # ---------------------------------------------------------------------------
 # 6. Database Health & Fallback Verification
 # ---------------------------------------------------------------------------
-def test_db_status_and_sqlite_fallback(monkeypatch):
+def test_db_status_and_explicit_sqlite_fallback(monkeypatch):
     """Exercise the health response with an isolated DB, not the developer's .env."""
     import api.db.session as db_session
 
@@ -301,7 +332,7 @@ def test_db_status_and_sqlite_fallback(monkeypatch):
     # PostgreSQL-only mode. The app's configured PostgreSQL connection is
     # covered by the deployment/live database checks, not this unit test.
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
-    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "false")
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "true")
     monkeypatch.setattr(db_session, "_ENGINE", None)
     monkeypatch.setattr(db_session, "_SESSION_FACTORY", None)
     monkeypatch.setattr(db_session, "_IS_FALLBACK", False)
@@ -311,7 +342,7 @@ def test_db_status_and_sqlite_fallback(monkeypatch):
     assert "status" in status
     assert status["status"] == "connected"
     assert status["engine"] == "sqlite"
-    assert status["is_fallback"] is False
+    assert status["is_fallback"] is True
     db_session.get_engine().dispose()
 
 
@@ -330,6 +361,34 @@ def test_configured_database_failure_can_fail_closed(monkeypatch):
         db_session.build_engine_and_factory()
     assert "secret" not in str(exc_info.value)
     assert "do-not-log" not in str(exc_info.value)
+
+
+def test_missing_database_url_fails_when_sqlite_fallback_disabled(monkeypatch):
+    """PostgreSQL-first app startup must not silently select SQLite."""
+    import api.db.session as db_session
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "false")
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL is required"):
+        db_session.build_engine_and_factory()
+
+
+def test_missing_database_url_uses_sqlite_only_when_fallback_enabled(monkeypatch):
+    """SQLite remains available only as an explicit fallback for isolated use."""
+    import api.db.session as db_session
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_FALLBACK_ENABLED", "true")
+    monkeypatch.setattr(db_session, "get_default_sqlite_url", lambda: "sqlite:///:memory:")
+
+    engine, _factory, is_fallback, warning = db_session.build_engine_and_factory()
+    try:
+        assert engine.dialect.name == "sqlite"
+        assert is_fallback is True
+        assert "DATABASE_URL is not configured" in warning
+    finally:
+        engine.dispose()
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +414,339 @@ def test_credential_redaction_in_persistence():
     assert "AIzaSyAbc123_TopSecretKey" not in dumped
     assert safe["password"] == "[REDACTED]"
     assert safe["nested"]["credentials"] == "[REDACTED]"
+
+
+def test_artifact_metadata_is_idempotent_and_downloads_are_audited(tmp_path, monkeypatch):
+    """Artifact rows are portable metadata, and each GET download is auditable."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    import api.db.repository as repository
+    from api.db.models import Artifact, AuditEvent, ScanRun
+    from api.db.session import Base
+
+    report_root = tmp_path / "reports"
+    log_root = tmp_path / "logs"
+    report_root.mkdir()
+    log_root.mkdir()
+    artifact_file = report_root / "sample.xlsx"
+    artifact_file.write_bytes(b"excel-bytes-not-stored-in-db")
+    monkeypatch.setattr(repository, "REPORT_PATH", report_root)
+    monkeypatch.setattr(repository, "LOG_PATH", log_root)
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def isolated_execute(operation):
+        with factory() as session:
+            try:
+                result = operation(session)
+                session.commit()
+                return result
+            except Exception:
+                session.rollback()
+                raise
+
+    monkeypatch.setattr(repository, "execute_with_retry", isolated_execute)
+    run_id = f"artifact_test_{uuid4().hex[:12]}"
+    with factory() as session:
+        session.add(ScanRun(id=run_id, base_url="https://example.test", allowed_path_namespace="/"))
+        session.commit()
+
+    first = DBRepository.register_artifacts(run_id, {"excel": str(artifact_file)}, execution_id="exec_test")
+    second = DBRepository.register_artifacts(run_id, {"excel": str(artifact_file)}, execution_id="exec_test")
+    assert len(first) == len(second) == 1
+    assert first[0]["id"] == second[0]["id"]
+    assert first[0]["file_path"] == "reports/sample.xlsx"
+    assert "tmp_path" not in first[0]["file_path"]
+    assert DBRepository.list_artifacts(run_id)[0]["id"] == first[0]["id"]
+    assert DBRepository.record_artifact_download(run_id, first[0]["id"], "excel", "demo.xlsx", len(artifact_file.read_bytes()))
+
+    with factory() as session:
+        artifact_rows = session.query(Artifact).filter_by(run_id=run_id).all()
+        events = session.query(AuditEvent).filter_by(run_id=run_id).all()
+        assert len(artifact_rows) == 1
+        assert artifact_rows[0].file_size == len(artifact_file.read_bytes())
+        assert len([event for event in events if event.event_type == "artifact_created"]) == 1
+        download_event = next(event for event in events if event.event_type == "artifact_downloaded")
+        assert download_event.details["artifact_id"] == first[0]["id"]
+        assert download_event.details["filename"] == "demo.xlsx"
+    engine.dispose()
+
+
+def test_artifact_download_route_persists_metadata_and_success_event(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from starlette.requests import Request
+    import api.db.repository as repository
+    import api.routers.scan as scan_router
+    from api.db.models import Artifact, AuditEvent, ScanRun
+    from api.db.session import Base
+
+    report_root = tmp_path / "reports"
+    log_root = tmp_path / "logs"
+    report_root.mkdir()
+    log_root.mkdir()
+    run_id = f"artifact_route_{uuid4().hex[:12]}"
+    artifact_file = report_root / f"{run_id}_crawl_results.xlsx"
+    artifact_file.write_bytes(b"test-workbook")
+    monkeypatch.setattr(repository, "REPORT_PATH", report_root)
+    monkeypatch.setattr(repository, "LOG_PATH", log_root)
+    monkeypatch.setattr(scan_router, "REPORT_PATH", report_root)
+    monkeypatch.setattr(scan_router, "get_run_context", lambda _run_id: SimpleNamespace(
+        display_name="Demo run",
+        status="completed",
+        artifact_paths={},
+        execution_results=None,
+        execution_summary={},
+    ))
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def isolated_execute(operation):
+        with factory() as session:
+            try:
+                result = operation(session)
+                session.commit()
+                return result
+            except Exception:
+                session.rollback()
+                raise
+
+    monkeypatch.setattr(repository, "execute_with_retry", isolated_execute)
+    with factory() as session:
+        session.add(ScanRun(id=run_id, base_url="https://example.test", allowed_path_namespace="/"))
+        session.commit()
+
+    request = Request({
+        "type": "http",
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": f"/reports/{run_id}/download/excel",
+        "raw_path": f"/reports/{run_id}/download/excel".encode(),
+        "query_string": b"",
+        "headers": [],
+        "server": ("testserver", 80),
+        "client": ("testclient", 12345),
+    })
+    # The endpoint body is synchronous despite its async signature. Drive the
+    # coroutine directly so this route contract test does not need to open an
+    # asyncio self-pipe socket (restricted on some Windows developer machines).
+    endpoint = scan_router.download_artifact(run_id, "excel", request)
+    with pytest.raises(StopIteration) as completed:
+        endpoint.send(None)
+    response = completed.value.value
+    assert response.status_code == 200
+    assert response.headers["content-disposition"].endswith('Demo_run_crawl_results.xlsx"')
+    assert response.background is not None
+    assert response.background.func == DBRepository.record_artifact_download
+    response.background.func(*response.background.args, **response.background.kwargs)
+
+    with factory() as session:
+        artifacts = session.query(Artifact).filter_by(run_id=run_id).all()
+        download_events = session.query(AuditEvent).filter_by(
+            run_id=run_id, event_type="artifact_downloaded"
+        ).all()
+        assert len(artifacts) == 1
+        assert artifacts[0].file_path == f"reports/{artifact_file.name}"
+        assert len(download_events) == 1
+        assert download_events[0].details["artifact_id"] == artifacts[0].id
+
+    inventory = scan_router.list_artifacts_endpoint()
+    with pytest.raises(StopIteration) as inventory_completed:
+        inventory.send(None)
+    listed_runs = inventory_completed.value.value
+    listed_run = next(item for item in listed_runs if item["run_id"] == run_id)
+    assert listed_run["artifacts"][0]["id"] == artifacts[0].id
+    engine.dispose()
+
+
+def test_execution_excel_download_returns_workbook_and_records_db_metadata(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from starlette.requests import Request
+    import api.db.repository as repository
+    import api.routers.scan as scan_router
+    from api.db.models import Artifact, AuditEvent, ScanRun
+    from api.db.session import Base
+
+    report_root = tmp_path / "reports"
+    log_root = tmp_path / "logs"
+    run_id = f"execution_excel_{uuid4().hex[:12]}"
+    execution_file = report_root / run_id / "execution_results.xlsx"
+    execution_file.parent.mkdir(parents=True)
+    log_root.mkdir()
+    execution_file.write_bytes(b"xlsx-workbook-fixture")
+    monkeypatch.setattr(repository, "REPORT_PATH", report_root)
+    monkeypatch.setattr(repository, "LOG_PATH", log_root)
+    monkeypatch.setattr(scan_router, "REPORT_PATH", report_root)
+    monkeypatch.setattr(scan_router, "get_run_context", lambda _run_id: SimpleNamespace(
+        display_name="pos-test", status="completed", artifact_paths={}, execution_results=None,
+        execution_summary={},
+    ))
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def isolated_execute(operation):
+        with factory() as session:
+            try:
+                result = operation(session)
+                session.commit()
+                return result
+            except Exception:
+                session.rollback()
+                raise
+
+    monkeypatch.setattr(repository, "execute_with_retry", isolated_execute)
+    with factory() as session:
+        session.add(ScanRun(id=run_id, base_url="https://example.test", allowed_path_namespace="/"))
+        session.commit()
+
+    path = f"/reports/{run_id}/download/execution_excel"
+    request = Request({
+        "type": "http", "http_version": "1.1", "method": "GET", "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"", "headers": [],
+        "server": ("testserver", 80), "client": ("testclient", 12345),
+    })
+    endpoint = scan_router.download_artifact(run_id, "execution_excel", request)
+    with pytest.raises(StopIteration) as completed:
+        endpoint.send(None)
+    response = completed.value.value
+
+    assert response.status_code == 200
+    assert response.media_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert response.headers["content-disposition"].endswith('pos-test_execution_results.xlsx"')
+    assert response.background is not None
+    response.background.func(*response.background.args, **response.background.kwargs)
+
+    with factory() as session:
+        artifact = session.query(Artifact).filter_by(run_id=run_id).one()
+        event = session.query(AuditEvent).filter_by(
+            run_id=run_id, event_type="artifact_downloaded"
+        ).one()
+        assert artifact.artifact_type == "execution_excel"
+        assert artifact.file_path == f"reports/{run_id}/execution_results.xlsx"
+        assert event.details["filename"] == "pos-test_execution_results.xlsx"
+        assert event.details["artifact_id"] == artifact.id
+    engine.dispose()
+
+
+def test_execution_download_uses_persisted_session_name_after_restart(tmp_path, monkeypatch):
+    """Downloads retain the friendly name even when no run context is cached."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from starlette.requests import Request
+    import api.db.repository as repository
+    import api.routers.scan as scan_router
+    from api.db.models import Artifact, ScanRun
+    from api.db.session import Base
+
+    report_root = tmp_path / "reports"
+    log_root = tmp_path / "logs"
+    run_id = f"persisted_export_{uuid4().hex[:12]}"
+    execution_file = report_root / run_id / "execution_results.xlsx"
+    execution_file.parent.mkdir(parents=True)
+    log_root.mkdir()
+    execution_file.write_bytes(b"xlsx-workbook-fixture")
+    monkeypatch.setattr(repository, "REPORT_PATH", report_root)
+    monkeypatch.setattr(repository, "LOG_PATH", log_root)
+    monkeypatch.setattr(scan_router, "REPORT_PATH", report_root)
+    monkeypatch.setattr(scan_router, "LOG_PATH", log_root)
+    monkeypatch.setattr(scan_router, "get_run_context", lambda _run_id: None)
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def isolated_execute(operation):
+        with factory() as session:
+            try:
+                result = operation(session)
+                session.commit()
+                return result
+            except Exception:
+                session.rollback()
+                raise
+
+    monkeypatch.setattr(repository, "execute_with_retry", isolated_execute)
+    with factory() as session:
+        session.add(ScanRun(
+            id=run_id,
+            display_name="Quarterly regression",
+            base_url="https://example.test",
+            allowed_path_namespace="/",
+        ))
+        session.commit()
+
+    path = f"/reports/{run_id}/download/execution_excel"
+    request = Request({
+        "type": "http", "http_version": "1.1", "method": "GET", "scheme": "http",
+        "path": path, "raw_path": path.encode(), "query_string": b"", "headers": [],
+        "server": ("testserver", 80), "client": ("testclient", 12345),
+    })
+    endpoint = scan_router.download_artifact(run_id, "execution_excel", request)
+    with pytest.raises(StopIteration) as completed:
+        endpoint.send(None)
+    response = completed.value.value
+
+    assert response.status_code == 200
+    assert response.headers["content-disposition"].endswith(
+        'Quarterly_regression_execution_results.xlsx"'
+    )
+    response.background.func(*response.background.args, **response.background.kwargs)
+    with factory() as session:
+        artifact = session.query(Artifact).filter_by(run_id=run_id).one()
+        assert artifact.artifact_type == "execution_excel"
+    engine.dispose()
+
+
+def test_merged_execution_excel_replaces_legacy_tabs_and_deduplicates_headers(tmp_path, monkeypatch):
+    import pandas as pd
+    import api.services.test_execution_service as execution_service
+
+    report_root = tmp_path / "reports"
+    report_root.mkdir()
+    run_id = f"execution_merge_{uuid4().hex[:12]}"
+    scan_workbook = report_root / f"{run_id}_crawl_results.xlsx"
+    execution_workbook = tmp_path / "execution_results.xlsx"
+    monkeypatch.setattr(execution_service, "REPORT_PATH", report_root)
+
+    with pd.ExcelWriter(scan_workbook, engine="openpyxl") as writer:
+        pd.DataFrame([{"Route": "/", "Status": "WORKING"}]).to_excel(
+            writer, sheet_name="Route Health", index=False
+        )
+        pd.DataFrame([{"old": "stale"}]).to_excel(writer, sheet_name="Execution Results", index=False)
+        pd.DataFrame([{"old": "stale"}]).to_excel(writer, sheet_name="Test_Execution", index=False)
+        pd.DataFrame([{"other": "keep"}]).to_excel(writer, sheet_name="Coverage Gaps", index=False)
+    with pd.ExcelWriter(execution_workbook, engine="openpyxl") as writer:
+        pd.DataFrame([{
+            "TC ID": "TC_001",
+            "Status": "Pass",
+            " status ": "duplicate header should be dropped",
+        }]).to_excel(writer, sheet_name="test_execution", index=False)
+
+    execution_service._merge_execution_results_into_scan_workbook(run_id, execution_workbook)
+
+    with pd.ExcelFile(scan_workbook) as workbook:
+        execution_tabs = [
+            name for name in workbook.sheet_names
+            if name.casefold().replace("_", " ").replace("-", " ")
+            in {"test execution", "execution results", "execution result", "test execution results"}
+        ]
+        assert execution_tabs == ["Test Execution"]
+        assert {"Route Health", "Coverage Gaps"}.issubset(workbook.sheet_names)
+        merged = pd.read_excel(workbook, sheet_name="Test Execution")
+    normalized_headers = [" ".join(str(name).split()).casefold() for name in merged.columns]
+    assert len(normalized_headers) == len(set(normalized_headers))
+    assert merged.loc[0, "TC ID"] == "TC_001"
+    assert merged.loc[0, "Status"] == "Pass"
 
 
 # ===========================================================================

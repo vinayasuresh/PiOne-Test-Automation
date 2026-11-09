@@ -517,7 +517,7 @@ def test_provider_status_and_grounding_audit():
         scan_context=scan_context,
         requirements=[],
         testcases=[],
-        user_prompt="Verify login input"
+        user_prompt="Verify username"
     )
 
     assert result["provider"] == "deterministic"

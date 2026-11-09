@@ -17,6 +17,7 @@ from api.services.auth_lifecycle_service import (
     check_auth_session_validity,
     refresh_auth_session,
 )
+from api.services.crawler_service import _same_origin_path
 from api.services.run_context_service import (
     create_run_context,
     get_run_context,
@@ -124,6 +125,14 @@ def test_mock_mode_persists_in_run_context():
     assert loaded.is_mock is True
 
 
+def test_auth_probe_path_capture_is_same_origin_and_drops_query_and_fragment():
+    assert _same_origin_path(
+        "https://example.test/", "https://example.test/live-events?access_token=secret#top"
+    ) == "/live-events"
+    assert _same_origin_path("https://example.test/", "https://other.test/live-events") is None
+    assert _same_origin_path("https://example.test/app", "https://example.test/login") is None
+
+
 # ---------------------------------------------------------------------------
 # 3. Auth Lifecycle & Expiry Detection
 # ---------------------------------------------------------------------------
@@ -170,8 +179,8 @@ def test_auth_session_expired_cookies():
             session_file.unlink()
 
 
-def test_auth_session_accepts_unexpired_local_storage_token():
-    """SPA sessions with a valid localStorage JWT pass preflight without a browser probe."""
+def test_auth_session_unexpired_local_storage_token_is_probed():
+    """A JWT expiry claim is not enough; the saved state must reopen successfully."""
     session_id = "test_local_storage_token"
     session_dir = REPORT_PATH / "auth_sessions"
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -183,12 +192,88 @@ def test_auth_session_accepts_unexpired_local_storage_token():
     }
     session_file.write_text(json.dumps(state_content), encoding="utf-8")
     try:
-        is_valid, reason = check_auth_session_validity("https://example.test", session_id)
+        with patch("api.services.auth_lifecycle_service.start_persistent_browser") as mock_browser, \
+             patch("api.services.auth_lifecycle_service._is_login_page_active", return_value=False):
+            mock_page = MagicMock()
+            mock_browser.return_value = (MagicMock(), MagicMock(), MagicMock(), mock_page)
+            is_valid, reason = check_auth_session_validity("https://example.test", session_id)
         assert is_valid is True
-        assert "token" in reason.lower()
+        assert "reopened" in reason.lower()
+        mock_page.goto.assert_called_once()
     finally:
         if session_file.exists():
             session_file.unlink()
+
+
+def test_auth_session_probes_saved_protected_spa_landing_when_menu_hrefs_are_empty():
+    """Control-based SPA menus have no href; auth validation must use login landing path."""
+    session_id = "test_spa_probe_path"
+    run_id = "run_spa_probe_path"
+    session_dir = REPORT_PATH / "auth_sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_file = session_dir / f"{session_id}.json"
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": 4102444800}).encode()).decode().rstrip("=")
+    session_file.write_text(json.dumps({
+        "cookies": [],
+        "origins": [{"origin": "https://example.test", "localStorage": [
+            {"name": "access_token", "value": f"header.{payload}.signature"}
+        ]}],
+    }), encoding="utf-8")
+    ctx = create_run_context(url="https://example.test", auth_session_id=session_id, run_id=run_id)
+    ctx.auth_probe_path = "/live-events"
+    ctx.discovered_modules = [{"id": "control:live-events", "route": ""}]
+    save_run_context(ctx)
+    try:
+        with patch("api.services.auth_lifecycle_service.start_persistent_browser") as mock_browser, \
+             patch("api.services.auth_lifecycle_service._is_login_page_active", return_value=False):
+            mock_page = MagicMock()
+            mock_browser.return_value = (MagicMock(), MagicMock(), MagicMock(), mock_page)
+            valid, _ = check_auth_session_validity("https://example.test", session_id, run_id)
+        assert valid is True
+        mock_page.goto.assert_called_once_with(
+            "https://example.test/live-events", wait_until="domcontentloaded", timeout=6000
+        )
+    finally:
+        session_file.unlink(missing_ok=True)
+
+
+def test_auth_probe_prefers_saved_landing_over_absolute_module_route(tmp_path):
+    session_file = tmp_path / "state.json"
+    session_file.write_text(json.dumps({"cookies": [{"expires": -1}]}), encoding="utf-8")
+    ctx = MagicMock(auth_probe_path="/live-events", discovered_modules=[
+        {"route": "https://example.test/roles"}
+    ])
+    page = MagicMock()
+    with patch("api.services.run_context_service.get_run_context", return_value=ctx), \
+         patch("api.services.auth_lifecycle_service.start_persistent_browser", return_value=(MagicMock(), MagicMock(), MagicMock(), page)), \
+         patch("api.services.auth_lifecycle_service._is_login_page_active", return_value=False):
+        valid, _ = check_auth_session_validity("https://example.test", "test_session", "test_run", state_path_override=session_file)
+    assert valid
+    page.goto.assert_called_once_with("https://example.test/live-events", wait_until="domcontentloaded", timeout=6000)
+
+
+def test_auth_session_rejects_unexpired_but_revoked_token():
+    """A still-unexpired JWT rejected by the target is treated as expired."""
+    session_id = "test_revoked_local_storage_token"
+    session_dir = REPORT_PATH / "auth_sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_file = session_dir / f"{session_id}.json"
+    payload = base64.urlsafe_b64encode(json.dumps({"exp": 4102444800}).encode()).decode().rstrip("=")
+    session_file.write_text(json.dumps({
+        "cookies": [],
+        "origins": [{"origin": "https://example.test", "localStorage": [
+            {"name": "access_token", "value": f"header.{payload}.signature"}
+        ]}],
+    }), encoding="utf-8")
+    try:
+        with patch("api.services.auth_lifecycle_service.start_persistent_browser") as mock_browser, \
+             patch("api.services.auth_lifecycle_service._is_login_page_active", return_value=True):
+            mock_browser.return_value = (MagicMock(), MagicMock(), MagicMock(), MagicMock())
+            valid, reason = check_auth_session_validity("https://example.test", session_id)
+        assert valid is False
+        assert "expired" in reason.lower()
+    finally:
+        session_file.unlink(missing_ok=True)
 
 
 def test_refresh_session_preserves_run_id():
@@ -203,7 +288,11 @@ def test_refresh_session_preserves_run_id():
         mock_context = MagicMock()
         mock_browser.return_value = (MagicMock(), MagicMock(), mock_context, mock_page)
         with patch("api.services.auth_lifecycle_service.login"):
-            with patch("api.services.auth_lifecycle_service.save_storage_state") as mock_save:
+            with patch("api.services.auth_lifecycle_service.save_storage_state") as mock_save, \
+                 patch("api.services.auth_lifecycle_service.check_auth_session_validity", return_value=(True, "verified")):
+                def write_candidate(_context, path):
+                    Path(path).write_text('{"cookies": [], "origins": []}', encoding="utf-8")
+                mock_save.side_effect = write_candidate
                 result = refresh_auth_session(
                     url=url,
                     username="standard_user",
@@ -213,12 +302,42 @@ def test_refresh_session_preserves_run_id():
                 )
                 assert result["run_id"] == initial_run_id
                 assert result["auth_session_id"]
+                assert result["verified"] is True
                 assert mock_save.called
 
                 # Verify RunContext was updated in place
                 updated_ctx = get_run_context(initial_run_id)
                 assert updated_ctx.auth_session_id == result["auth_session_id"]
                 assert updated_ctx.auth_status == "authenticated"
+
+
+def test_refresh_session_does_not_replace_existing_state_when_verification_fails(tmp_path, monkeypatch):
+    """A failed protected-route probe must preserve the last known session state."""
+    session_id = "refresh_preserves_previous"
+    state_path = REPORT_PATH / "auth_sessions" / f"{session_id}.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    original = '{"cookies": [{"name": "old", "value": "state"}], "origins": []}'
+    state_path.write_text(original, encoding="utf-8")
+    try:
+        with patch("api.services.auth_lifecycle_service.start_persistent_browser") as mock_browser, \
+             patch("api.services.auth_lifecycle_service.login"), \
+             patch("api.services.auth_lifecycle_service.save_storage_state") as mock_save, \
+             patch("api.services.auth_lifecycle_service.check_auth_session_validity", return_value=(False, "expired")):
+            mock_browser.return_value = (MagicMock(), MagicMock(), MagicMock(), MagicMock())
+            mock_save.side_effect = lambda _context, path: Path(path).write_text(
+                '{"cookies": [], "origins": []}', encoding="utf-8"
+            )
+            with pytest.raises(ValueError, match="could not be verified"):
+                refresh_auth_session(
+                    url="https://example.test",
+                    username="tester",
+                    password="not-logged",
+                    auth_session_id=session_id,
+                )
+        assert state_path.read_text(encoding="utf-8") == original
+        assert not list(state_path.parent.glob(f".{state_path.stem}.*.candidate.json"))
+    finally:
+        state_path.unlink(missing_ok=True)
 
 
 def test_refresh_session_failure_raises_error():
@@ -568,6 +687,7 @@ async def test_session_refresh_success_preserves_run_id():
         "run_id": "run_preserve_999",
         "auth_session_id": "refreshed_auth_777",
         "state_path": "/path/to/state.json",
+        "verified": True,
     }
 
     with patch("api.routers.scan.refresh_auth_session", return_value=mock_refresh):

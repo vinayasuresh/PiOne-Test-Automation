@@ -37,6 +37,18 @@ from automation_framework.utils.redactor import redact_sensitive_data
 MAX_TRANSIENT_RETRIES = 2
 
 
+def _persist_artifact_metadata(run_id: str | None, execution_id: str, artifacts: dict[str, str]) -> None:
+    if not run_id or not artifacts:
+        return
+    try:
+        from api.db.repository import DBRepository
+        DBRepository.register_artifacts(run_id, artifacts, execution_id=execution_id)
+    except Exception:
+        # Do not discard a completed execution because its metadata write failed;
+        # keep the problem visible so the run can be reconciled.
+        logger.exception("[DB] Failed to persist execution artifact metadata for run %s", run_id)
+
+
 def execute_test_cases(
     base_url: str,
     test_cases: list[TestCase],
@@ -97,6 +109,7 @@ def execute_test_cases(
                 )
         summary = ExecutionSummary(total=len(rows), passed=len(rows), failed=0, skipped=0)
         artifacts = _write_artifacts(artifact_dir, test_cases, rows, summary, 0.05)
+        _persist_artifact_metadata(run_id, execution_id, artifacts)
         if run_id:
             _copy_execution_artifacts_to_run(artifact_dir, run_id)
             _merge_execution_results_into_scan_workbook(run_id, Path(artifacts["excel"]))
@@ -207,6 +220,7 @@ def execute_test_cases(
     skipped = sum(1 for row in rows if row.Status == "Skipped")
     summary = ExecutionSummary(total=len(rows), passed=passed, failed=failed, skipped=skipped)
     artifacts = _write_artifacts(artifact_dir, test_cases, rows, summary, round(monotonic() - started, 2))
+    _persist_artifact_metadata(run_id, execution_id, artifacts)
 
     if run_id:
         try:
@@ -262,28 +276,64 @@ def _merge_execution_results_into_scan_workbook(run_id: str, execution_workbook:
     if not scan_workbook.is_file() or not execution_workbook.is_file():
         return
     try:
-        sheets = pd.read_excel(scan_workbook, sheet_name=None)
-        execution_sheets = pd.read_excel(execution_workbook, sheet_name=None)
+        # Keep the ExcelFile handles scoped explicitly.  On Windows, relying on
+        # ``pd.read_excel(path)`` can leave the source workbook locked until
+        # garbage collection, which leaves stale/duplicate execution worksheets
+        # in the report.
+        with pd.ExcelFile(scan_workbook) as source_workbook:
+            sheets = {
+                name: source_workbook.parse(name)
+                for name in source_workbook.sheet_names
+            }
+        with pd.ExcelFile(execution_workbook) as source_workbook:
+            execution_sheets = {
+                name: source_workbook.parse(name)
+                for name in source_workbook.sheet_names
+            }
         execution_df = execution_sheets.get("test_execution")
         if execution_df is None:
             execution_df = next(iter(execution_sheets.values()), pd.DataFrame())
+
+        # Old runs may already contain a prior execution export under one of
+        # several legacy names. Remove all of those before writing the single
+        # canonical execution sheet, otherwise repeated exports accumulate
+        # confusing duplicate result tabs in the user's workbook.
+        execution_sheet_aliases = {
+            "test execution",
+            "execution results",
+            "execution result",
+            "test execution results",
+        }
+        for existing_name in list(sheets):
+            normalized_name = re.sub(r"[\s_-]+", " ", str(existing_name).strip().casefold())
+            if normalized_name in execution_sheet_aliases:
+                del sheets[existing_name]
+
+        # Excel headers that differ only by whitespace or case are visually
+        # indistinguishable for most users. Keep the first occurrence and keep
+        # all execution rows (multiple rows per test case are intentional).
+        seen_columns: set[str] = set()
+        keep_columns: list[Any] = []
+        for column in execution_df.columns:
+            normalized_column = re.sub(r"\s+", " ", str(column).strip().casefold())
+            if normalized_column in seen_columns:
+                continue
+            seen_columns.add(normalized_column)
+            keep_columns.append(column)
+        execution_df = execution_df.loc[:, keep_columns]
         sheets["Test Execution"] = execution_df
-        sheets["execution_results"] = execution_df
-        fd, temp_name = tempfile.mkstemp(prefix=f"{run_id}_report_", suffix=".xlsx", dir=str(REPORT_PATH))
-        os.close(fd)
-        temp_path = Path(temp_name)
-        try:
-            with pd.ExcelWriter(temp_path, engine="openpyxl") as writer:
-                for sheet_name, frame in sheets.items():
-                    safe_name = str(sheet_name)[:31] or "Sheet"
-                    frame.to_excel(writer, sheet_name=safe_name, index=False)
-            os.replace(temp_path, scan_workbook)
-        finally:
-            temp_path.unlink(missing_ok=True)
-    except Exception as exc:
+        # Write in place after all readers are closed.  ``os.replace`` is not
+        # reliable on Windows when an antivirus or Office shell briefly holds
+        # the destination workbook.  If the report is actively open, this
+        # raises cleanly and the standalone execution Excel is still available.
+        with pd.ExcelWriter(scan_workbook, engine="openpyxl", mode="w") as writer:
+            for sheet_name, frame in sheets.items():
+                safe_name = str(sheet_name)[:31] or "Sheet"
+                frame.to_excel(writer, sheet_name=safe_name, index=False)
+    except Exception:
         # Execution must remain successful even if a pre-existing scan report
         # cannot be rewritten; the dedicated execution Excel still exists.
-        logger.warning("Could not merge execution results into scan workbook: %s", exc)
+        logger.exception("Could not merge execution results into scan workbook for run %s", run_id)
 
 
 def load_saved_test_cases(execution_id: str) -> list[TestCase]:
@@ -346,6 +396,8 @@ def rerun_step(
 
         if step.action == "assert_visible":
             locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+        elif step.action == "assert_search_results":
+            locator_used = _assert_search_results(page, step, ELEMENT_TIMEOUT)
         elif step.action == "assert_url":
             expected = step.route or step.target_label
             if expected and expected.lower() not in (page.url or "").lower():
@@ -520,6 +572,8 @@ def _execute_case(
                     locator_used = f"url: {target_url}"
                 elif step.action == "assert_visible":
                     locator_used = _wait_for_target(page, step.selector, step.target_label, ELEMENT_TIMEOUT)
+                elif step.action == "assert_search_results":
+                    locator_used = _assert_search_results(page, step, ELEMENT_TIMEOUT)
                 elif step.action == "assert_url":
                     expected = step.route or step.target_label
                     curr_url = getattr(page, "url", "") or ""
@@ -764,6 +818,75 @@ def _wait_for_target(page: Any, selector: dict[str, Any], label: str, timeout: i
     return locator_used
 
 
+def _normalized_text(value: Any) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _locator_text(locator: Any) -> str:
+    """Read rendered text without depending on a specific Playwright locator type."""
+    for method_name in ("inner_text", "text_content"):
+        method = getattr(locator, method_name, None)
+        if callable(method):
+            try:
+                value = method()
+            except Exception:
+                continue
+            if value:
+                return str(value)
+    getter = getattr(locator, "get_attribute", None)
+    if callable(getter):
+        for attribute in ("value", "aria-label", "title"):
+            try:
+                value = getter(attribute)
+            except Exception:
+                continue
+            if value:
+                return str(value)
+    return ""
+
+
+def _input_value(locator: Any) -> str:
+    reader = getattr(locator, "input_value", None)
+    if callable(reader):
+        try:
+            value = reader()
+            if value is not None:
+                return str(value)
+        except Exception:
+            pass
+    getter = getattr(locator, "get_attribute", None)
+    if callable(getter):
+        try:
+            return str(getter("value") or "")
+        except Exception:
+            pass
+    return ""
+
+
+def _assert_search_results(page: Any, step: Any, timeout: int) -> str:
+    """Prove the search input kept its query and a grounded result contains it."""
+    query = _normalized_text(getattr(step, "value", ""))
+    input_label = str(getattr(step, "search_input_label", "") or "").strip()
+    input_selector = getattr(step, "search_input_selector", None) or {}
+    if not query or not input_label or not input_selector:
+        raise AssertionError("Search-result assertion is missing grounded query or linked search-input evidence.")
+
+    input_locator, input_used = _find_target_locator(page, input_selector, input_label, timeout)
+    input_value = _normalized_text(_input_value(input_locator))
+    if query not in input_value:
+        raise AssertionError(
+            f"Search input '{input_label}' does not retain the expected query '{getattr(step, 'value', '')}'."
+        )
+
+    result_locator, result_used = _find_target_locator(page, step.selector, step.target_label, timeout)
+    result_text = _normalized_text(_locator_text(result_locator))
+    if query not in result_text:
+        raise AssertionError(
+            f"Grounded result '{step.target_label}' does not contain the expected query '{getattr(step, 'value', '')}'."
+        )
+    return f"search: {input_used}; result: {result_used}"
+
+
 def _assert_not_login(page: Any) -> None:
     if page.locator('input[type="password"]').count() and page.locator('input[type="password"]').first.is_visible():
         raise AuthenticationExpiredError("Authentication expired. Refresh the session to continue.")
@@ -846,27 +969,33 @@ def _write_artifacts(
     records = []
     case_by_id = {case.tc_id: case for case in test_cases}
     for r in rows:
-        d = r.model_dump()
         case = case_by_id.get(r.TC_ID)
-        if case:
-            d.update({
-                "Testcase Id": case.tc_id,
-                "Screen": case.screen or r.Screen,
-                "Feature": case.feature or r.Feature,
-                "Testcase": case.testcase or r.Test_Case,
-                "Steps to Execute": case.steps_to_execute,
-                "Expected Result": r.Expected_Result,
-                "Test Status": r.Status,
-                "Actual Result": r.Actual_Result,
-                "Severity": case.severity,
-                "BUG Status": case.bug_status,
-                "Notes / Reason": case.notes_reason,
-                "Bug sheet Current Version": case.bug_sheet_current_version,
-                "Tested Version": case.tested_version,
-            })
-        d["console_errors"] = " | ".join(r.console_errors) if r.console_errors else ""
-        d["network_errors"] = " | ".join(r.network_errors) if r.network_errors else ""
-        records.append(d)
+        # Build one report schema instead of mixing the internal model keys
+        # with their display labels (which produced duplicate Excel columns).
+        records.append({
+            "Testcase Id": r.TC_ID,
+            "Screen": (case.screen if case else "") or r.Screen,
+            "Feature": (case.feature if case else "") or r.Feature,
+            "Testcase": (case.testcase if case else "") or r.Test_Case,
+            "Steps to Execute": case.steps_to_execute if case else "",
+            "Expected Result": r.Expected_Result,
+            "Test Status": r.Status,
+            "Actual Result": r.Actual_Result,
+            "Severity": case.severity if case else r.Bug_Priority,
+            "BUG Status": case.bug_status if case else "Not Raised",
+            "Notes / Reason": case.notes_reason if case else r.Failure_Info,
+            "Bug sheet Current Version": case.bug_sheet_current_version if case else "",
+            "Tested Version": case.tested_version if case else "",
+            "Step ID": r.Step_ID,
+            "Action": r.Action,
+            "Route": r.Screen,
+            "Locator Used": r.locator_used,
+            "Failure Category": r.failure_category,
+            "Failure Info": r.Failure_Info,
+            "Console Errors": " | ".join(r.console_errors) if r.console_errors else "",
+            "Network Errors": " | ".join(r.network_errors) if r.network_errors else "",
+            "Evidence": r.Artifact_Path,
+        })
 
     excel = directory / "execution_results.xlsx"
     markdown = directory / "execution_summary.md"

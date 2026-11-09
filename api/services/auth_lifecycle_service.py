@@ -15,11 +15,11 @@ import base64
 from pathlib import Path
 from uuid import uuid4
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from automation_framework.config.settings import REPORT_PATH, ROUTE_LOAD_TIMEOUT
 from automation_framework.crawler.login_handler import login
-from automation_framework.crawler.url_filter import install_document_scope_guard
+from automation_framework.crawler.url_filter import install_document_scope_guard, is_valid_url
 from automation_framework.utils.browser_manager import save_storage_state, start_persistent_browser
 from automation_framework.utils.logger import logger
 
@@ -40,6 +40,8 @@ def check_auth_session_validity(
     url: str,
     auth_session_id: str | None,
     run_id: str | None = None,
+    *,
+    state_path_override: Path | None = None,
 ) -> tuple[bool, str]:
     """Check if the session state is active and not redirected to login.
     
@@ -51,7 +53,7 @@ def check_auth_session_validity(
     if auth_session_id.startswith("mock_") or auth_session_id.startswith("mock_auth_"):
         return True, "Mock demo session active"
 
-    session_file = auth_session_path(auth_session_id)
+    session_file = state_path_override or auth_session_path(auth_session_id)
     if not session_file.is_file():
         return False, "Authentication session has expired; please refresh the session."
 
@@ -63,13 +65,11 @@ def check_auth_session_validity(
         # have no durable auth cookie at all.  Check that token before
         # rejecting a cookie-less storage state; otherwise every deep crawl
         # is incorrectly reported as expired immediately after discovery.
-        token_reason = _unexpired_access_token_reason(data, now)
-        if token_reason:
-            return True, token_reason
-        if not cookies:
+        token_reason = _unexpired_access_token_reason(data, url, now)
+        if not cookies and not token_reason:
             return False, "Authentication expired: No active session cookies or access token found."
         valid_cookies = [c for c in cookies if c.get("expires", -1) == -1 or c.get("expires", 0) > now]
-        if not valid_cookies:
+        if cookies and not valid_cookies and not token_reason:
             return False, "Authentication expired: All session cookies and access tokens have expired."
     except Exception as exc:
         return False, f"Invalid storage state file: {exc}"
@@ -81,15 +81,22 @@ def check_auth_session_validity(
         if "saucedemo.com" in parsed.netloc:
             probe_url = "https://www.saucedemo.com/inventory.html"
         elif run_id:
-            from urllib.parse import urljoin
             from api.services.run_context_service import get_run_context
             ctx = get_run_context(run_id)
-            if ctx and ctx.discovered_modules:
+            if ctx and ctx.auth_probe_path:
+                candidate = urljoin(url.rstrip("/") + "/", ctx.auth_probe_path.lstrip("/"))
+                # Only use a path captured from the same origin during login.
+                # Revalidate here because this value is persisted run state.
+                if ctx.auth_probe_path.startswith("/") and not ctx.auth_probe_path.startswith("//") and is_valid_url(candidate, url):
+                    probe_url = candidate
+            if probe_url == url and ctx and ctx.discovered_modules:
                 for mod in ctx.discovered_modules:
                     r = mod.get("route")
                     if r and not r.endswith(("/", "/login")):
-                        probe_url = urljoin(url.rstrip("/") + "/", r.lstrip("/"))
-                        break
+                        candidate = urljoin(url.rstrip("/") + "/", r)
+                        if is_valid_url(candidate, url):
+                            probe_url = candidate
+                            break
 
     # Probe page live in browser
     playwright = browser = context = None
@@ -102,7 +109,7 @@ def check_auth_session_validity(
         is_login = _is_login_page_active(page)
         if is_login:
             return False, "Authentication expired. Refresh the session to continue."
-        return True, "Session is active and valid."
+        return True, "Saved session reopened on a protected route."
     except Exception as exc:
         logger.debug("Session validity probe non-fatal warning: %s", exc)
         return False, f"Could not verify session: {exc}"
@@ -147,10 +154,21 @@ def _is_login_page_active(page: Any) -> bool:
         return False
 
 
-def _unexpired_access_token_reason(storage_state: dict[str, Any], now: float | None = None) -> str | None:
-    """Return a diagnostic when storage state contains a non-expired JWT."""
+def _unexpired_access_token_reason(
+    storage_state: dict[str, Any], target_url: str, now: float | None = None
+) -> str | None:
+    """Return a diagnostic for a non-expired JWT stored for this target origin.
+
+    Token expiry is only a prerequisite for attempting the browser probe; it is
+    never proof that the target still accepts the token.
+    """
     now = now or time.time()
+    target = urlparse(target_url)
+    target_origin = f"{target.scheme.lower()}://{target.netloc.lower()}"
     for origin in storage_state.get("origins", []) or []:
+        saved_origin = urlparse(str(origin.get("origin") or ""))
+        if f"{saved_origin.scheme.lower()}://{saved_origin.netloc.lower()}" != target_origin:
+            continue
         for item in origin.get("localStorage", []) or []:
             name = str(item.get("name") or "").lower()
             token = str(item.get("value") or "")
@@ -192,6 +210,9 @@ def refresh_auth_session(
         resolved_session_id = uuid4().hex
 
     state_path = auth_session_path(resolved_session_id)
+    # Keep the currently usable state until the replacement has been reopened
+    # independently and proven against the target's protected page.
+    candidate_path = state_path.with_name(f".{state_path.stem}.{uuid4().hex}.candidate.json")
     playwright = browser = context = None
     try:
         playwright, browser, context, page = start_persistent_browser()
@@ -202,8 +223,30 @@ def refresh_auth_session(
         if _is_login_page_active(page):
             raise ValueError("Re-authentication failed: login form still present with provided credentials.")
 
-        save_storage_state(context, state_path)
-        logger.info("[Auth] Session '%s' refreshed successfully for %s", resolved_session_id, url)
+        save_storage_state(context, candidate_path)
+        # The sync Playwright API cannot start a second driver on the same
+        # thread while the first is running. Close login before independently
+        # reopening the candidate session for verification.
+        context.close()
+        context = None
+        browser.close()
+        browser = None
+        playwright.stop()
+        playwright = None
+        verified, detail = check_auth_session_validity(
+            url,
+            resolved_session_id,
+            run_id,
+            state_path_override=candidate_path,
+        )
+        if not verified:
+            raise ValueError(
+                "Re-authentication could not be verified on a protected page. "
+                "The target may have rejected the credentials or not persisted its session."
+            )
+
+        candidate_path.replace(state_path)
+        logger.info("[Auth] Session '%s' refreshed and verified for %s", resolved_session_id, url)
 
         if run_id:
             from api.services.run_context_service import update_run_context
@@ -212,13 +255,22 @@ def refresh_auth_session(
                 auth_session_id=resolved_session_id,
                 auth_status="authenticated",
                 username=username,
+                error_message=None,
             )
 
         return {
             "run_id": run_id or "",
             "auth_session_id": resolved_session_id,
             "state_path": str(state_path),
+            "verified": True,
+            "verification_detail": detail,
         }
+    except Exception:
+        try:
+            candidate_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
     finally:
         if context:
             try:

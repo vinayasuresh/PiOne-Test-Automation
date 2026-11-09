@@ -80,6 +80,9 @@ class ScanRun(Base):
     __tablename__ = "scan_runs"
 
     id = Column(String(80), primary_key=True)  # run_id
+    # Human-facing session name.  Persist it separately from the opaque run ID
+    # so reports and downloads remain understandable after an API restart.
+    display_name = Column(String(120), nullable=True)
     application_target_id = Column(String(80), ForeignKey("application_targets.id", ondelete="SET NULL"), nullable=True)
     base_url = Column(String(1024), nullable=False, index=True)
     allowed_path_namespace = Column(String(1024), default="/", nullable=False)

@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 import time
 from uuid import uuid4
+from urllib.parse import urljoin, urlparse
 
 from automation_framework.config.settings import REPORT_PATH, ROUTE_LOAD_TIMEOUT
 from automation_framework.crawler.auth_exceptions import (
@@ -48,6 +49,19 @@ from api.utils.response_builder import build_scan_response
 from automation_framework.storage.checkpoint_store import load_checkpoint, save_checkpoint
 
 
+def _same_origin_path(target_url: str, landed_url: str) -> str | None:
+    """Return a safe path from a successful same-origin navigation, sans query/hash."""
+    requested = urlparse(target_url)
+    landed = urlparse(landed_url or "")
+    if (
+        landed.scheme.lower() != requested.scheme.lower()
+        or landed.netloc.lower() != requested.netloc.lower()
+        or not is_valid_url(landed_url, target_url)
+    ):
+        return None
+    return landed.path or "/"
+
+
 def run_scan(
     url: str,
     username: str | None,
@@ -77,12 +91,14 @@ def run_scan(
     logger.info(f"[API] Scan started | run_id={actual_run_id} | url={url}")
     start_time = time.monotonic()
     try:
+        run_ctx = None
         run_ctx = get_run_context(actual_run_id)
         if not run_ctx:
             run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username, run_id=actual_run_id)
         run_ctx.scan_id = scan_id or actual_run_id
         run_ctx.selected_modules = selected_module_ids or run_ctx.selected_modules
         run_ctx.status = "running"
+        run_ctx.error_message = None
         save_run_context(run_ctx)
     except Exception:
         logger.debug("[API] Unable to initialize run context state before crawl")
@@ -92,6 +108,7 @@ def run_scan(
     context    = None
     engine: CrawlerEngine | None = None
     session_state_trusted = False
+    session_ready = False
 
     try:
         # ── Boot browser ────────────────────────────────────────────────
@@ -156,8 +173,11 @@ def run_scan(
                             start_module_url = cand
                             break
 
-            from urllib.parse import urlparse, urljoin
             parsed_target = urlparse(url)
+            if not start_module_url and run_ctx and run_ctx.auth_probe_path:
+                candidate = urljoin(url.rstrip("/") + "/", run_ctx.auth_probe_path.lstrip("/"))
+                if run_ctx.auth_probe_path.startswith("/") and not run_ctx.auth_probe_path.startswith("//") and is_valid_url(candidate, url):
+                    start_module_url = candidate
             if (not parsed_target.path or parsed_target.path == "/") and start_module_url:
                 target_nav_url = urljoin(url, start_module_url)
             elif (not parsed_target.path or parsed_target.path == "/") and "saucedemo.com" in parsed_target.netloc:
@@ -178,17 +198,24 @@ def run_scan(
             page.goto(target_nav_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
             if auth_session_id:
                 try:
-                    if page.locator('input[type="password"]').first.is_visible(timeout=1000) and not session_state_trusted:
+                    password_visible = page.locator('input[type="password"]').first.is_visible(timeout=1000)
+                    current_url = str(page.url).lower()
+                    login_redirected = any(token in current_url for token in ("/login", "/signin", "/sign-in", "/authenticate"))
+                    if password_visible or login_redirected:
                         if start_module_url and target_nav_url != start_module_url:
                             logger.info(f"[API] Retrying on protected route: {start_module_url}")
                             page.goto(start_module_url, wait_until="domcontentloaded", timeout=ROUTE_LOAD_TIMEOUT)
-                        if page.locator('input[type="password"]').first.is_visible(timeout=1000):
+                        password_visible = page.locator('input[type="password"]').first.is_visible(timeout=1000)
+                        current_url = str(page.url).lower()
+                        login_redirected = any(token in current_url for token in ("/login", "/signin", "/sign-in", "/authenticate"))
+                        if password_visible or login_redirected:
                             raise AuthenticationExpiredError("Authentication expired. Refresh the session to continue.")
                 except AuthenticationExpiredError:
                     raise
                 except Exception:
                     pass
 
+        session_ready = True
         # ── Optional nav expansion ──────────────────────────────────────
         try:
             ensure_navigation_expanded(page)
@@ -230,7 +257,6 @@ def run_scan(
         if replay_route:
             if not engine.checkpoint_loaded:
                 raise ValueError("Route replay requires a valid checkpoint for this application")
-            from urllib.parse import urljoin
             replay_route = urljoin(url, replay_route)
             if not is_valid_url(replay_route, url):
                 raise ValueError("Replay route is outside the requested application path")
@@ -539,9 +565,11 @@ def run_scan(
         raise
 
     finally:
-        if context and state_path:
+        if context and state_path and session_ready:
             try:
-                save_storage_state(context, state_path)
+                from api.services.auth_lifecycle_service import _is_login_page_active
+                if not _is_login_page_active(page):
+                    save_storage_state(context, state_path)
             except Exception:
                 pass
         if browser:
@@ -592,6 +620,14 @@ def _element_identity(route: str, target: dict) -> str:
 def _safe_export(crawl_results: dict, run_id: str) -> dict[str, str]:
     try:
         export_paths = export_crawl_results(crawl_results, run_id=run_id)
+        if export_paths:
+            try:
+                from api.db.repository import DBRepository
+                DBRepository.register_artifacts(run_id, export_paths)
+            except Exception:
+                # Artifact creation remains available if metadata storage has a transient
+                # fault, but the failure is explicit in the server log for reconciliation.
+                logger.exception("[DB] Failed to persist crawl artifact metadata for run %s", run_id)
         logger.info(f"[API] Test-ready artifacts exported: {export_paths}")
         return export_paths or {}
     except Exception:
@@ -667,6 +703,11 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
             if curr.startswith(("chrome-error:", "chrome-error://", "about:blank")):
                 raise DiscoveryUnavailableError(f"Target unreachable (browser error page: {page.url})")
             wait_for_ui_stability(page)
+        # Remember the protected landing reached by the successful login. SPA
+        # menu controls often have no href, so module routes cannot serve as an
+        # auth probe or resume URL. Persist only an in-scope path, never query
+        # or fragment values that could contain transient credentials.
+        auth_probe_path = _same_origin_path(url, page.url) if username and password else None
         try:
             ensure_navigation_expanded(page)
         except Exception:
@@ -697,6 +738,7 @@ def discover_modules(url: str, username: str | None, password: str | None) -> di
         # Initialize and persist RunContext
         run_ctx = create_run_context(url=url, auth_session_id=auth_session_id, username=username)
         run_ctx.discovered_modules = safe_modules
+        run_ctx.auth_probe_path = auth_probe_path
         run_ctx.status = "discovered"
         save_run_context(run_ctx)
 

@@ -14,7 +14,7 @@ automatic production release.
 | API | Python 3.11+, FastAPI, Uvicorn |
 | UI | Static HTML, CSS, and JavaScript served by FastAPI |
 | Browser automation | Playwright Chromium |
-| Persistence | SQLAlchemy; SQLite for local use, PostgreSQL through `DATABASE_URL` for shared environments |
+| Persistence | SQLAlchemy; PostgreSQL through `DATABASE_URL` is required for app runs; SQLite is an explicitly enabled test fallback |
 | Schema management | Alembic |
 | Exports | Pandas and OpenPyXL |
 | AI planning | Deterministic grounded planner, optional Google Gemini or local Ollama |
@@ -77,8 +77,8 @@ sudo chown -R pione-deploy:pione-deploy /opt/pione-testmate
 
 Log in as `pione-deploy`, create `/opt/pione-testmate/.env`, and set at least
 the variables in `.env.example`. For shared use, configure a PostgreSQL
-`DATABASE_URL`; otherwise the compose default persists SQLite in the
-`pione_reports` Docker volume.
+   `DATABASE_URL`. The production Compose file requires PostgreSQL and disables
+   SQLite fallback so a missing database configuration fails visibly.
 
 ## Production recommendation
 

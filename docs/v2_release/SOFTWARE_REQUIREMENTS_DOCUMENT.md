@@ -166,7 +166,7 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
 ### FR-11: Durable State Persistence & Resumable Runs
 * **Description**: The system shall persist runs, routes, elements, checkpoints, and test results in a relational database.
 * **Processing**:
-  * Support SQLite (default local) and PostgreSQL (via `DATABASE_URL`).
+  * Use PostgreSQL through `DATABASE_URL` for application runs; permit SQLite only as an explicitly enabled isolated-test fallback.
   * Auto-save state after every route and module.
   * Provide **Saved Runs** dashboard with Resume, Duplicate, Archive, and Discard actions.
 * **Outputs**: Persistent records in relational tables (`runs`, `modules`, `routes`, `elements`, `checkpoints`, etc.).
