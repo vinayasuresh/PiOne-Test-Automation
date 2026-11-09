@@ -193,6 +193,20 @@ To guarantee enterprise compliance and prevent operational disruption, the follo
 
 ## 5. Non-Functional Requirements (NFR)
 
+### V3 Extension Boundary
+
+The V3 Assurance Graph extensions are **additive** and **feature‑gated** by the environment variable `V3_ASSURANCE_ENABLED`. When the flag is `false` (default), all `/v3/*` endpoints return `404` and the UI hides any V3‑specific views. The following V3 capabilities are **outside the V2 baseline** and must not be assumed to be delivered until browser‑verified evidence is recorded:
+
+- **Durable assurance records** – incidents, verification jobs, attempts, evidence manifests, and duplicate‑protection logic.
+- **API contract testing** – OpenAPI/Swagger/Postman ingestion, safe operation execution, secret redaction, Excel reporting.
+- **Dashboard‑API and DB‑API‑UI validation** – read‑only data assertions and cross‑read design.
+- **Tara / chatbot / helpdesk integration** – signed webhook intake, tenant mapping, incident lifecycle, callback handling.
+- **IoT monitoring adapters** – MQTT/telemetry ingestion and device health agents.
+
+These extensions must **never alter** the V2 workflow (scan → module → crawl → analyze → generate → execute → report) when the feature flag is disabled. All V3 code paths are isolated behind the flag and are excluded from V2 unit‑test suites unless explicitly enabled.
+
+---
+
 ### NFR-1: Performance & Bounded Budgets
 * **Scan Pacing**: Crawling and probing operations must respect a configurable pacing delay (minimum 100ms between actions).
 * **Timeouts**:

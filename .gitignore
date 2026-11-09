@@ -17,6 +17,12 @@ automation_framework/storage/auth_state.json
 output/
 omnitest-v3-test*.log
 
+# Local QA/release-gate scratch state (never commit).
+.codex_tmp_tracker/
+.pytest-*.sqlite
+.pytest-*/
+uvicorn.log
+
 # Runtime screenshots, PDF render previews, and other generated image assets.
 # Existing tracked image assets remain tracked; this prevents new local/demo
 # captures from entering source control.
