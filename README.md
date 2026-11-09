@@ -189,6 +189,8 @@ OmniTest by PiOne V3 introduces the **Client Assurance Release vertical slice**,
 - **Interactive browser foundation**: opt in with `INTERACTIVE_BROWSER_ENABLED=true`; an actual Playwright worker launches only when `INTERACTIVE_BROWSER_LAUNCH=true`. The default is safe and does not expose CDP/VNC or remote page execution.
 
 Key release documentation:
+- [Documentation Index and Current Delivery Status](docs/OMNITEST_DOCUMENTATION_INDEX.md)
+- [Universal Tara and Support-Bot Integration Blueprint](docs/OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md)
 - [V3 Client Assurance Delivery Blueprint](docs/V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
 - [V3 Release Tasklist and Phase Prompts](docs/V3_RELEASE_TASKLIST_AND_PHASE_PROMPTS.md)
 - [OmniTest by PiOne Security Architecture & Assurance Boundary Guide](docs/SECURITY_REVIEW.md)
@@ -196,6 +198,12 @@ Key release documentation:
 - [OmniTest Phases 0–3 Execution Proof](docs/OMNITEST_PHASE_0_3_EXECUTION_PROOF_2026-11-04.md)
 - [OmniTest Pre-Tara Phases 4–6 Proof](docs/OMNITEST_PRE_TARA_PHASES_4_6_PROOF_2026-11-04.md)
 - [OmniTest Phases 2–5 Release Proof](docs/OMNITEST_PHASES_2_5_RELEASE_PROOF_2026-11-04.md)
+
+> **Delivery-status rule (2026-11-09):** the established V2 browser workflow is
+> the product baseline. The additive V3 API/data-assurance foundations are not a
+> completed Tara or unattended-monitoring integration. Read the Documentation
+> Index before presenting, extending, or integrating the platform; it separates
+> implemented code from browser-proven behavior and planned scope.
 
 
 ---

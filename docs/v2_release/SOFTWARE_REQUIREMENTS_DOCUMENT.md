@@ -4,6 +4,14 @@
 **Document Status:** Approved & Baseline Verified  
 **Date:** October 2026  
 
+> **Naming and scope note (updated 2026-11-09):** the product is now presented
+> as **OmniTest by PiOne**, built on this PiOne Testmate V2 baseline. This
+> document remains the authoritative V2 requirements record. Additive V3
+> assurance work and the planned Tara/third-party chatbot connector are governed
+> by the [current documentation index](../OMNITEST_DOCUMENTATION_INDEX.md) and
+> [universal integration blueprint](../OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md);
+> neither makes the external integration a delivered V2 capability.
+
 ---
 
 ## 1. Executive Summary & Product Vision

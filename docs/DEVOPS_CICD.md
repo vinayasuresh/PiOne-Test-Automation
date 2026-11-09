@@ -87,3 +87,15 @@ Do not reuse staging credentials for production. Create a separate protected
 health checks, and rollback to the prior release. Store only `DATABASE_URL`,
 provider keys, and deployment credentials as GitHub/server secrets—never in
 committed `.env` files or generated reports.
+
+## Planned Tara and external-bot connector boundary
+
+Tara and third-party chatbot integration is not deployed by the current V2/V3
+workflow. Introduce it only after the pre-Tara release gate has recorded API,
+dashboard, database, recovery, idempotency, export, and V2-regression evidence.
+When the connector is introduced, deploy its inbound webhook and outbound
+callback credentials as separate per-tenant secrets. Require authenticated,
+timestamped and idempotent requests; do not store raw chatbot transcripts,
+authorization headers, browser cookies, or customer secrets in GitHub Actions,
+application logs, artifacts, or reports. The authoritative integration contract
+is [OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md](OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md).

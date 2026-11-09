@@ -4,6 +4,13 @@
 **Audience:** Product, engineering, QA, security and senior reviewers
 **Last reviewed:** 2026-10-26
 
+> **Current-status source (2026-11-09):** Read
+> [OmniTest Documentation Index](OMNITEST_DOCUMENTATION_INDEX.md) before using
+> this roadmap for a delivery claim. It distinguishes the V2 baseline, additive
+> V3 foundations, browser-proven work, and planned Tara/chatbot integration.
+> This roadmap is directional; it is not evidence that every listed capability
+> has been delivered.
+
 **Phase 0 update (2026-11-06):** the V2-disabled rendered Mock Demo workflow
 and recorded regression suite passed for the local run documented in
 [`OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md`](OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md).

@@ -1,4 +1,4 @@
-# PiOne Testmate V3 Release Task List and Phase Prompts
+# OmniTest by PiOne V3 Release Task List and Phase Prompts
 
 ## Purpose
 
@@ -9,6 +9,11 @@ to a durable incident, approved verification, evidence, assignment and retest.
 The first priority is **API contract testing and dashboard-data validation**.
 They must be implemented before broader agent autonomy, external connectors or
 IoT command testing.
+
+> **Status discipline:** use the [Documentation Index](OMNITEST_DOCUMENTATION_INDEX.md)
+> as the single current-status source. A phase is complete only after its stated
+> test evidence is recorded; Tara/support-bot integration remains planned until
+> a signed, tenant-isolated end-to-end connector is implemented and proven.
 
 ## Non-negotiable rules for every phase
 

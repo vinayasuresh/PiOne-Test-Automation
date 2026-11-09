@@ -2,6 +2,14 @@
 
 Copy the prompt below into Antigravity when implementation work begins.
 
+> **Required handoff reading:** before changing code, read
+> [OmniTest Documentation Index](OMNITEST_DOCUMENTATION_INDEX.md),
+> [Pre-Tara Execution Task](OMNITEST_V3_PRE_TARA_EXECUTION_TASK.md), and
+> [Universal Tara and Support-Bot Integration Blueprint](OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md).
+> Preserve the V2 baseline, feature-gate V3, test before claiming completion,
+> and do not represent planned Tara/chatbot, scheduling, telemetry, or device
+> capabilities as implemented.
+
 > **Priority order:** For the immediate client-demo implementation, use
 > [V3 Client Assurance Release Blueprint](V3_CLIENT_ASSURANCE_DELIVERY_BLUEPRINT.md)
 > first. API contract testing and dashboard-data validation are mandatory before
