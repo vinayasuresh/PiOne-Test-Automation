@@ -25,6 +25,7 @@ class DataAssertionScenarioRequest(_StrictModel):
     ui_selector: str = Field(min_length=1, max_length=1024)
     metric_label: str = Field(default="", max_length=255)
     source_operation_id: str
+    database_query_id: str | None = None
     source_field: str
     source_timestamp_field: str = ""
     expected_filters: dict[str, Any] = Field(default_factory=dict)
@@ -39,6 +40,13 @@ class DataAssertionScenarioRequest(_StrictModel):
     def validate_identifier(cls, value: str) -> str:
         if not _ID_PATTERN.fullmatch(value):
             raise ValueError("source operation ID may contain only letters, numbers, '_' and '-'")
+        return value
+
+    @field_validator("database_query_id")
+    @classmethod
+    def validate_database_query_id(cls, value: str | None) -> str | None:
+        if value is not None and not _ID_PATTERN.fullmatch(value):
+            raise ValueError("database query ID may contain only letters, numbers, '_' and '-'")
         return value
 
     @field_validator("source_field", "source_timestamp_field")
@@ -73,6 +81,9 @@ class DataAssertionEvaluationRequest(_StrictModel):
     ui_value: str = Field(default="", max_length=1024)
     filter_context: dict[str, Any] = Field(default_factory=dict)
     source_filter_context: dict[str, Any] = Field(default_factory=dict)
+    # Values are transient inputs for the approved database definition. They
+    # are never persisted in the observation or returned in evidence.
+    database_parameters: dict[str, Any] = Field(default_factory=dict, max_length=20)
     job_id: str | None = None
     run_id: str | None = None
     evidence_manifest_id: str | None = None

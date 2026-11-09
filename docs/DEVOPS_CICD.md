@@ -14,7 +14,7 @@ automatic production release.
 | API | Python 3.11+, FastAPI, Uvicorn |
 | UI | Static HTML, CSS, and JavaScript served by FastAPI |
 | Browser automation | Playwright Chromium |
-| Persistence | SQLAlchemy; SQLite for local use, PostgreSQL through `DATABASE_URL` for shared environments |
+| Persistence | SQLAlchemy; PostgreSQL through `DATABASE_URL` is required for app runs; SQLite is an explicitly enabled test fallback |
 | Schema management | Alembic |
 | Exports | Pandas and OpenPyXL |
 | AI planning | Deterministic grounded planner, optional Google Gemini or local Ollama |
@@ -77,8 +77,8 @@ sudo chown -R pione-deploy:pione-deploy /opt/pione-testmate
 
 Log in as `pione-deploy`, create `/opt/pione-testmate/.env`, and set at least
 the variables in `.env.example`. For shared use, configure a PostgreSQL
-`DATABASE_URL`; otherwise the compose default persists SQLite in the
-`pione_reports` Docker volume.
+   `DATABASE_URL`. The production Compose file requires PostgreSQL and disables
+   SQLite fallback so a missing database configuration fails visibly.
 
 ## Production recommendation
 
@@ -87,3 +87,15 @@ Do not reuse staging credentials for production. Create a separate protected
 health checks, and rollback to the prior release. Store only `DATABASE_URL`,
 provider keys, and deployment credentials as GitHub/server secrets—never in
 committed `.env` files or generated reports.
+
+## Planned Tara and external-bot connector boundary
+
+Tara and third-party chatbot integration is not deployed by the current V2/V3
+workflow. Introduce it only after the pre-Tara release gate has recorded API,
+dashboard, database, recovery, idempotency, export, and V2-regression evidence.
+When the connector is introduced, deploy its inbound webhook and outbound
+callback credentials as separate per-tenant secrets. Require authenticated,
+timestamped and idempotent requests; do not store raw chatbot transcripts,
+authorization headers, browser cookies, or customer secrets in GitHub Actions,
+application logs, artifacts, or reports. The authoritative integration contract
+is [OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md](OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md).

@@ -33,6 +33,154 @@ PROMPT_VERSION = "3.0-grounded-regression-template"
 MAX_RESPONSE_BYTES = 512 * 1024  # 512 KB
 DEFAULT_TIMEOUT_SECONDS = 30
 
+_PROMPT_SCOPE_STOP_WORDS = {
+    "a", "an", "and", "app", "application", "check", "cover", "do", "for", "function",
+    "flow", "flows", "focus", "focused", "generate", "on", "please", "scenario", "test",
+    "testing", "the", "to", "user", "validate", "verify", "with", "smoke", "regression",
+    "coverage", "all", "every", "discovered", "safe", "route", "routes", "page", "pages",
+    "functional", "functionality",
+}
+
+_PROMPT_SCOPE_ACTIONS = {
+    "add", "remove", "increment", "decrement", "delete", "submit", "click", "tap", "press", "search", "find",
+    "filter", "sort", "open", "view", "login", "logout", "export", "download", "upload",
+    "edit", "update", "save", "create", "select", "checkout", "purchase", "pay", "reset",
+    "refresh", "navigate", "return", "back", "forward", "expand", "collapse", "toggle",
+    "enable", "disable", "approve", "reject", "assign", "resolve", "close", "reply",
+}
+
+_PROMPT_ACTION_SYNONYMS = {
+    "click": {"click", "tap", "press"},
+    "tap": {"click", "tap", "press"},
+    "press": {"click", "tap", "press"},
+    "add": {"add", "increase", "increment"},
+    "remove": {"remove", "decrease", "decrement"},
+    "increment": {"add", "increase", "increment"},
+    "decrement": {"remove", "decrease", "decrement"},
+    "find": {"find", "search"},
+    "search": {"find", "search"},
+    "edit": {"edit", "update", "modify"},
+    "update": {"edit", "update", "modify"},
+    "view": {"view", "open", "details"},
+    "open": {"view", "open", "details"},
+    "download": {"download", "export"},
+    "export": {"download", "export"},
+}
+
+
+def _scenario_scope_terms(prompt: str) -> list[str]:
+    # The gateway appends internal planning constraints (for example the
+    # requested-case cap) before calling providers. Those instructions must
+    # never be interpreted as the user's scenario vocabulary.
+    scenario_prompt = re.split(r"\n\s*PLANNING CONSTRAINT:", prompt or "", maxsplit=1, flags=re.IGNORECASE)[0]
+    terms = [
+        token for token in re.findall(r"[a-z0-9]+", scenario_prompt.casefold())
+        if len(token) > 1 and token not in _PROMPT_SCOPE_STOP_WORDS
+    ]
+    # Keep order while removing repeated words so scoring stays deterministic.
+    return list(dict.fromkeys(terms))
+
+
+def _prompt_scoped_routes(routes: list[dict[str, Any]], prompt: str) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """Limit a specific scenario to matching scanned routes and controls.
+
+    Broad prompts retain the established whole-scan behavior. For a focused
+    prompt, only source routes/targets containing at least one meaningful
+    scenario term may be planned; no synthetic unrelated test is substituted.
+    """
+    terms = _scenario_scope_terms(prompt)
+    if not terms:
+        return routes, [], False
+
+    requested_actions = set(terms) & _PROMPT_SCOPE_ACTIONS
+    entity_terms = [term for term in terms if term not in _PROMPT_SCOPE_ACTIONS]
+
+    def has_requested_action(text: str) -> bool:
+        words = set(re.findall(r"[a-z0-9]+", text.casefold()))
+        for action in requested_actions:
+            equivalents = _PROMPT_ACTION_SYNONYMS.get(action, {action})
+            if words & equivalents:
+                return True
+        return False
+
+    def is_search_input(target: dict[str, Any]) -> bool:
+        """Return true only for a control that can accept a search query."""
+        label = str(target.get("label") or target.get("text") or "").casefold()
+        category = str(target.get("category") or "").casefold()
+        target_type = str(target.get("type") or "").casefold()
+        role = str(target.get("element_role") or "").casefold()
+        return (
+            category == "inputs"
+            or target_type in {"input", "text", "search", "textbox"}
+            or role in {"textbox", "searchbox"}
+        )
+
+    def is_assertable_search_result(target: dict[str, Any]) -> bool:
+        """Keep one scanned result as evidence when scope narrows to search."""
+        category = str(target.get("category") or "").casefold()
+        target_type = str(target.get("type") or "").casefold()
+        role = str(target.get("element_role") or "").casefold()
+        safety = str(target.get("safety_classification") or "").casefold()
+        if safety in {"destructive", "blocked_destructive", "mutating_form", "requires_manual_confirmation"}:
+            return False
+        if not target.get("selector") or not str(target.get("label") or target.get("text") or "").strip():
+            return False
+        return bool(
+            target.get("search_result_candidate")
+            or category in {"result", "results", "list", "list_item", "table_row", "row", "card", "content"}
+            or target_type in {"row", "list_item", "card"}
+            or role in {"row", "listitem", "article"}
+        )
+
+    scoped: list[dict[str, Any]] = []
+    for route in routes:
+        if not isinstance(route, dict):
+            continue
+        targets = route.get("automation_targets", [])
+        route_text = " ".join(str(route.get(key) or "") for key in ("path", "route", "url", "menu_name", "purpose", "title" )).casefold()
+        route_hits = [term for term in terms if term in route_text]
+        matching_targets = []
+        for target in targets if isinstance(targets, list) else []:
+            if not isinstance(target, dict):
+                continue
+            target_text = " ".join(
+                str(target.get(key) or "")
+                for key in ("label", "text", "id", "name", "type", "element_role", "element_identity", "selector")
+            ).casefold()
+            target_matches = any(term in target_text for term in terms)
+            if requested_actions:
+                # Action-focused prompts must be grounded in an actual scanned
+                # control for that action. A route-name match alone (e.g. the
+                # word "cart") must never produce a generic page smoke test.
+                action_matches = has_requested_action(target_text)
+                entity_matches = not entity_terms or any(term in f"{route_text} {target_text}" for term in entity_terms)
+                if action_matches and entity_matches:
+                    matching_targets.append(target)
+            elif target_matches:
+                matching_targets.append(target)
+        route_matches = bool(route_hits)
+        # For action requests only include routes that contain the matching
+        # action control. For descriptive/feature prompts, route or control
+        # evidence remains sufficient so existing broad plans keep working.
+        if matching_targets or (route_matches and not requested_actions):
+            clone = deepcopy(route)
+            # If a control is the evidence match, exclude unrelated controls
+            # from this focused scenario while retaining route evidence.
+            if matching_targets:
+                scoped_targets = list(matching_targets)
+                # A focused prompt such as "search alerts" originally stripped
+                # the matching result row from the context. That made the
+                # planner type a value but prevented it from proving filtering.
+                # Retain exactly one safe, scanned result as assertion evidence.
+                if any(is_search_input(target) for target in scoped_targets):
+                    for candidate in targets:
+                        if candidate not in scoped_targets and is_assertable_search_result(candidate):
+                            scoped_targets.append(candidate)
+                            break
+                clone["automation_targets"] = scoped_targets
+            scoped.append(clone)
+    return scoped, terms, True
+
 
 # ---------------------------------------------------------------------------
 # Structured Error Categories
@@ -344,6 +492,7 @@ def validate_plan_grounding(
         "pagination",
         "search_input",
         "type",
+        "assert_search_results",
         "add_to_cart",
         "continue_shopping",
         "open_details",
@@ -814,6 +963,27 @@ class DeterministicAdapter(BaseLLMAdapter):
         routes_raw = scan_context.get("routes", [])
         if not routes_raw and "page_intelligence" in scan_context:
             routes_raw = list(scan_context["page_intelligence"].values())
+        routes_raw, prompt_scope_terms, prompt_scope_applied = _prompt_scoped_routes(
+            routes_raw, user_prompt
+        )
+        if prompt_scope_applied and not routes_raw:
+            reason = (
+                "No scanned route or UI control matched the requested scenario terms: "
+                + ", ".join(prompt_scope_terms)
+                + ". No unrelated test cases were generated."
+            )
+            return {
+                "provider": "deterministic",
+                "model": self.model,
+                "test_cases": [],
+                "planning_notes": [reason],
+                "warnings": [reason],
+                "fallback_used": False,
+                "coverage_gaps": [{"type": "scenario_scope_unmatched", "terms": prompt_scope_terms, "reason": reason}],
+                "prompt_scope_applied": True,
+                "prompt_scope_terms": prompt_scope_terms,
+                "prompt_scope_matched": False,
+            }
 
         parking_lot = scan_context.get("parking_lot_actions", [])
         parking_selectors = {
@@ -834,6 +1004,29 @@ class DeterministicAdapter(BaseLLMAdapter):
             route_path = route_data.get("path") or route_data.get("route", "")
             module = route_data.get("menu_name") or route_path.strip("/") or "Home"
             targets = route_data.get("automation_targets", [])
+
+            # Search is only considered tested when a scanned, non-mutating
+            # result can be asserted after entering a grounded query.  Never
+            # invent a result selector or use a generic string such as "test".
+            def _search_result_candidate() -> dict[str, Any] | None:
+                for candidate in targets:
+                    candidate_label = str(candidate.get("label") or candidate.get("text") or "").strip()
+                    if not candidate_label:
+                        continue
+                    candidate_category = str(candidate.get("category") or "").casefold()
+                    candidate_type = str(candidate.get("type") or "").casefold()
+                    candidate_role = str(candidate.get("element_role") or "").casefold()
+                    candidate_safety = str(candidate.get("safety_classification") or "").casefold()
+                    if candidate_safety in {"destructive", "blocked_destructive", "mutating_form", "requires_manual_confirmation"}:
+                        continue
+                    if candidate_category in {"inputs", "buttons", "controls"} or candidate_type in {"input", "button", "select"}:
+                        continue
+                    if candidate_role in {"button", "textbox", "searchbox", "combobox"}:
+                        continue
+                    if candidate.get("search_result_candidate") or candidate_category in {"result", "results", "list", "list_item", "table_row", "row", "card", "content"} or candidate_type in {"row", "list_item", "card"}:
+                        if candidate.get("selector"):
+                            return candidate
+                return None
 
             steps = [
                 {
@@ -948,19 +1141,56 @@ class DeterministicAdapter(BaseLLMAdapter):
                         "safety_classification": "safe_sort",
                     })
                     added_step += 1
-                elif target.get("category") == "inputs" or any(p in lbl_lower for p in {"search", "find", "filter"}):
+                # Only controls that accept text may create a search action.
+                # A button labelled "Filter" is an action trigger, not an input;
+                # treating it as an input generated an impossible type step.
+                elif (
+                    str(target.get("category") or "").casefold() == "inputs"
+                    or str(target.get("type") or "").casefold() in {"input", "text", "search", "textbox"}
+                    or str(target.get("element_role") or "").casefold() in {"textbox", "searchbox"}
+                ):
+                    result_candidate = _search_result_candidate()
+                    search_query = str(
+                        (result_candidate or {}).get("label")
+                        or (result_candidate or {}).get("text")
+                        or ""
+                    ).strip()
                     steps.append({
                         "step_id": f"TC_{idx:03d}_S{added_step:02d}",
                         "action": "type",
                         "route": route_path,
                         "target_label": label,
                         "selector": selector,
-                        "value": "test",
-                        "expected_result": f"Enter query into {label}.",
+                        "value": search_query or "test",
+                        "expected_result": (
+                            f"Enter the grounded query '{search_query}' into {label}."
+                            if search_query else f"Enter query into {label}."
+                        ),
                         "element_identity": ident,
                         "safety_classification": "safe_search",
                     })
                     added_step += 1
+                    if result_candidate and search_query and added_step <= 6:
+                        result_label = str(result_candidate.get("label") or result_candidate.get("text") or "").strip()
+                        result_selector = result_candidate.get("selector")
+                        steps.append({
+                            "step_id": f"TC_{idx:03d}_S{added_step:02d}",
+                            "action": "assert_search_results",
+                            "route": route_path,
+                            "target_label": result_label,
+                            "selector": result_selector,
+                            "value": search_query,
+                            "search_input_label": label,
+                            "search_input_selector": selector,
+                            "expected_result": (
+                                f"Filtered results include the scanned item '{result_label}' "
+                                f"for query '{search_query}'."
+                            ),
+                            "element_identity": result_candidate.get("element_identity") or result_candidate.get("id") or "",
+                            "safety_classification": "safe_search_assertion",
+                        })
+                        seen_labels.add(result_label.casefold())
+                        added_step += 1
                 elif any(p in lbl_lower for p in {"tab", "accordion", "menu", "overview"}) or target.get("element_role") in {"tab", "switch"}:
                     steps.append({
                         "step_id": f"TC_{idx:03d}_S{added_step:02d}",
@@ -999,15 +1229,30 @@ class DeterministicAdapter(BaseLLMAdapter):
                     added_step += 1
 
             refs = [r.get("item_id") for r in requirements if r.get("item_id")][:3]
+            focus_labels = [
+                str(step.get("target_label") or "").strip()
+                for step in steps
+                if step.get("action") != "navigate" and step.get("target_label")
+            ]
+            scenario_focus = ", ".join(dict.fromkeys(focus_labels))
+            focused_title = (
+                f"Verify {scenario_focus} on {module}"
+                if prompt_scope_applied and scenario_focus
+                else f"Verify {module} route and controls"
+            )
             cases.append({
                 "tc_id": f"TC_{idx:03d}",
-                "title": f"Verify {module} route and controls",
+                "title": focused_title,
                 "module": module,
                 "route": route_path,
                 "purpose": route_data.get("purpose", ""),
                 "screen": module,
                 "feature": route_data.get("purpose", "") or module,
-                "testcase": f"Verify discovered controls and safe interactions on {module}",
+                "testcase": (
+                    f"{user_prompt.strip()} using scanned control(s): {scenario_focus}"
+                    if prompt_scope_applied and scenario_focus
+                    else f"Verify discovered controls and safe interactions on {module}"
+                ),
                 "test_type": "positive",
                 "severity": "Medium",
                 "steps_to_execute": "\n".join(f"{n}. {step.get('action')} {step.get('target_label') or step.get('route', '')}" for n, step in enumerate(steps, 1)),
@@ -1019,6 +1264,31 @@ class DeterministicAdapter(BaseLLMAdapter):
         notes = [f"Deterministic planner generated {len(cases)} test cases across {len(routes_raw)} routes."]
         if user_prompt:
             notes.append(f"Prompt evaluated: {user_prompt[:80]}")
+        warnings = []
+        search_gaps = []
+        for case in cases:
+            safe_search_steps = [
+                step for step in case.get("steps", [])
+                if step.get("action") == "type" and step.get("safety_classification") == "safe_search"
+            ]
+            search_assertions = [
+                step for step in case.get("steps", [])
+                if step.get("action") == "assert_search_results"
+            ]
+            missing_search_proof = any(
+                not any(
+                    assertion.get("search_input_label") == search_step.get("target_label")
+                    and assertion.get("value") == search_step.get("value")
+                    and assertion.get("search_input_selector")
+                    for assertion in search_assertions
+                )
+                for search_step in safe_search_steps
+            )
+            if safe_search_steps and missing_search_proof:
+                message = (f"{case['tc_id']}: Search input is exercised, but filtered results are not verified. "
+                           "Provide an expected result and a grounded result selector before treating search behaviour as tested.")
+                warnings.append(message)
+                search_gaps.append({"type": "search_result_unverified", "tc_id": case["tc_id"], "reason": message})
 
         # When the user asks for broad coverage, add grounded variants rather
         # than pretending one route smoke test represents a complete suite.
@@ -1043,9 +1313,12 @@ class DeterministicAdapter(BaseLLMAdapter):
             "model": self.model,
             "test_cases": cases,
             "planning_notes": notes,
-            "warnings": [],
+            "warnings": warnings,
             "fallback_used": False,
-            "coverage_gaps": self.identify_coverage_gaps(scan_context, requirements),
+            "coverage_gaps": self.identify_coverage_gaps(scan_context, requirements) + search_gaps,
+            "prompt_scope_applied": prompt_scope_applied,
+            "prompt_scope_terms": prompt_scope_terms,
+            "prompt_scope_matched": bool(cases) if prompt_scope_applied else None,
         }
 
     def summarize_scan(self, scan_artifacts: dict[str, Any]) -> str:
@@ -1449,6 +1722,12 @@ class LLMProviderGateway:
 
         safe_context = sanitize_context(scan_context)
         safe_prompt = redact_secrets_text(user_prompt)
+        scoped_routes, scope_terms, scope_applied = _prompt_scoped_routes(
+            safe_context.get("routes", []), safe_prompt
+        )
+        if scope_applied:
+            safe_context["routes"] = scoped_routes
+            safe_context["prompt_scope_terms"] = scope_terms
         if requested_count:
             safe_prompt = (
                 f"{safe_prompt}\n\nPLANNING CONSTRAINT: Return no more than {requested_count} "
@@ -1463,7 +1742,7 @@ class LLMProviderGateway:
         error_category = ""
         result: dict[str, Any] = {}
 
-        if chosen_provider != "deterministic":
+        if chosen_provider != "deterministic" and not (scope_applied and not scoped_routes):
             try:
                 raw_result = adapter.generate_test_plan(
                     safe_context, safe_reqs, safe_tcs, safe_prompt, correlation_id=correlation_id
@@ -1505,11 +1784,16 @@ class LLMProviderGateway:
                 safe_context, safe_reqs, safe_tcs, safe_prompt, correlation_id=correlation_id
             )
 
+        if scope_applied:
+            result.setdefault("prompt_scope_applied", True)
+            result.setdefault("prompt_scope_terms", scope_terms)
+            result.setdefault("prompt_scope_matched", bool(result.get("test_cases")))
+
         planned_cases = result.get("test_cases", [])
         if not isinstance(planned_cases, list):
             planned_cases = []
         count_warning = ""
-        if requested_count and len(planned_cases) < requested_count:
+        if requested_count and len(planned_cases) < requested_count and not result.get("prompt_scope_applied"):
             expanded_cases, focused_added = _expand_grounded_cases_to_requested_count(
                 planned_cases, requested_count, safe_context,
             )
@@ -1529,15 +1813,19 @@ class LLMProviderGateway:
                 f"{r.get('path') or r.get('url') or '/'}: {len(r.get('automation_targets') or [])} targets"
                 for r in routes_in_scan if isinstance(r, dict)
             ]
+            scoped_unmatched = bool(result.get("prompt_scope_applied") and not result.get("prompt_scope_matched"))
+            reason = (
+                "No scanned routes or controls matched the requested scenario, so unrelated tests were not added."
+                if scoped_unmatched else
+                f"Requested {requested_count} test cases, but the scanned evidence yielded {len(planned_cases)} "
+                f"grounded, safe checks across {len(routes_in_scan)} routes without hallucinating UI targets."
+            )
             shortfall_explanation = {
                 "requested_count": requested_count,
                 "generated_count": len(planned_cases),
                 "shortfall": requested_count - len(planned_cases),
                 "available_routes": route_stats,
-                "reason": (
-                    f"Requested {requested_count} test cases, but the scanned evidence yielded {len(planned_cases)} "
-                    f"grounded, safe checks across {len(routes_in_scan)} routes without hallucinating UI targets."
-                ),
+                "reason": reason,
             }
             count_warning = shortfall_explanation["reason"]
         if requested_count and len(planned_cases) > requested_count:
@@ -1559,6 +1847,7 @@ class LLMProviderGateway:
             warnings.append(warn_msg)
         if count_warning:
             warnings.append(count_warning)
+        warnings.extend(item for item in result.get("warnings", []) if item not in warnings)
 
         is_scenario_proposal = (len(safe_reqs) == 0 and len(safe_tcs) == 0)
 
@@ -1593,6 +1882,9 @@ class LLMProviderGateway:
                 "plan_type": "scenario_proposal" if is_scenario_proposal else "requirement_verified_suite",
                 "requested_testcases": requested_count,
                 "actual_testcases": len(result.get("test_cases", [])),
+                "prompt_scope_applied": bool(result.get("prompt_scope_applied")),
+                "prompt_scope_terms": result.get("prompt_scope_terms", []),
+                "prompt_scope_matched": result.get("prompt_scope_matched"),
                 "shortfall_explanation": shortfall_explanation,
                 "evidence_revision": safe_context.get("checkpoint_version") or safe_context.get("revision") or 1,
             },

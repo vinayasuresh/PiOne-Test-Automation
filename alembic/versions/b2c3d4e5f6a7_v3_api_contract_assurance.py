@@ -7,6 +7,7 @@ Create Date: 2026-11-02
 
 from alembic import op
 import sqlalchemy as sa
+from migration_compat import table_exists
 
 
 revision = "b2c3d4e5f6a7"
@@ -16,6 +17,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if all(table_exists(name) for name in ("api_contracts", "api_operations", "api_observations")):
+        return
     op.create_table(
         "api_contracts",
         sa.Column("id", sa.String(length=80), primary_key=True),

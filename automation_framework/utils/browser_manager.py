@@ -1,6 +1,8 @@
 import os
 import sys
+import json
 from pathlib import Path
+from urllib.parse import urlparse
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright, sync_playwright
 
@@ -30,10 +32,24 @@ def start_persistent_browser(
     browser = playwright.chromium.launch(headless=_launch_headless())
 
     context_options = {}
+    session_storage = {}
     if storage_state_path and Path(storage_state_path).exists():
-        context_options["storage_state"] = str(storage_state_path)
+        state = json.loads(Path(storage_state_path).read_text(encoding="utf-8"))
+        session_storage = state.pop("_omnitest_session_storage", {})
+        context_options["storage_state"] = state
 
     context = browser.new_context(**context_options)
+    if session_storage:
+        # sessionStorage is tab scoped and is not included in Playwright's
+        # storage_state. Restore only the exact captured origin, once per tab.
+        payload = json.dumps(session_storage).replace("<", "\\u003c")
+        context.add_init_script(script=f"""(() => {{
+            const saved = {payload};
+            const marker = '__omnitest_session_restored__';
+            if (!Object.prototype.hasOwnProperty.call(saved, location.origin) || sessionStorage.getItem(marker)) return;
+            for (const [key, value] of Object.entries(saved[location.origin])) sessionStorage.setItem(key, value);
+            sessionStorage.setItem(marker, '1');
+        }})()""")
     page = context.new_page()
 
     return playwright, browser, context, page
@@ -47,6 +63,22 @@ def save_storage_state(context: BrowserContext, storage_state_path: str | Path) 
     compatibility fallback.
     """
     try:
-        context.storage_state(path=str(storage_state_path), indexed_db=True)
+        state = context.storage_state(indexed_db=True)
     except TypeError:
-        context.storage_state(path=str(storage_state_path))
+        state = context.storage_state()
+    sessions = {}
+    for page in context.pages:
+        try:
+            parsed = urlparse(page.url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                continue
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+            values = page.evaluate("() => Object.fromEntries(Object.entries(sessionStorage))")
+            values.pop("__omnitest_session_restored__", None)
+            if values:
+                sessions[origin] = values
+        except Exception:
+            continue
+    if sessions:
+        state["_omnitest_session_storage"] = sessions
+    Path(storage_state_path).write_text(json.dumps(state), encoding="utf-8")

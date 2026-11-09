@@ -64,6 +64,7 @@ from automation_framework.engine.ui_intelligence_engine import (
 )
 from automation_framework.storage.checkpoint_store import CheckpointStore, compute_namespace
 from automation_framework.utils.logger import logger
+from automation_framework.utils.redactor import redact_text
 
 
 def _recount_sections(targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -736,6 +737,8 @@ class CrawlerEngine:
         # 1. Page stabilization & SPA readiness
         readiness = self._stabilize_page(normalized)
         stable = readiness.get("ready", False)
+        # Measure the document before optional probes can navigate or alter it.
+        page_load_success, document_status = self._page_load_health()
         base_state = compute_ui_state_fingerprint(self.page, normalized)
         self._current_ui_state_id = base_state.get("ui_state_id", "state_base")
         if hasattr(self.route_tracker, "graph"):
@@ -831,7 +834,6 @@ class CrawlerEngine:
         route_doc["sections"] = _recount_sections(route_doc["automation_targets"])
 
         # 6. Health scoring via RouteHealthScorer.score_route() with diagnostic signals
-        page_load_success, document_status = self._page_load_health()
         actual_norm = self.route_tracker.normalize_url(self.page.url)
         if actual_norm not in self._current_redirect_chain:
             self._current_redirect_chain.append(actual_norm)
@@ -999,8 +1001,8 @@ class CrawlerEngine:
             candidates = self.page.locator(candidate_selector).evaluate_all("""els => els.map((el, index) => {
                 const style = window.getComputedStyle(el);
                 const box = el.getBoundingClientRect();
-                const isGlobalNav = !!el.closest('header nav, nav[role="navigation"], aside[role="navigation"], [role="menubar"]');
-                if (isGlobalNav && (el.tagName.toLowerCase() === 'a' || el.getAttribute('role') === 'link')) {
+                const isGlobalNav = !!el.closest('header, nav, aside, [role="navigation"], [role="menubar"], .sidebar, .sidenav, .side-nav, mat-sidenav');
+                if (isGlobalNav) {
                     return { visible: false };
                 }
                 const visible = style.display !== 'none' && style.visibility !== 'hidden' && (box.width > 0 || box.height > 0);
@@ -1282,11 +1284,15 @@ class CrawlerEngine:
                             # Save parent checkpoint before scanning child route
                             self._save_checkpoint()
                             # Scan child route
-                            self._scan_route(
-                                child_route,
-                                menu_name=f"{menu_name} > {item['label']}",
-                                expected_url=child_route,
-                            )
+                            parent_console_messages = self._current_console_errors
+                            try:
+                                self._scan_route(
+                                    child_route,
+                                    menu_name=f"{menu_name} > {item['label']}",
+                                    expected_url=child_route,
+                                )
+                            finally:
+                                self._current_console_errors = parent_console_messages
                             # Save child checkpoint after scan
                             self._save_checkpoint()
 
@@ -1385,7 +1391,9 @@ class CrawlerEngine:
         routes_scanned = len(self.page_intelligence)
         routes_pending = len(getattr(self, "_discovered_route_queue", []))
 
-        errors_count = len(getattr(self, "_current_console_errors", [])) + non_working_count
+        # Route health already reports non-working routes separately. Keep this
+        # counter scoped to browser console errors so the UI label is truthful.
+        errors_count = sum(1 for message in getattr(self, "_current_console_errors", []) if not message.startswith("warning:"))
 
         route_total = routes_scanned + routes_pending
         return {
@@ -1823,14 +1831,14 @@ class CrawlerEngine:
             if mtype in {"error", "warning"}:
                 text = str(getattr(msg, "text", ""))
                 if len(self._current_console_errors) < 25:
-                    self._current_console_errors.append(f"{mtype}: {text[:150]}")
+                    self._current_console_errors.append(redact_text(f"{mtype}: {text[:500]}"))
         except Exception:
             pass
 
     def _record_page_error(self, err: Any) -> None:
         try:
             if len(self._current_console_errors) < 25:
-                self._current_console_errors.append(f"pageerror: {str(err)[:150]}")
+                self._current_console_errors.append(redact_text(f"pageerror: {str(err)[:500]}"))
         except Exception:
             pass
 

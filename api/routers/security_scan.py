@@ -127,7 +127,7 @@ def export(run_id: str, format: Literal["json", "markdown", "excel"]):
         def clean(value):
             import html
             return html.escape(str(value)).replace("`", "\\`").replace("[", "\\[").replace("]", "\\]")
-        lines = ["# PiOne Testmate VAPT assessment", f"Run: {run_id}", f"Target: {report.get('target', '')}", f"Mode: {report.get('assessment_mode', 'review')}", f"Status: {report['status']}",
+        lines = ["# OmniTest by PiOne VAPT assessment", f"Run: {run_id}", f"Target: {report.get('target', '')}", f"Mode: {report.get('assessment_mode', 'review')}", f"Status: {report['status']}",
                  "Authorized, bounded assessment. No destructive actions, credential attacks, brute force, denial of service, or mutation requests are performed.", "## Coverage limitations"]
         lines += ["- " + clean(x) for x in report["warnings"]]
         lines += ["Not tested: " + ", ".join(report["not_tested"])]

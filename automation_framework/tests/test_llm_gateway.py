@@ -242,6 +242,132 @@ def test_testcase_count_expands_with_grounded_action_checks(sample_scan_context)
     assert all(case["steps"][0]["action"] == "navigate" for case in result["test_cases"])
 
 
+def test_specific_scenario_prompt_scopes_to_matching_scanned_control():
+    scan_context = {
+        "routes": [
+            {
+                "path": "/dashboard", "menu_name": "Dashboard", "purpose": "System overview",
+                "automation_targets": [{
+                    "label": "Open analytics", "type": "button",
+                    "selector": {"primary": {"strategy": "testid", "value": "open-analytics"}},
+                }],
+            },
+            {
+                "path": "/inventory.html", "menu_name": "Inventory", "purpose": "Product inventory",
+                "automation_targets": [{
+                    "label": "Add to cart", "type": "button",
+                    "selector": {"primary": {"strategy": "testid", "value": "add-to-cart"}},
+                    "safety_classification": "safe_action",
+                }],
+            },
+        ],
+    }
+
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=scan_context,
+        requirements=[], testcases=[], user_prompt="test on cart add function", requested_count=5,
+    )
+
+    assert len(result["test_cases"]) == 1
+    case = result["test_cases"][0]
+    assert case["route"] == "/inventory.html"
+    assert [step["target_label"] for step in case["steps"]] == ["Inventory", "Add to cart", "Shopping cart count"]
+    assert "cart" in case["testcase"].casefold()
+    assert "add to cart" in case["testcase"].casefold()
+    assert result["planning_metadata"]["prompt_scope_applied"] is True
+    assert result["planning_metadata"]["prompt_scope_matched"] is True
+    assert result["shortfall_explanation"]["generated_count"] == 1
+    assert "unrelated tests were not added" not in result["shortfall_explanation"]["reason"]
+
+
+def test_search_input_without_results_assertion_reports_coverage_gap():
+    context = {"routes": [{"path": "/live-events", "menu_name": "Live Events", "automation_targets": [
+        {"label": "Search alerts", "category": "inputs", "selector": {"strategy": "css", "value": "#search"}}
+    ]}]}
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=context,
+        requirements=[], testcases=[], user_prompt="search alerts", requested_count=1,
+    )
+    assert any(gap.get("type") == "search_result_unverified" for gap in result["coverage_gaps"])
+    assert any("filtered results are not verified" in warning for warning in result["warnings"])
+    assert [step["action"] for step in result["test_cases"][0]["steps"]] == ["navigate", "type"]
+
+
+def test_search_plan_asserts_a_grounded_filtered_result():
+    context = {"routes": [{"path": "/live-events", "menu_name": "Live Events", "automation_targets": [
+        {"label": "Search alerts", "category": "inputs", "selector": {"strategy": "css", "value": "#search"}},
+        {"label": "High temperature alert", "category": "results", "type": "row", "selector": {"strategy": "css", "value": "#alert-row-42"}},
+    ]}]}
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=context,
+        requirements=[], testcases=[], user_prompt="search alerts", requested_count=1,
+    )
+    steps = result["test_cases"][0]["steps"]
+    assert [step["action"] for step in steps] == ["navigate", "type", "assert_search_results"]
+    assert steps[1]["value"] == "High temperature alert"
+    assert steps[2]["target_label"] == "High temperature alert"
+    assert steps[2]["search_input_label"] == "Search alerts"
+    assert not any(gap.get("type") == "search_result_unverified" for gap in result["coverage_gaps"])
+    assert not any("filtered results are not verified" in warning for warning in result["warnings"])
+
+
+def test_search_named_button_is_not_planned_as_a_text_input():
+    """A control label is not enough evidence that the control accepts text."""
+    context = {"routes": [{"path": "/live-events", "menu_name": "Live Events", "automation_targets": [
+        {"label": "Search", "category": "buttons", "type": "button", "selector": {"strategy": "css", "value": "#search-button"}},
+    ]}]}
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=context,
+        requirements=[], testcases=[], user_prompt="search alerts", requested_count=1,
+    )
+
+    assert all(
+        step["action"] != "type"
+        for case in result["test_cases"]
+        for step in case["steps"]
+    )
+
+
+def test_unmatched_specific_scenario_does_not_fall_back_to_generic_plan(sample_scan_context):
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=sample_scan_context,
+        requirements=[], testcases=[], user_prompt="test invoice export", requested_count=3,
+    )
+
+    assert result["test_cases"] == []
+    assert result["planning_metadata"]["prompt_scope_matched"] is False
+    assert "No scanned routes or controls matched" in result["shortfall_explanation"]["reason"]
+
+
+def test_action_prompt_does_not_accept_unrelated_route_title_as_a_match():
+    scan_context = {
+        "routes": [
+            {
+                "path": "/cart", "menu_name": "Cart", "purpose": "Shopping cart",
+                "automation_targets": [{
+                    "label": "Continue shopping", "type": "button",
+                    "selector": {"strategy": "css", "value": "#continue-shopping"},
+                }],
+            },
+            {
+                "path": "/dashboard", "menu_name": "Dashboard", "purpose": "Overview",
+                "automation_targets": [{
+                    "label": "Open analytics", "type": "button",
+                    "selector": {"strategy": "css", "value": "#analytics"},
+                }],
+            },
+        ],
+    }
+
+    result = LLMProviderGateway().plan_tests(
+        provider="deterministic", model=None, scan_context=scan_context,
+        requirements=[], testcases=[], user_prompt="add an item to the cart", requested_count=1,
+    )
+
+    assert result["test_cases"] == []
+    assert result["planning_metadata"]["prompt_scope_matched"] is False
+
+
 def test_testcase_count_uses_targets_beyond_route_step_cap():
     """Requested counts may use all captured safe controls, not only five per route."""
     targets = [
@@ -301,7 +427,7 @@ def test_deterministic_planner_success(sample_scan_context):
     assert result["model"] == "built-in"
     assert result["fallback_used"] is False
     assert result["warnings"] == []
-    assert len(result["test_cases"]) == 2
+    assert len(result["test_cases"]) == 1
     assert isinstance(result["planning_notes"], list)
     assert len(result["planning_notes"]) >= 1
 
@@ -309,7 +435,7 @@ def test_deterministic_planner_success(sample_scan_context):
     assert tc1["route"] == "/home"
     assert tc1["steps"][0]["action"] == "navigate"
     assert tc1["steps"][1]["action"] == "assert_visible"
-    assert tc1["steps"][1]["target_label"] in {"Submit", "User Search"}
+    assert tc1["steps"][1]["target_label"] == "Submit"
 
 
 def test_env_values_loaded_from_file(tmp_path, monkeypatch):
@@ -578,7 +704,7 @@ def test_provider_timeout_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test timeout",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -607,7 +733,7 @@ def test_provider_unavailable_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test unavailable",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -635,7 +761,7 @@ def test_malformed_json_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test bad json",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -664,7 +790,7 @@ def test_schema_validation_failure_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test schema failure",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -704,7 +830,7 @@ def test_hallucinated_route_rejection_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test hallucinated route",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -755,7 +881,7 @@ def test_hallucinated_selector_rejection_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test hallucinated selector",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -845,7 +971,7 @@ def test_destructive_action_safeguard_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="delete account test",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -873,7 +999,7 @@ def test_response_size_limit_exceeded_triggers_fallback(sample_scan_context):
             scan_context=sample_scan_context,
             requirements=[],
             testcases=[],
-            user_prompt="test big response",
+            user_prompt="smoke",
         )
 
     assert result["fallback_used"] is True
@@ -998,7 +1124,10 @@ def test_complete_flow_scan_to_plan_to_execute(sample_scan_context, sync_client)
 
     assert summary.total > 0
     # All executed steps are safe actions
-    assert all(row.Action in {"navigate", "assert_visible", "click", "type", "select"} for row in rows)
+    assert all(
+        row.Action in {"navigate", "assert_visible", "assert_search_results", "click", "type", "select"}
+        for row in rows
+    )
     # No mutating or destructive action was executed
     assert not any(row.Action in {"delete", "remove", "logout", "submit", "pay", "reset"} for row in rows)
 

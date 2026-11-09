@@ -120,6 +120,13 @@ def test_execution_artifacts_include_replayable_plan(tmp_path):
     assert (tmp_path / "test_plan.json").exists()
     assert artifacts["plan"].endswith("test_plan.json")
 
+    frame = __import__("pandas").read_excel(tmp_path / "execution_results.xlsx")
+    headers = [str(column).strip().casefold() for column in frame.columns]
+    assert len(headers) == len(set(headers))
+    assert "test status" in headers
+    assert "status" not in headers
+    assert "tc_id" not in headers
+
 
 def test_uploaded_row_is_preserved_in_source_excel_results(tmp_path):
     case = AutomationCase(
@@ -205,9 +212,11 @@ def test_storage_state_includes_indexeddb_when_supported(tmp_path):
     class Context:
         def __init__(self):
             self.kwargs = None
+            self.pages = []
 
         def storage_state(self, **kwargs):
             self.kwargs = kwargs
+            return {"cookies": [], "origins": []}
 
     context = Context()
     save_storage_state(context, tmp_path / "state.json")

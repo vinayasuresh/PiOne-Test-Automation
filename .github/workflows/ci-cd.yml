@@ -28,6 +28,10 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       CI: "true"
+      # CI uses a deliberately isolated SQLite test database. Application and
+      # deployment runs require PostgreSQL and never inherit this test setting.
+      DATABASE_URL: sqlite:////tmp/omnitest-ci-tests.sqlite
+      DATABASE_FALLBACK_ENABLED: "true"
 
     steps:
       - name: Check out source

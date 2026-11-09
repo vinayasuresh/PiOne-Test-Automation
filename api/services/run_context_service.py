@@ -119,6 +119,7 @@ def save_run_context(ctx: RunContext) -> None:
         DBRepository.create_or_update_run(
             run_id=ctx.run_id,
             base_url=ctx.target_origin,
+            display_name=ctx.display_name,
             allowed_path_namespace=ctx.allowed_path_namespace,
             status=ctx.status,
             auth_status=ctx.auth_status,
@@ -126,6 +127,7 @@ def save_run_context(ctx: RunContext) -> None:
             selected_modules=ctx.selected_modules,
             discovered_modules=ctx.discovered_modules,
             execution_summary=ctx.execution_summary or {},
+            progress_pct=float((ctx.execution_summary or {}).get("progress_percentage", 0) or 0),
             error_message=ctx.error_message,
         )
     except Exception as db_exc:

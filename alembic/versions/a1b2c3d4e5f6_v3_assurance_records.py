@@ -7,6 +7,7 @@ Create Date: 2026-11-02
 
 from alembic import op
 import sqlalchemy as sa
+from migration_compat import table_exists
 
 
 revision = "a1b2c3d4e5f6"
@@ -16,6 +17,18 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Older local SQLite databases were materialised from the complete ORM
+    # metadata before Alembic was introduced.  Treat that complete snapshot as
+    # already containing this revision; later revisions still remain tracked
+    # by Alembic and are handled by their own compatibility guards.
+    if all(table_exists(name) for name in (
+        "support_incidents",
+        "verification_jobs",
+        "verification_attempts",
+        "evidence_manifests",
+        "assignment_rules",
+    )):
+        return
     op.create_table(
         "support_incidents",
         sa.Column("id", sa.String(length=80), primary_key=True),

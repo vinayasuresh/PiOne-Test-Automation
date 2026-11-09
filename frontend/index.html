@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PiOne Testmate — Pi One OmniTest Unified Assurance Platform</title>
+  <title>OmniTest by PiOne — Unified Assurance Platform</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
@@ -38,7 +38,7 @@
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h1 class="text-base font-bold tracking-tight text-white">PiOne Testmate <span class="text-xs text-blue-400 font-normal">/ Pi One OmniTest</span></h1>
+              <h1 class="text-base font-bold tracking-tight text-white">OmniTest by PiOne <span class="text-xs text-blue-400 font-normal">/ Unified Assurance Platform</span></h1>
               <span class="bg-blue-500/20 text-blue-300 text-[10px] font-semibold px-2 py-0.5 rounded border border-blue-500/30">v2.0 Enterprise</span>
             </div>
             <p class="text-[11px] text-slate-500">Deterministic UI Scanner &amp; Grounded Test Intelligence Platform</p>
@@ -145,7 +145,7 @@
             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">1</span>
             <h2 class="text-lg font-bold text-slate-900">Scan Application — Target &amp; Authentication</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Specify target origin and credentials. PiOne Testmate authenticates, captures browser state, and discovers modules.</p>
+          <p class="text-xs text-slate-500 mt-1">Specify target origin and credentials. OmniTest by PiOne authenticates, captures browser state, and discovers modules.</p>
         </div>
         <div class="inline-flex bg-slate-100 rounded-lg p-1 w-fit border border-slate-200">
           <button id="btn-mode-live" class="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-blue-700 shadow-sm" type="button">Live Target</button>
@@ -158,7 +158,7 @@
         <i id="mode-explanation-icon" class="fa-solid fa-circle-info text-blue-600 mt-0.5"></i>
         <div>
           <span id="mode-explanation-title" class="font-bold">Live Target Scan Active:</span>
-          <span id="mode-explanation-text" class="text-slate-600 ml-1">PiOne Testmate will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.</span>
+          <span id="mode-explanation-text" class="text-slate-600 ml-1">OmniTest by PiOne will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.</span>
         </div>
       </div>
 
@@ -172,16 +172,18 @@
           <option value="functional_only">Functional testing only</option>
           <option value="security_only">Security review only</option>
           <option value="vapt_only">VAPT assessment only</option>
+          <option value="api_testing">API Testing (OpenAPI / Swagger / Postman)</option>
         </select>
         <p id="assessment-mode-first-help" class="text-[11px] text-indigo-900">The crawl and module-review steps stay unchanged. After crawling, choose whether to continue into test planning, security review, or both.</p>
       </div>
 
+      <div id="web-app-scan-container" class="space-y-4">
       <div class="grid grid-cols-1 gap-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1" for="url-input">Target Application URL</label>
           <input id="url-input" type="url" placeholder="https://your-app.example.com"
             class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-          <p class="text-[11px] text-slate-500 mt-1">Enter an application you are authorized to test. SSRF protection blocks private IPv4, loopback, cloud metadata, and localhost in live mode.</p>
+          <p class="text-[11px] text-slate-500 mt-1">Enter an application URL you are authorized to test. This field starts blank. Mock Demo mode runs offline and does not contact the URL; Live mode enforces SSRF protection.</p>
         </div>
 
         <div>
@@ -231,6 +233,381 @@
           <i class="fa-solid fa-compass"></i> Discover Modules
         </button>
       </div>
+      </div>
+
+      <!-- DEDICATED V3 API TESTING FLOW CONTAINER -->
+      <div id="api-testing-flow-container" class="space-y-6 hidden">
+        <!-- Banner -->
+        <div class="bg-gradient-to-r from-indigo-900 to-slate-900 text-white rounded-xl p-5 shadow-sm border border-indigo-700">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 uppercase tracking-wider">OmniTest V3</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Zero Secret Leakage</span>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">Safe Precedence</span>
+              </div>
+              <h3 class="text-base font-bold mt-2 text-white">API Contract Assurance &amp; Safe Test Execution</h3>
+              <p class="text-xs text-indigo-200 mt-1 max-w-2xl">
+                Ingest Swagger 2.0, OpenAPI 3.x, or Postman v2.1 collections. Validate schema compliance, execute bounded tests with per-operation checkpoints, and generate 10-sheet audit reports.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="api-conn-status-pill" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-circle text-[8px] text-slate-500"></i> Untested Target
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1. Document Ingestion Card -->
+        <div class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">1</span>
+              <h4 class="text-sm font-bold text-slate-900">Contract Ingestion &amp; Source Order Normalization</h4>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+              <button id="api-tab-url" type="button" class="px-3 py-1 font-semibold rounded-md bg-white text-indigo-900 shadow-sm transition">URL</button>
+              <button id="api-tab-file" type="button" class="px-3 py-1 font-semibold rounded-md text-slate-600 hover:text-slate-900 transition">Upload File</button>
+              <button id="api-tab-paste" type="button" class="px-3 py-1 font-semibold rounded-md text-slate-600 hover:text-slate-900 transition">Paste Spec</button>
+            </div>
+          </div>
+
+          <!-- URL Tab Pane -->
+          <div id="api-pane-url" class="space-y-3">
+            <div>
+              <label for="api-ingest-url" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Contract Document URL</label>
+              <input id="api-ingest-url" type="url" placeholder="https://api.example.com/openapi.json or /swagger.yaml" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-400" />
+              <p class="text-[11px] text-slate-500 mt-1">Protected by SSRF guard, redirect validation, 10MB size limit, and embedded credential checks.</p>
+            </div>
+          </div>
+
+          <!-- File Upload Tab Pane -->
+          <div id="api-pane-file" class="space-y-3 hidden">
+            <div>
+              <label for="api-ingest-file" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Upload OpenAPI / Postman Document</label>
+              <input id="api-ingest-file" type="file" accept=".json,.yaml,.yml" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+              <p class="text-[11px] text-slate-500 mt-1">Accepts OpenAPI 3.0/3.1, Swagger 2.0 (JSON/YAML), or Postman Collection v2.1.</p>
+            </div>
+          </div>
+
+          <!-- Paste Tab Pane -->
+          <div id="api-pane-paste" class="space-y-3 hidden">
+            <div>
+              <label for="api-ingest-paste" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Paste Contract JSON / YAML</label>
+              <textarea id="api-ingest-paste" rows="5" placeholder="openapi: 3.0.0
+info:
+  title: My Service
+..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-400"></textarea>
+            </div>
+          </div>
+
+          <!-- Target Base URL & Environment -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div class="md:col-span-2">
+              <label for="api-base-url-input" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Target Base URL (Strict Origin Scope)</label>
+              <input id="api-base-url-input" type="url" placeholder="https://api.omnitest.test" class="w-full px-3.5 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-indigo-400" />
+            </div>
+            <div>
+              <label for="api-environment-select" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Target Environment</label>
+              <select id="api-environment-select" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold bg-white focus:ring-2 focus:ring-indigo-400">
+                <option value="staging" selected>Staging</option>
+                <option value="test">Test / QA</option>
+                <option value="production">Production (Read-Only Strict)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <span id="api-ingest-summary-text" class="text-xs text-slate-500">No contract ingested yet.</span>
+            <button id="api-btn-ingest" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+              <i class="fa-solid fa-file-import"></i> Ingest &amp; Parse Operations
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Authentication Configuration Card -->
+        <div id="api-auth-card" class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm hidden">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">2</span>
+              <h4 class="text-sm font-bold text-slate-900">Ephemeral Secret Vault &amp; Probe Action</h4>
+            </div>
+            <span id="api-vault-badge" class="px-2.5 py-1 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">No Fixture Registered</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label for="api-auth-type" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Auth Type</label>
+              <select id="api-auth-type" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-semibold bg-white focus:ring-2 focus:ring-indigo-400">
+                <option value="none" selected>None (Public)</option>
+                <option value="bearer">Bearer Token</option>
+                <option value="api_key">API Key</option>
+                <option value="basic">Basic Auth</option>
+                <option value="oauth2">OAuth2 Client Credentials</option>
+              </select>
+            </div>
+
+            <!-- Dynamic Fields -->
+            <div id="api-auth-bearer-container" class="md:col-span-3 space-y-1 hidden">
+              <label for="api-auth-bearer-token" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Bearer Token</label>
+              <input id="api-auth-bearer-token" type="password" placeholder="ey..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+            </div>
+
+            <div id="api-auth-key-container" class="md:col-span-3 grid grid-cols-3 gap-2 hidden">
+              <div>
+                <label for="api-auth-key-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Key Name</label>
+                <input id="api-auth-key-name" type="text" placeholder="X-API-Key" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+              <div>
+                <label for="api-auth-key-loc" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Location</label>
+                <select id="api-auth-key-loc" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white">
+                  <option value="header" selected>Header</option>
+                  <option value="query">Query Parameter</option>
+                </select>
+              </div>
+              <div>
+                <label for="api-auth-key-val" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Key Value</label>
+                <input id="api-auth-key-val" type="password" placeholder="secret_..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+            </div>
+
+            <div id="api-auth-basic-container" class="md:col-span-3 grid grid-cols-2 gap-2 hidden">
+              <div>
+                <label for="api-auth-basic-user" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Username</label>
+                <input id="api-auth-basic-user" type="text" placeholder="admin" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs" />
+              </div>
+              <div>
+                <label for="api-auth-basic-pass" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Password</label>
+                <input id="api-auth-basic-pass" type="password" placeholder="••••••••" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+            </div>
+
+            <div id="api-auth-oauth-container" class="md:col-span-3 grid grid-cols-3 gap-2 hidden">
+              <div>
+                <label for="api-auth-oauth-id" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Client ID</label>
+                <input id="api-auth-oauth-id" type="text" placeholder="client_..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+              <div>
+                <label for="api-auth-oauth-secret" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Client Secret</label>
+                <input id="api-auth-oauth-secret" type="password" placeholder="sec_..." class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+              <div>
+                <label for="api-auth-oauth-url" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Token URL</label>
+                <input id="api-auth-oauth-url" type="url" placeholder="https://api.example.com/oauth/token" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <span class="text-[11px] text-slate-500">
+              <i class="fa-solid fa-lock text-slate-400"></i> Zero Storage: Credentials are securely held in memory under a UUID reference. Raw secrets are wiped from the browser DOM upon saving.
+            </span>
+            <div class="flex items-center gap-2">
+              <button id="api-btn-save-auth" type="button" class="bg-slate-800 hover:bg-slate-900 text-white font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved"></i> Store in Secret Vault
+              </button>
+              <button id="api-btn-test-conn" type="button" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt"></i> Test Connection Probe
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Discovered Operations Preview Card -->
+        <div id="api-operations-card" class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">3</span>
+              <h4 class="text-sm font-bold text-slate-900">Discovered Operations in Contract Order</h4>
+              <span id="api-op-count-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">0 Ops</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <label class="flex items-center gap-2 text-xs font-semibold text-amber-800 cursor-pointer">
+                <input id="api-allow-mutation-toggle" type="checkbox" class="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500" />
+                Allow Staging Mutations (POST/PUT/PATCH/DELETE)
+              </label>
+            </div>
+          </div>
+
+          <!-- Filter & Search -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <input id="api-op-search" type="text" placeholder="Filter by path or operation ID..." class="w-full sm:w-72 px-3 py-1.5 border border-slate-300 rounded-lg text-xs" />
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <span>Safe Precedence: 1) User override 2) Example 3) Default 4) Deterministic Synthetic</span>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-96">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-700 font-semibold sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5 w-10 text-center"><input id="api-select-all-ops" type="checkbox" checked class="rounded border-slate-300" /></th>
+                  <th class="p-2.5 w-12 text-center">#</th>
+                  <th class="p-2.5 w-20">Method</th>
+                  <th class="p-2.5">Path</th>
+                  <th class="p-2.5">Summary / ID</th>
+                  <th class="p-2.5 w-24">Auth</th>
+                  <th class="p-2.5 w-24">Parameters</th>
+                  <th class="p-2.5 w-24 text-center">Safety</th>
+                </tr>
+              </thead>
+              <tbody id="api-operations-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Execution Engine & Live Progress Card -->
+        <div id="api-execution-card" class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm hidden">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">4</span>
+              <h4 class="text-sm font-bold text-slate-900">Execution Engine &amp; Live Checkpoints</h4>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="api-btn-resume-plan" type="button" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center gap-1.5 hidden">
+                <i class="fa-solid fa-rotate-right"></i> Resume Incomplete Checkpoint
+              </button>
+              <button id="api-btn-run-plan" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> Execute API Test Plan
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar & Metrics -->
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs font-semibold text-slate-700">
+              <span id="api-progress-label">Execution Progress</span>
+              <span id="api-progress-pct">0%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+              <div id="api-progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-1">
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-center">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Total</span>
+              <p id="api-stat-total" class="text-base font-extrabold text-slate-800">0</p>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-center">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Completed</span>
+              <p id="api-stat-completed" class="text-base font-extrabold text-slate-800">0</p>
+            </div>
+            <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-center">
+              <span class="text-[10px] uppercase font-bold text-emerald-700">Passed</span>
+              <p id="api-stat-passed" class="text-base font-extrabold text-emerald-700">0</p>
+            </div>
+            <div class="bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center">
+              <span class="text-[10px] uppercase font-bold text-rose-700">Failed</span>
+              <p id="api-stat-failed" class="text-base font-extrabold text-rose-700">0</p>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-center">
+              <span class="text-[10px] uppercase font-bold text-amber-700">Blocked</span>
+              <p id="api-stat-blocked" class="text-base font-extrabold text-amber-700">0</p>
+            </div>
+          </div>
+
+          <!-- Results Table -->
+          <div class="overflow-x-auto border border-slate-200 rounded-lg max-h-80">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-50 text-slate-700 font-semibold sticky top-0 border-b border-slate-200">
+                <tr>
+                  <th class="p-2.5 w-16 text-center">Result</th>
+                  <th class="p-2.5 w-20">Method</th>
+                  <th class="p-2.5">Path</th>
+                  <th class="p-2.5 w-20 text-center">Status</th>
+                  <th class="p-2.5 w-24 text-right">Latency</th>
+                  <th class="p-2.5">Classification</th>
+                </tr>
+              </thead>
+              <tbody id="api-results-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="6" class="p-4 text-center text-slate-400">Ready to execute. Click "Execute API Test Plan".</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 5. Audit Report & Export Card -->
+        <div id="api-report-card" class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center">5</span>
+              <h4 class="text-sm font-bold text-slate-900">Functional 10-Sheet Excel Audit Report</h4>
+              <span id="api-compliance-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">100% Compliance</span>
+            </div>
+            <button id="api-btn-download-excel" type="button" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-2.5 rounded-lg text-xs shadow-sm transition flex items-center gap-2">
+              <i class="fa-solid fa-file-excel"></i> Download 10-Sheet Excel Report (.xlsx)
+            </button>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+            <p class="font-bold text-slate-800">Report Sheets Generated:</p>
+            <p class="text-[11px] text-slate-500">
+              1. API Summary &bull; 2. Operations &bull; 3. Request Parameters &bull; 4. Execution Results &bull; 5. Assertions &bull; 6. Failures &bull; 7. Authorization Checks &bull; 8. Evidence &bull; 9. Run Metadata &bull; 10. Coverage Gaps.
+            </p>
+          </div>
+
+          <!-- Root cause failure analysis drawer -->
+          <div id="api-failures-drawer" class="space-y-2 hidden">
+            <h5 class="text-xs font-bold text-rose-800 uppercase tracking-wide">Root Cause Failure Breakdown &amp; Suggested Fixes</h5>
+            <div id="api-failures-list" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- 6. Database 3-Way Cross-Read Validation Accordion -->
+        <div id="api-db-cross-card" class="bg-white rounded-xl border border-slate-200 p-5 space-y-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">6</span>
+              <h4 class="text-sm font-bold text-slate-900">Database Cross-Read Validation (3-Way Consistency)</h4>
+            </div>
+            <span class="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">DB ↔ API ↔ UI</span>
+          </div>
+
+          <p class="text-xs text-slate-600">
+            Execute a server-side approved read-only query (SELECT / WITH) and cross-verify values against the API response and Dashboard UI to isolate root causes.
+          </p>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <label for="api-db-query-select" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Approved Query</label>
+              <select id="api-db-query-select" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-400">
+                <option value="">-- Select Query --</option>
+              </select>
+            </div>
+            <div>
+              <label for="api-db-api-val" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">API Value</label>
+              <input id="api-db-api-val" type="text" placeholder="e.g. 1500 or active_count" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+            </div>
+            <div>
+              <label for="api-db-ui-val" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Dashboard UI Value</label>
+              <input id="api-db-ui-val" type="text" placeholder="e.g. $1,500.00" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+            </div>
+            <div>
+              <label for="api-db-tolerance" class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Tolerance</label>
+              <input id="api-db-tolerance" type="text" value="0" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] text-slate-500">Mutations, semicolons, comments, PRAGMA, and ATTACH are strictly blocked by the database guard.</span>
+            <button id="api-btn-db-validate" type="button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg text-xs shadow-sm transition flex items-center gap-1.5">
+              <i class="fa-solid fa-code-compare"></i> Validate 3-Way Parity
+            </button>
+          </div>
+
+          <div id="api-db-cross-result" class="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50 hidden">
+            <!-- Dynamic 3-way result -->
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- STEP 2: Choose Modules -->
@@ -241,7 +618,7 @@
             <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</span>
             <h2 class="text-lg font-bold text-slate-900">Choose Modules to Scan</h2>
           </div>
-          <p class="text-xs text-slate-500 mt-1">Select one, multiple, or all target modules. PiOne Testmate scans only the confirmed module boundary.</p>
+          <p class="text-xs text-slate-500 mt-1">Select one, multiple, or all target modules. OmniTest by PiOne scans only the confirmed module boundary.</p>
         </div>
         <div class="flex items-center gap-2">
           <button id="btn-modules-select-all" type="button" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -467,8 +844,8 @@
           <p class="font-mono font-bold text-slate-800 truncate" id="live-current-target">Initializing scanner...</p>
         </div>
         <div class="flex items-center gap-2">
-          <span id="live-error-badge" class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]">0 errors</span>
-          <span id="live-scan-duration" class="font-mono text-slate-500">00:00</span>
+          <span id="live-error-badge" class="bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]" title="Console errors emitted by the target application's browser page. This is not an OmniTest server error count; route health is reported separately.">0 target console errors</span>
+          <span id="live-scan-duration" class="font-mono text-slate-500" title="Elapsed time for the current browser-observed scan attempt">Attempt 00:00</span>
         </div>
       </div>
 
@@ -596,6 +973,12 @@
           </table>
         </div>
       </div>
+
+      <details class="border border-slate-200 rounded-lg overflow-hidden">
+        <summary class="bg-slate-100 px-4 py-2.5 font-bold text-xs text-slate-700 cursor-pointer">Browser console messages by route</summary>
+        <div class="p-3 text-xs text-slate-600">These messages were recorded in the target application's browser during the scan. Messages identify their severity; a message alone does not prove its root cause.</div>
+        <div id="analyze-console-messages" class="px-3 pb-3 space-y-2 text-xs"></div>
+      </details>
 
       <!-- Evidence Registry: actual crawl records, not the label-only summary. -->
       <details class="border border-slate-200 rounded-lg overflow-hidden" open>
@@ -732,6 +1115,7 @@
               <p id="plan-shortfall-reason" class="mt-1"></p>
               <p id="plan-shortfall-evidence" class="mt-1 text-[11px] text-amber-800"></p>
             </div>
+            <div id="plan-coverage-warning" class="hidden mb-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 whitespace-pre-wrap" role="status" aria-live="polite"></div>
             <div class="border border-slate-200 rounded-lg overflow-x-auto max-h-64">
               <table class="min-w-full text-xs">
                 <thead class="bg-slate-100 text-slate-700">
@@ -942,8 +1326,11 @@
           <!-- Technical Execution Evidence -->
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mr-1">Execution:</span>
-            <button id="btn-dl-execution" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
-              <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Execution Results
+            <button id="btn-dl-execution-excel" type="button" title="Download execution results as an Excel workbook" class="bg-emerald-600 hover:bg-emerald-700 border border-emerald-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-file-excel mr-1"></i> Execution Results (.xlsx)
+            </button>
+            <button id="btn-dl-execution" type="button" title="Download raw execution results as JSON" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
+              <i class="fa-solid fa-list-check text-indigo-600 mr-1"></i> Execution JSON (.json)
             </button>
             <button id="btn-dl-source-excel" type="button" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-sm">
               <i class="fa-solid fa-file-excel text-emerald-600 mr-1"></i> Uploaded Excel + Results
@@ -1615,7 +2002,7 @@
           <p class="text-[11px] text-blue-700">Target: <span id="exec-confirm-target" class="font-mono font-bold">--</span></p>
         </div>
         <p class="text-slate-600 text-[11px]">
-          PiOne Testmate will strictly execute only the selected tests. Safe actions (navigation, clicks, reads) are executed; high-risk actions remain parked.
+          OmniTest by PiOne will strictly execute only the selected tests. Safe actions (navigation, clicks, reads) are executed; high-risk actions remain parked.
         </p>
         <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
           <label class="flex items-start gap-2.5 cursor-pointer">
@@ -1723,7 +2110,7 @@
   </div>
 
   <footer class="text-center py-4 text-[11px] text-slate-500 border-t border-slate-200 bg-white flex items-center justify-center gap-2">
-    <span>PiOne Testmate &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise</span>
+    <span>OmniTest by PiOne &bull; Deterministic UI Scanner &bull; Playwright Core &bull; v2.0 Enterprise</span>
     <span class="text-slate-300">|</span>
     <span id="app-build-id" class="font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">build: loading...</span>
     <span id="browser-runtime-status" class="hidden font-mono px-2 py-0.5 rounded border"></span>
@@ -1766,6 +2153,7 @@
       maxUnlockedStep: 1,
       assessmentMode: "both",
       isGeneratingPlan: false,
+      planGenerationToken: 0,
       isExecuting: false,
       executionRecoveryNeeded: false,
       pendingCrawlResumeRunId: "",
@@ -1844,13 +2232,7 @@
 
     function calculate_module_progress(runContext) {
       const selected = Array.isArray(runContext?.selected_modules) ? runContext.selected_modules.filter(Boolean) : [];
-      let completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
-      // Some fast/mock scans persist the final scan document before emitting
-      // per-module telemetry.  A terminal run is still complete; do not show
-      // a contradictory 0/N progress indicator.
-      if (String(runContext?.status || "").toLowerCase() === "scanned" && !completed.length && selected.length) {
-        completed = [...selected];
-      }
+      const completed = Array.isArray(runContext?.completed_modules) ? runContext.completed_modules.filter(Boolean) : [];
       const pending = selected.filter(m => !completed.includes(m));
       const total = selected.length;
       const done = completed.length;
@@ -1860,16 +2242,9 @@
 
     function calculate_route_progress(runContext) {
       const rp = runContext?.route_progress || {};
-      let scanned = Number(rp.scanned || 0);
-      let pending = Number(rp.pending || 0);
-      let total = Number(rp.total || (scanned + pending) || 0);
-      const scanRoutes = Array.isArray(runContext?.scan_results?.routes) ? runContext.scan_results.routes : [];
-      const resultTotal = Number(runContext?.scan_results?.summary?.total_routes || scanRoutes.length || 0);
-      if (isTerminalStatus(runContext?.status) && scanned === 0 && resultTotal > 0) {
-        scanned = resultTotal;
-        pending = 0;
-        total = resultTotal;
-      }
+      const scanned = Number(rp.scanned || 0);
+      const pending = Number(rp.pending || 0);
+      const total = Number(rp.total || (scanned + pending) || 0);
       const percentage = total > 0 ? Math.round((scanned / total) * 100) : 0;
       return { scanned, pending, total, percentage };
     }
@@ -1887,7 +2262,7 @@
 
     function isTerminalStatus(status) {
       const s = String(status || "").toLowerCase();
-      return s === "scanned" || s === "partial_scanned" || s === "failed" || s === "scan_stopped";
+      return s === "scanned" || s === "executed" || s === "partial_scanned" || s === "failed" || s === "scan_stopped";
     }
 
     function updateTerminalControls(status, reason) {
@@ -1935,7 +2310,7 @@
       endBtn.disabled = completed || partial || failed;
       resumeBtn.classList.add("hidden");
       pauseBtn.classList.remove("hidden");
-      viewBtn.classList.toggle("hidden", failed);
+      viewBtn.classList.toggle("hidden", !completed);
       retryBtn.classList.toggle("hidden", !(failed || partial));
       retryFullBtn.classList.toggle("hidden", !(failed || partial));
       retryBtn.innerHTML = partial
@@ -1975,17 +2350,22 @@
       const resultSummary = snapshot.scan_results?.summary || {};
       const resultRoutes = Array.isArray(snapshot.scan_results?.routes) ? snapshot.scan_results.routes : [];
       const status = String(snapshot.status || "").toLowerCase();
-      const isComplete = status === "scanned";
-      const isPartial = status === "partial_scanned";
+      const hasModuleEvidence = moduleProgress.total > 0;
+      const hasRouteEvidence = routeProgress.total > 0;
+      const moduleComplete = !hasModuleEvidence || moduleProgress.pending_count === 0;
+      const routeComplete = !hasRouteEvidence || (routeProgress.pending === 0 && routeProgress.scanned >= routeProgress.total);
+      const crawlFinished = status === "scanned" || status === "executed";
+      const isComplete = crawlFinished && !snapshot.scan_stopped_early && moduleComplete && routeComplete;
+      const completionMismatch = crawlFinished && !isComplete;
+      const isPartial = status === "partial_scanned" || completionMismatch;
       const isFailed = status === "failed";
 
       localState.scanStatus = isComplete ? "COMPLETED" : (isPartial ? "PARTIAL" : (isFailed ? "FAILED" : String(snapshot.status || "IDLE").toUpperCase()));
       const modulePct = moduleProgress.total
         ? Math.round((moduleProgress.completed_count / moduleProgress.total) * 100)
         : routeProgress.percentage;
-      localState.scanProgressPct = isComplete && moduleProgress.pending_count === 0
-        ? 100
-        : Math.min(routeProgress.percentage, modulePct);
+      const measuredProgress = [hasModuleEvidence ? modulePct : null, hasRouteEvidence ? routeProgress.percentage : null].filter(value => value !== null);
+      localState.scanProgressPct = isComplete ? 100 : (measuredProgress.length ? Math.min(99, Math.min(...measuredProgress)) : 0);
       if (snapshot.current_route) localState.lastCompletedRoute = snapshot.current_route;
       localState.currentModuleName = (isComplete && moduleProgress.pending_count === 0) ? "" : (snapshot.current_module || localState.currentModuleName || "");
       localState.currentRoute = (isComplete && routeProgress.pending === 0) ? "" : (snapshot.current_route || localState.currentRoute || "");
@@ -2019,6 +2399,31 @@
       const progressLabel = document.getElementById("scan-progress-label");
       if (progressLabel) progressLabel.textContent = isComplete ? "100%" : `${Math.max(0, Math.min(100, Number(localState.scanProgressPct || 0)))}%`;
 
+      // A reconciled terminal snapshot is the source of truth for elapsed
+      // time.  Do not leave the browser-side "attempt" timer running after a
+      // crawl has finished: a restored/old tab otherwise shows impossible
+      // durations even though the server recorded the real crawl duration.
+      if (isTerminalStatus(status)) {
+        const durationSeconds = Number(
+          snapshot.execution_summary?.duration_seconds
+          ?? snapshot.scan_results?.duration_seconds
+          ?? snapshot.latest_telemetry?.duration_seconds
+          ?? 0
+        );
+        const durationElement = document.getElementById("live-scan-duration");
+        if (durationElement && Number.isFinite(durationSeconds) && durationSeconds >= 0) {
+          const rounded = Math.floor(durationSeconds);
+          const hours = String(Math.floor(rounded / 3600)).padStart(2, "0");
+          const mins = String(Math.floor((rounded % 3600) / 60)).padStart(2, "0");
+          const secs = String(rounded % 60).padStart(2, "0");
+          durationElement.textContent = `Completed ${hours}:${mins}:${secs}`;
+          durationElement.title = "Server-recorded crawl duration";
+        }
+        if (localState.durationTimer) clearInterval(localState.durationTimer);
+        localState.durationTimer = null;
+        localState.scanStartTime = null;
+      }
+
       const pill = document.getElementById("live-scan-status-pill");
       if (pill) {
         const partialLabel = snapshot.scan_stopped_early ? "Partial / Stopped" : "Partial / Stopped";
@@ -2034,7 +2439,10 @@
               : "bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
       }
 
-      updateTerminalControls(status, snapshot.terminal_reason || snapshot.reason || snapshot.error_message || "");
+      const mismatchReason = completionMismatch
+        ? `Backend marked the crawl complete while ${moduleProgress.pending_count} module(s) and ${routeProgress.pending} route(s) remain. Retry or inspect the checkpoint.`
+        : "";
+      updateTerminalControls(isComplete ? "scanned" : (completionMismatch ? "partial_scanned" : status), mismatchReason || snapshot.terminal_reason || snapshot.reason || snapshot.error_message || "");
       updateActiveRunBar();
       return true;
     }
@@ -2104,7 +2512,7 @@
           const el = document.getElementById("app-build-id");
           if (el && data.build_id) {
             el.textContent = `build: ${data.build_id}`;
-            el.title = `Process Start: ${data.process_start || "unknown"} | Service: ${data.service || "PiOne Testmate"}`;
+            el.title = `Process Start: ${data.process_start || "unknown"} | Service: ${data.service || "OmniTest by PiOne"}`;
           }
           const browserEl = document.getElementById("browser-runtime-status");
           if (browserEl) {
@@ -2124,7 +2532,685 @@
       } catch (_) {}
     }
 
+
+    // =========================================================================
+    // V3 API TESTING WORKFLOW & DATABASE CROSS-READ CLIENT MODULE
+    // =========================================================================
+
+    const apiTestingState = {
+      contract: null,
+      operations: [],
+      auth_fixture_ref: "",
+      auth_type: "none",
+      current_plan_id: null,
+      current_plan: null,
+      parameter_overrides: {},
+      input_mode: "url",
+      is_running: false,
+    };
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function normalizeAssessmentModeForFeatureFlags(mode) {
+      // API Testing is V3-only; never restore it when V3 is disabled/unknown.
+      return mode === "api_testing" && window.__OMNITEST_V3_ENABLED__ !== true ? "both" : mode;
+    }
+
+    function initApiTestingWorkflow() {
+      const modeSelect = document.getElementById("assessment-mode-first");
+      const modeHelp = document.getElementById("assessment-mode-first-help");
+      const webScanContainer = document.getElementById("web-app-scan-container");
+      const apiFlowContainer = document.getElementById("api-testing-flow-container");
+
+      const modeHelpText = {
+        both: "The crawl and module-review steps stay unchanged. After crawling, choose whether to continue into test planning, security review, or both.",
+        functional_only: "Scan and review the application, then generate and execute functional tests. Security review controls stay disabled.",
+        security_only: "Scan the application, then run the authorized security review. Functional test planning is skipped.",
+        vapt_only: "Run the bounded, authorized VAPT assessment for the scanned application. Functional test planning is skipped.",
+        api_testing: "Import an OpenAPI, Swagger, or Postman contract, select approved operations, and run bounded API checks. This flow does not crawl browser modules."
+      };
+
+      const updateAssessmentMode = () => {
+        const mode = modeSelect?.value || "both";
+        if (modeHelp) modeHelp.textContent = modeHelpText[mode] || modeHelpText.both;
+        if (mode === "api_testing") {
+          if (webScanContainer) webScanContainer.classList.add("hidden");
+          if (apiFlowContainer) apiFlowContainer.classList.remove("hidden");
+        } else {
+          if (webScanContainer) webScanContainer.classList.remove("hidden");
+          if (apiFlowContainer) apiFlowContainer.classList.add("hidden");
+        }
+      };
+
+      if (modeSelect) {
+        modeSelect.addEventListener("change", updateAssessmentMode);
+        updateAssessmentMode();
+      }
+
+      // Tab switcher
+      const tabUrl = document.getElementById("api-tab-url");
+      const tabFile = document.getElementById("api-tab-file");
+      const tabPaste = document.getElementById("api-tab-paste");
+      const paneUrl = document.getElementById("api-pane-url");
+      const paneFile = document.getElementById("api-pane-file");
+      const panePaste = document.getElementById("api-pane-paste");
+
+      function setTab(mode) {
+        apiTestingState.input_mode = mode;
+        [tabUrl, tabFile, tabPaste].forEach(t => {
+          if (t) {
+            t.className = "px-3 py-1 font-semibold rounded-md text-slate-600 hover:text-slate-900 transition";
+          }
+        });
+        [paneUrl, paneFile, panePaste].forEach(p => p && p.classList.add("hidden"));
+
+        if (mode === "url") {
+          if (tabUrl) tabUrl.className = "px-3 py-1 font-semibold rounded-md bg-white text-indigo-900 shadow-sm transition";
+          if (paneUrl) paneUrl.classList.remove("hidden");
+        } else if (mode === "file") {
+          if (tabFile) tabFile.className = "px-3 py-1 font-semibold rounded-md bg-white text-indigo-900 shadow-sm transition";
+          if (paneFile) paneFile.classList.remove("hidden");
+        } else if (mode === "paste") {
+          if (tabPaste) tabPaste.className = "px-3 py-1 font-semibold rounded-md bg-white text-indigo-900 shadow-sm transition";
+          if (panePaste) panePaste.classList.remove("hidden");
+        }
+      }
+
+      if (tabUrl) tabUrl.onclick = () => setTab("url");
+      if (tabFile) tabFile.onclick = () => setTab("file");
+      if (tabPaste) tabPaste.onclick = () => setTab("paste");
+
+      // Ingest Contract Button
+      const btnIngest = document.getElementById("api-btn-ingest");
+      if (btnIngest) {
+        btnIngest.onclick = handleApiContractIngest;
+      }
+
+      // Auth type change
+      const authTypeSelect = document.getElementById("api-auth-type");
+      if (authTypeSelect) {
+        authTypeSelect.onchange = handleAuthTypeChange;
+      }
+
+      // Auth buttons
+      const btnSaveAuth = document.getElementById("api-btn-save-auth");
+      if (btnSaveAuth) btnSaveAuth.onclick = handleSaveAuthFixture;
+
+      const btnTestConn = document.getElementById("api-btn-test-conn");
+      if (btnTestConn) btnTestConn.onclick = handleTestConnection;
+
+      // Operations select all
+      const selectAllOps = document.getElementById("api-select-all-ops");
+      if (selectAllOps) {
+        selectAllOps.onchange = (e) => {
+          const checked = e.target.checked;
+          document.querySelectorAll(".api-op-checkbox").forEach(cb => cb.checked = checked);
+        };
+      }
+
+      // Operations search filter
+      const opSearch = document.getElementById("api-op-search");
+      if (opSearch) {
+        opSearch.oninput = (e) => {
+          const query = e.target.value.toLowerCase();
+          document.querySelectorAll("#api-operations-tbody tr").forEach(tr => {
+            const text = tr.innerText.toLowerCase();
+            tr.style.display = text.includes(query) ? "" : "none";
+          });
+        };
+      }
+
+      // Execution button
+      const btnRunPlan = document.getElementById("api-btn-run-plan");
+      if (btnRunPlan) btnRunPlan.onclick = () => handleExecuteApiPlan(false);
+
+      const btnResumePlan = document.getElementById("api-btn-resume-plan");
+      if (btnResumePlan) btnResumePlan.onclick = () => handleExecuteApiPlan(true);
+
+      // Download Excel report
+      const btnDownloadExcel = document.getElementById("api-btn-download-excel");
+      if (btnDownloadExcel) btnDownloadExcel.onclick = handleDownloadExcelReport;
+
+      // Database cross-read button
+      const btnDbValidate = document.getElementById("api-btn-db-validate");
+      if (btnDbValidate) btnDbValidate.onclick = handleDbCrossReadValidation;
+
+      // Populate DB queries
+      loadApprovedDatabaseQueries();
+    }
+
+    async function handleApiContractIngest() {
+      const btn = document.getElementById("api-btn-ingest");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Ingesting...`;
+
+      const mode = apiTestingState.input_mode;
+      const baseUrl = (document.getElementById("api-base-url-input").value || "").trim();
+      const environment = document.getElementById("api-environment-select").value || "staging";
+
+      let payload = {
+        name: "Ingested Contract",
+        version: "1.0.0",
+        source_type: "auto",
+        input_mode: mode,
+        base_url: baseUrl,
+        environment: environment,
+        approved: true
+      };
+
+      try {
+        if (!baseUrl) {
+          throw new Error("Target Base URL is required to enforce strict origin scope.");
+        }
+
+        if (mode === "url") {
+          const url = (document.getElementById("api-ingest-url").value || "").trim();
+          if (!url) throw new Error("Contract Document URL cannot be empty.");
+          payload.url = url;
+        } else if (mode === "file") {
+          const fileInput = document.getElementById("api-ingest-file");
+          if (!fileInput.files || fileInput.files.length === 0) {
+            throw new Error("Please select a JSON or YAML contract file to upload.");
+          }
+          const file = fileInput.files[0];
+          payload.name = file.name;
+          payload.content = await file.text();
+        } else if (mode === "paste") {
+          const text = (document.getElementById("api-ingest-paste").value || "").trim();
+          if (!text) throw new Error("Contract text cannot be empty.");
+          payload.content = text;
+        }
+
+        const res = await fetch(`${API_BASE}/v3/api-contracts/ingest`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        apiTestingState.contract = data.contract;
+        apiTestingState.operations = data.operations || [];
+
+        // Update UI
+        document.getElementById("api-ingest-summary-text").innerHTML = `
+          <span class="font-bold text-emerald-700"><i class="fa-solid fa-circle-check"></i> Ingested:</span>
+          ${escapeHtml(data.contract.name)} &bull; ${data.operations_count} operations &bull; Format: <span class="uppercase font-semibold">${escapeHtml(data.detected_type)}</span>
+        `;
+
+        document.getElementById("api-auth-card").classList.remove("hidden");
+        document.getElementById("api-operations-card").classList.remove("hidden");
+        document.getElementById("api-execution-card").classList.remove("hidden");
+        document.getElementById("api-op-count-badge").innerText = `${data.operations_count} Ops`;
+
+        renderDiscoveredOperations(apiTestingState.operations);
+        window.showToast?.(`Ingested ${data.operations_count} operations successfully!`, "success");
+
+      } catch (err) {
+        window.showToast?.(err.message, "error");
+        document.getElementById("api-ingest-summary-text").innerHTML = `
+          <span class="font-semibold text-rose-600"><i class="fa-solid fa-circle-xmark"></i> Ingestion failed: ${escapeHtml(err.message)}</span>
+        `;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-file-import"></i> Ingest &amp; Parse Operations`;
+      }
+    }
+
+    function handleAuthTypeChange() {
+      const type = document.getElementById("api-auth-type").value;
+      apiTestingState.auth_type = type;
+
+      const bearerC = document.getElementById("api-auth-bearer-container");
+      const keyC = document.getElementById("api-auth-key-container");
+      const basicC = document.getElementById("api-auth-basic-container");
+      const oauthC = document.getElementById("api-auth-oauth-container");
+
+      [bearerC, keyC, basicC, oauthC].forEach(c => c && c.classList.add("hidden"));
+
+      if (type === "bearer" && bearerC) bearerC.classList.remove("hidden");
+      else if (type === "api_key" && keyC) keyC.classList.remove("hidden");
+      else if (type === "basic" && basicC) basicC.classList.remove("hidden");
+      else if (type === "oauth2" && oauthC) oauthC.classList.remove("hidden");
+    }
+
+    async function handleSaveAuthFixture() {
+      const btn = document.getElementById("api-btn-save-auth");
+      btn.disabled = true;
+
+      const authType = document.getElementById("api-auth-type").value;
+      if (authType === "none") {
+        apiTestingState.auth_fixture_ref = "";
+        document.getElementById("api-vault-badge").innerText = "No Fixture (Public)";
+        document.getElementById("api-vault-badge").className = "px-2.5 py-1 rounded text-[11px] font-semibold bg-slate-100 text-slate-600";
+        btn.disabled = false;
+        return;
+      }
+
+      let payload = { auth_type: authType };
+
+      if (authType === "bearer") {
+        const tokenInput = document.getElementById("api-auth-bearer-token");
+        payload.token = (tokenInput.value || "").trim();
+        tokenInput.value = ""; // Zero secret leakage: wipe immediately from DOM
+      } else if (authType === "api_key") {
+        const keyNameInput = document.getElementById("api-auth-key-name");
+        const keyLocSelect = document.getElementById("api-auth-key-loc");
+        const keyValInput = document.getElementById("api-auth-key-val");
+        payload.api_key_name = (keyNameInput.value || "").trim();
+        payload.api_key_location = keyLocSelect.value;
+        payload.api_key_value = (keyValInput.value || "").trim();
+        keyValInput.value = ""; // Zero secret leakage: wipe from DOM
+      } else if (authType === "basic") {
+        const user = document.getElementById("api-auth-basic-user").value || "";
+        const passInput = document.getElementById("api-auth-basic-pass");
+        payload.username = user;
+        payload.password = passInput.value || "";
+        passInput.value = ""; // Wipe password from DOM
+      } else if (authType === "oauth2") {
+        payload.client_id = (document.getElementById("api-auth-oauth-id").value || "").trim();
+        const secInput = document.getElementById("api-auth-oauth-secret");
+        payload.client_secret = secInput.value || "";
+        payload.token_url = (document.getElementById("api-auth-oauth-url").value || "").trim();
+        secInput.value = ""; // Wipe secret from DOM
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/v3/auth/register-fixture`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        apiTestingState.auth_fixture_ref = data.fixture.fixture_ref;
+
+        const badge = document.getElementById("api-vault-badge");
+        badge.innerText = `Vault: ${data.fixture.fixture_ref} (${data.fixture.masked_preview})`;
+        badge.className = "px-2.5 py-1 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300";
+
+        window.showToast?.(`Credential stored securely in vault (${data.fixture.fixture_ref}). Raw secret cleared from browser DOM.`, "success");
+      } catch (err) {
+        window.showToast?.(err.message, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function handleTestConnection() {
+      const btn = document.getElementById("api-btn-test-conn");
+      const pill = document.getElementById("api-conn-status-pill");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Probing...`;
+
+      const baseUrl = (document.getElementById("api-base-url-input").value || "").trim();
+      const payload = {
+        base_url: baseUrl,
+        auth_fixture_ref: apiTestingState.auth_fixture_ref || null,
+        probe_path: "/",
+        probe_method: "GET"
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}/v3/auth/test-connection`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        const probe = data.probe || {};
+
+        if (probe.connected) {
+          pill.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-600 flex items-center gap-2";
+          pill.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-emerald-400"></i> Connected: HTTP ${probe.status_code || 200} (${probe.latency_ms || 0}ms)`;
+          window.showToast?.(`Connection probe successful! Status: ${probe.status_code}`, "success");
+        } else {
+          pill.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-950 text-rose-300 border border-rose-600 flex items-center gap-2";
+          pill.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-rose-400"></i> ${escapeHtml(probe.classification || "probe_failed")}`;
+          window.showToast?.(probe.message || "Target connection failed", "error");
+        }
+      } catch (err) {
+        pill.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-950 text-rose-300 border border-rose-600 flex items-center gap-2";
+        pill.innerHTML = `<i class="fa-solid fa-circle text-[8px] text-rose-400"></i> Probe Error`;
+        window.showToast?.(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-bolt"></i> Test Connection Probe`;
+      }
+    }
+
+    function renderDiscoveredOperations(operations) {
+      const tbody = document.getElementById("api-operations-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = "";
+
+      operations.forEach((op, idx) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+
+        const methodBadgeClass = {
+          GET: "bg-blue-100 text-blue-800 border-blue-200",
+          POST: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          PUT: "bg-amber-100 text-amber-800 border-amber-200",
+          PATCH: "bg-purple-100 text-purple-800 border-purple-200",
+          DELETE: "bg-rose-100 text-rose-800 border-rose-200"
+        }[op.method] || "bg-slate-100 text-slate-800 border-slate-200";
+
+        const isReadOnly = ["GET", "HEAD", "OPTIONS"].includes(op.method);
+        const safetyBadge = isReadOnly
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Safe Read</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Mutation</span>`;
+
+        const authBadge = op.auth_requirement === "fixture"
+          ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200"><i class="fa-solid fa-key text-[8px]"></i> Fixture</span>`
+          : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">Public</span>`;
+
+        const paramCount = (op.approved_parameters || []).length;
+
+        tr.innerHTML = `
+          <td class="p-2.5 text-center">
+            <input type="checkbox" class="api-op-checkbox rounded border-slate-300" data-op-key="${escapeHtml(op.operation_key)}" ${isReadOnly ? "checked" : ""} />
+          </td>
+          <td class="p-2.5 text-center font-mono text-slate-400">${idx + 1}</td>
+          <td class="p-2.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${methodBadgeClass}">${escapeHtml(op.method)}</span>
+          </td>
+          <td class="p-2.5 font-mono text-slate-800 font-semibold">${escapeHtml(op.path)}</td>
+          <td class="p-2.5 text-slate-600">${escapeHtml(op.summary || op.operation_key)}</td>
+          <td class="p-2.5">${authBadge}</td>
+          <td class="p-2.5 text-slate-500">${paramCount} params</td>
+          <td class="p-2.5 text-center">${safetyBadge}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function handleExecuteApiPlan(isResume = false) {
+      if (!apiTestingState.contract) {
+        window.showToast?.("Please ingest an API contract first.", "error");
+        return;
+      }
+
+      const btnRun = document.getElementById("api-btn-run-plan");
+      const btnResume = document.getElementById("api-btn-resume-plan");
+      btnRun.disabled = true;
+      if (btnResume) btnResume.disabled = true;
+
+      const checkedOps = [];
+      document.querySelectorAll(".api-op-checkbox:checked").forEach(cb => {
+        checkedOps.push(cb.getAttribute("data-op-key"));
+      });
+
+      if (checkedOps.length === 0) {
+        window.showToast?.("No operations selected to test.", "error");
+        btnRun.disabled = false;
+        if (btnResume) btnResume.disabled = false;
+        return;
+      }
+
+      const allowMutation = document.getElementById("api-allow-mutation-toggle").checked;
+      let mutationConfirmation = "";
+      if (allowMutation) {
+        const confirmed = window.confirm(
+          "Mutation operations can create, update, or delete data. Continue only for an approved test/staging target?"
+        );
+        if (!confirmed) {
+          btnRun.disabled = false;
+          if (btnResume) btnResume.disabled = false;
+          return;
+        }
+        // The server still requires its own policy flag and exact confirmation;
+        // this value is deliberately not persisted in browser storage.
+        mutationConfirmation = "I_CONFIRM_STAGING_MUTATIONS";
+      }
+
+      const payload = {
+        contract_id: apiTestingState.contract.contract_id || apiTestingState.contract.id,
+        operation_keys: checkedOps,
+        auth_fixture_ref: apiTestingState.auth_fixture_ref || "",
+        parameter_overrides: apiTestingState.parameter_overrides || {},
+        concurrency: 1,
+        timeout_seconds: 10.0,
+        retry_limit: 1,
+        allow_mutation: allowMutation,
+        plan_id: isResume ? (apiTestingState.current_plan_id || "") : "",
+        mutation_confirmation: mutationConfirmation,
+        resume_checkpoint: isResume
+      };
+
+      // Reset progress UI
+      document.getElementById("api-progress-label").innerText = isResume ? "Resuming Execution..." : "Executing API Test Plan...";
+      document.getElementById("api-progress-pct").innerText = "0%";
+      document.getElementById("api-progress-bar").style.width = "0%";
+
+      try {
+        const res = await fetch(`${API_BASE}/v3/api-contracts/execute-plan`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const plan = data.plan || {};
+        apiTestingState.current_plan_id = plan.plan_id;
+        apiTestingState.current_plan = plan;
+
+        renderApiExecutionResults(plan);
+        document.getElementById("api-report-card").classList.remove("hidden");
+        const hasIncompleteOperations =
+          plan.status !== "completed" &&
+          Number(plan.completed_count || 0) < Number(plan.total_operations || 0);
+        if (btnResume) btnResume.classList.toggle("hidden", !hasIncompleteOperations);
+
+        window.showToast?.(`API Plan executed! Passed: ${plan.passed_count}/${plan.total_operations}`, "success");
+      } catch (err) {
+        console.error("EXECUTE_PLAN_ERROR:", err.message || err);
+        window.showToast?.(err.message, "error");
+      } finally {
+        btnRun.disabled = false;
+        if (btnResume) btnResume.disabled = false;
+      }
+    }
+
+    function renderApiExecutionResults(plan) {
+      document.getElementById("api-progress-label").innerText = `Execution Complete (${plan.duration_ms || 0}ms)`;
+      document.getElementById("api-progress-pct").innerText = "100%";
+      document.getElementById("api-progress-bar").style.width = "100%";
+
+      document.getElementById("api-stat-total").innerText = plan.total_operations || 0;
+      document.getElementById("api-stat-completed").innerText = plan.completed_count || 0;
+      document.getElementById("api-stat-passed").innerText = plan.passed_count || 0;
+      document.getElementById("api-stat-failed").innerText = plan.failed_count || 0;
+      document.getElementById("api-stat-blocked").innerText = plan.blocked_count || 0;
+
+      const total = plan.total_operations || 1;
+      const passPct = Math.round(((plan.passed_count || 0) / total) * 100);
+      const scoreBadge = document.getElementById("api-compliance-badge");
+      scoreBadge.innerText = `${passPct}% Compliance`;
+      scoreBadge.className = passPct === 100
+        ? "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800"
+        : "px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+
+      const tbody = document.getElementById("api-results-tbody");
+      tbody.innerHTML = "";
+
+      const failuresList = document.getElementById("api-failures-list");
+      const failuresDrawer = document.getElementById("api-failures-drawer");
+      failuresList.innerHTML = "";
+      let hasFailures = false;
+
+      (plan.operation_results || []).forEach(chk => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+
+        let resultBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">PASS</span>`;
+        if (chk.result === "fail") {
+          resultBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">FAIL</span>`;
+          hasFailures = true;
+          // Add to failures drawer
+          const fCard = document.createElement("div");
+          fCard.className = "bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs space-y-1";
+          fCard.innerHTML = `
+            <div class="flex items-center justify-between font-bold text-rose-900">
+              <span>${escapeHtml(chk.method)} ${escapeHtml(chk.path)} (${escapeHtml(chk.operation_key)})</span>
+              <span class="px-2 py-0.5 rounded bg-rose-200 text-rose-800 text-[10px] uppercase">${escapeHtml(chk.classification)}</span>
+            </div>
+            <p class="text-rose-700">${escapeHtml(JSON.stringify(chk.assertion_result?.schema_errors || chk.classification))}</p>
+          `;
+          failuresList.appendChild(fCard);
+        } else if (chk.result === "blocked") {
+          resultBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">BLOCKED</span>`;
+        }
+
+        tr.innerHTML = `
+          <td class="p-2.5 text-center">${resultBadge}</td>
+          <td class="p-2.5 font-bold font-mono text-slate-700">${escapeHtml(chk.method)}</td>
+          <td class="p-2.5 font-mono text-slate-800">${escapeHtml(chk.path)}</td>
+          <td class="p-2.5 text-center font-mono">${escapeHtml(String(chk.status_code || "N/A"))}</td>
+          <td class="p-2.5 text-right font-mono">${chk.latency_ms !== null && chk.latency_ms !== undefined ? chk.latency_ms + "ms" : "N/A"}</td>
+          <td class="p-2.5 font-mono text-slate-600">${escapeHtml(chk.classification)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (hasFailures) {
+        failuresDrawer.classList.remove("hidden");
+      } else {
+        failuresDrawer.classList.add("hidden");
+      }
+    }
+
+    async function handleDownloadExcelReport() {
+      if (!apiTestingState.current_plan_id) {
+        window.showToast?.("No executed API plan report available.", "error");
+        return;
+      }
+      const planId = apiTestingState.current_plan_id;
+      window.open(`${API_BASE}/v3/api-contracts/plans/${planId}/report.xlsx`, "_blank");
+      window.showToast?.("10-sheet Excel report download initiated!", "success");
+    }
+
+    async function loadApprovedDatabaseQueries() {
+      try {
+        const res = await fetch(`${API_BASE}/v3/database-queries`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const select = document.getElementById("api-db-query-select");
+        if (!select) return;
+
+        select.innerHTML = '<option value="">-- Select Query --</option>';
+        (data.queries || []).forEach(q => {
+          const opt = document.createElement("option");
+          opt.value = q.query_id;
+          opt.textContent = `${q.query_id} (${q.environment})`;
+          select.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    async function handleDbCrossReadValidation() {
+      const queryId = document.getElementById("api-db-query-select").value;
+      if (!queryId) {
+        window.showToast?.("Please select an approved database query.", "error");
+        return;
+      }
+
+      const apiVal = document.getElementById("api-db-api-val").value || "";
+      const uiVal = document.getElementById("api-db-ui-val").value || "";
+      const tol = document.getElementById("api-db-tolerance").value || "0";
+
+      const btn = document.getElementById("api-btn-db-validate");
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Cross-Validating...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/v3/database-cross-validation/validate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query_id: queryId,
+            parameters: {},
+            api_value: apiVal || null,
+            dashboard_ui_value: uiVal || null,
+            tolerance: tol,
+            context_metadata: {}
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        const cv = data.cross_validation || {};
+        const evalRes = cv.evaluation || {};
+
+        const resBox = document.getElementById("api-db-cross-result");
+        resBox.classList.remove("hidden");
+
+        const isPass = evalRes.result === "pass";
+        const badgeClass = isPass ? "bg-emerald-100 text-emerald-800 border-emerald-300" : "bg-rose-100 text-rose-800 border-rose-300";
+
+        resBox.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <span class="font-bold text-slate-800 text-xs">3-Way Parity Evaluation</span>
+            <span class="px-2.5 py-0.5 rounded text-xs font-bold border ${badgeClass}">${escapeHtml((evalRes.result || "UNKNOWN").toUpperCase())} &bull; ${escapeHtml(evalRes.classification)}</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="bg-white p-2.5 rounded border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Database Value</span>
+              <p class="font-mono font-bold text-slate-800 mt-1">${escapeHtml(String(evalRes.db_value ?? "N/A"))}</p>
+            </div>
+            <div class="bg-white p-2.5 rounded border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">API Value</span>
+              <p class="font-mono font-bold text-slate-800 mt-1">${escapeHtml(String(evalRes.api_value ?? "N/A"))}</p>
+            </div>
+            <div class="bg-white p-2.5 rounded border border-slate-200">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">Dashboard UI Value</span>
+              <p class="font-mono font-bold text-slate-800 mt-1">${escapeHtml(String(evalRes.ui_value ?? "N/A"))}</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-600 mt-1">
+            <strong>Root Cause Analysis:</strong> ${escapeHtml(evalRes.discrepancy_details || "No discrepancy detected.")}
+          </p>
+        `;
+
+        window.showToast?.(`Database Cross-Read complete: ${evalRes.classification}`, isPass ? "success" : "info");
+      } catch (err) {
+        window.showToast?.(err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-code-compare"></i> Validate 3-Way Parity`;
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
+      initApiTestingWorkflow();
       fetchBuildInfo();
       await initializeAssuranceDesk();
       renderStepper();
@@ -2182,6 +3268,7 @@
 
     function switchStep(stepId) {
       if (stepId > state.maxUnlockedStep) return;
+      if (stepId === 5 && state.scanStatus !== "COMPLETED") return;
       state.currentStep = stepId;
       for (let i = 1; i <= 8; i++) {
         const el = document.getElementById(`panel-${i}`);
@@ -2212,7 +3299,7 @@
           .then(runCtx => {
             if (!runCtx) return;
             reconcile_terminal_snapshot(state, runCtx);
-            if (runCtx.scan_results) {
+            if (runCtx.scan_results && state.scanStatus === "COMPLETED") {
               state.scanData = runCtx.scan_results;
               unlockStep(5);
             }
@@ -2280,7 +3367,9 @@
         const asyncExecution = runCtx.artifact_paths?.async_execution_job || {};
         const asyncExecutionFailed = asyncExecution.status === "failed";
         state.executionRecoveryNeeded = savedExecutionRecovery || asyncExecutionFailed;
-        state.assessmentMode = runCtx.assessment_mode || savedMode || state.assessmentMode || "both";
+        state.assessmentMode = normalizeAssessmentModeForFeatureFlags(
+          runCtx.assessment_mode || savedMode || state.assessmentMode || "both"
+        );
         const firstAssessmentEl = document.getElementById("assessment-mode-first");
         const detailAssessmentEl = document.getElementById("assessment-mode");
         if (firstAssessmentEl) firstAssessmentEl.value = state.assessmentMode;
@@ -2291,7 +3380,6 @@
 
         if (runCtx.scan_results) {
           state.scanData = runCtx.scan_results;
-          unlockStep(5);
         }
         if (runCtx.generated_test_plan) {
           state.generatedPlan = {
@@ -2323,17 +3411,24 @@
         state.terminalStateProcessed = isTerminalStatus(runCtx.status);
         updateRunUI();
         if (state.modules.length) {
-          renderModuleList();
+          renderModuleList({ preserveSelection: true });
           unlockStep(2);
         }
-        unlockStep(targetStep || 1);
+        // Reconcile before deciding which stages are available. A saved scan
+        // document alone is not proof that every selected module/route finished.
+        reconcile_terminal_snapshot(state, runCtx);
+        if (state.scanStatus === "COMPLETED") unlockStep(5);
+        const requestedStep = Number(targetStep || 1);
+        if (requestedStep >= 5 && state.scanStatus !== "COMPLETED") unlockStep(4);
+        else unlockStep(requestedStep);
 
         // Respect the user's saved step on refresh; a completed crawl must not
         // silently move them away from telemetry and its explicit View Analysis action.
-        let stepToOpen = Math.min(targetStep, state.maxUnlockedStep);
+        let stepToOpen = Math.min(requestedStep, state.maxUnlockedStep);
+        if (stepToOpen >= 5 && state.scanStatus !== "COMPLETED") stepToOpen = 4;
         if (stepToOpen === 4) {
-          reconcile_terminal_snapshot(state, runCtx);
           if (!isTerminalStatus(runCtx.status)) {
+            state.scanStartTime = Date.now();
             connectTelemetryStream(state.runId);
             startDurationTimer();
             if (runCtx.is_paused) {
@@ -2565,6 +3660,7 @@
       document.getElementById("btn-dl-excel").onclick = () => downloadArtifact("excel");
       document.getElementById("btn-dl-markdown").onclick = () => downloadArtifact("markdown");
       document.getElementById("btn-dl-execution").onclick = () => downloadArtifact("execution_results");
+      document.getElementById("btn-dl-execution-excel").onclick = () => downloadArtifact("execution_excel");
       document.getElementById("btn-dl-source-excel").onclick = () => downloadArtifact("source_excel");
       document.getElementById("btn-dl-checkpoint").onclick = () => downloadArtifact("checkpoint");
       document.getElementById("btn-dl-screenshots").onclick = () => downloadArtifact("screenshots");
@@ -2623,17 +3719,12 @@
           banner.className = "flex items-start gap-3 p-3.5 rounded-lg text-xs bg-blue-50/70 border border-blue-200 text-blue-900";
           bannerIcon.className = "fa-solid fa-circle-info text-blue-600 mt-0.5";
           bannerTitle.textContent = "Live Target Scan Active:";
-          bannerText.textContent = "PiOne Testmate will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.";
+          bannerText.textContent = "OmniTest by PiOne will launch a real Playwright browser instance, enforce SSRF guardrails on the target URL, authenticate via form submission, and crawl discovered routes.";
         }
       } else {
         btnLive.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold text-slate-600";
         btnDemo.className = "px-3.5 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-700 shadow-sm";
         if (credsBlock) credsBlock.classList.add("hidden");
-        const urlInput = document.getElementById("url-input");
-        if (urlInput && (!urlInput.value || urlInput.value.includes("saucedemo.com"))) {
-          urlInput.value = "https://example.test";
-          state.targetUrl = "https://example.test";
-        }
         if (banner) {
           banner.className = "flex items-start gap-3 p-3.5 rounded-lg text-xs bg-emerald-50/70 border border-emerald-200 text-emerald-900";
           bannerIcon.className = "fa-solid fa-flask text-emerald-600 mt-0.5";
@@ -2754,10 +3845,11 @@
       }
     }
 
-    function renderModuleList() {
+    function renderModuleList({ preserveSelection = false } = {}) {
       const container = document.getElementById("module-options-container");
       container.innerHTML = "";
       document.getElementById("module-count-badge").textContent = `${state.modules.length} discovered`;
+      const selectedIds = new Set(state.selectedModuleIds || []);
 
       state.modules.forEach(m => {
         const depth = Number(m.hierarchy_level || 0);
@@ -2770,7 +3862,7 @@
         const label = document.createElement("label");
         label.className = "flex items-start gap-3 p-3.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition";
         label.innerHTML = `
-          <input type="checkbox" name="mod-check" value="${escapeHtml(m.id)}" checked class="module-checkbox mt-1 h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedModulesSummary()" />
+          <input type="checkbox" name="mod-check" value="${escapeHtml(m.id)}" ${!preserveSelection || selectedIds.has(m.id) ? "checked" : ""} class="module-checkbox mt-1 h-4 w-4 accent-blue-600 rounded" onchange="updateSelectedModulesSummary()" />
           <div class="flex-grow">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-slate-800">${escapeHtml(m.label)}</span>
@@ -2904,20 +3996,27 @@
         ? crypto.randomUUID().replaceAll("-", "")
         : `retry_${Date.now()}_${Math.random().toString(16).slice(2)}`;
       state.scanData = null;
+      clearPlanningInputs();
+      state.scanStartTime = null;
       state.lastEventSequence = 0;
       state.terminalStateProcessed = false;
       state.scanStatus = "IN_PROGRESS";
       state.currentModuleName = "";
       state.currentRoute = "";
+      state.generatedPlan = null;
+      state.executionResults = null;
+      state.executionRecoveryNeeded = false;
       updateRunUI();
       showToast(`Starting a full retry; previous run ${previousRunId ? previousRunId.slice(0, 8) : ""} remains saved.`, "info");
       handleStartScan({ resume: false });
     }
 
     async function handleStartScan(options = {}) {
-      const resumeRunId = (options.resume || ["FAILED", "PAUSED", "PARTIAL"].includes(state.scanStatus))
+      const resumeRunId = options.resume === true
         ? state.runId
-        : null;
+        : options.resume === false
+          ? null
+          : (["FAILED", "PAUSED", "PARTIAL"].includes(state.scanStatus) ? state.runId : null);
       unlockStep(4);
       switchStep(4);
       state.terminalStateProcessed = false;
@@ -2930,6 +4029,9 @@
       const log = document.getElementById("scan-event-log");
       log.innerHTML = `<p class="text-blue-400 font-semibold">[SCAN_START] Connecting to Playwright crawler engine for run ${escapeHtml(state.runId)}...</p>`;
 
+      // A user-triggered resume/retry starts a new active attempt timer. The
+      // elapsed duration must not inherit a stale timestamp from a prior tab.
+      state.scanStartTime = Date.now();
       startDurationTimer();
 
       // Connect WebSocket Telemetry Stream
@@ -2987,23 +4089,23 @@
           }
         }
         if (!terminalState) throw new Error("Scan is still running. Reopen this session to continue monitoring progress.");
-        if (terminalState.auth_status === "expired" || /authentication expired/i.test(terminalState.error_message || "")) {
+        if (terminalState.auth_status === "expired" || (!terminalState.auth_status && /authentication expired/i.test(terminalState.error_message || ""))) {
           state.scanStatus = "FAILED";
           updateTerminalControls("failed", "Authentication expired. Refresh the session, then retry the crawl.");
           triggerSessionExpired();
           return;
         }
+        if (terminalState.auth_status === "authenticated") {
+          document.getElementById("session-expired-banner").classList.add("hidden");
+          document.getElementById("btn-top-refresh-session").classList.add("hidden");
+          document.getElementById("nav-session-badge").classList.remove("hidden");
+        }
         state.scanData = terminalState.scan_results || state.scanData;
         renderAttachedScanContext();
 
         if (state.durationTimer) clearInterval(state.durationTimer);
-        const completedNormally = terminalState.status === "scanned";
-        state.scanStatus = completedNormally ? "COMPLETED" : "PARTIAL";
-        document.getElementById("live-scan-status-pill").innerHTML = `<span class="w-2 h-2 rounded-full ${completedNormally ? "bg-emerald-500" : "bg-amber-500"}"></span> ${completedNormally ? "Completed" : "Partial / Stopped"}`;
-        document.getElementById("live-scan-status-pill").className = completedNormally
-          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5"
-          : "bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1.5";
-
+        state.durationTimer = null;
+        // Reconcile the final persisted counters before unlocking Analyze.
         try {
           const r = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/state`);
           if (r.ok) {
@@ -3012,10 +4114,11 @@
             state.terminalStateProcessed = isTerminalStatus(snapshot.status);
           }
         } catch (_) {}
-        unlockStep(5);
-        document.getElementById("btn-view-analysis").classList.remove("hidden");
+        if (state.scanStatus === "COMPLETED") unlockStep(5);
+        else updateTerminalControls("partial_scanned", "The backend ended the crawl, but the persisted module/route counters are incomplete.");
       } catch (err) {
         if (state.durationTimer) clearInterval(state.durationTimer);
+        state.durationTimer = null;
         state.scanStatus = "FAILED";
         state.terminalStateProcessed = true;
         closeTelemetryStream();
@@ -3135,12 +4238,18 @@
         // display 100% until both dimensions are complete.
         const completedModules = Math.max(0, Number(moduleProgress.current || 1) - 1);
         const modulePct = moduleTotal ? Math.round((completedModules / moduleTotal) * 100) : routePct;
-        state.scanProgressPct = Math.min(routePct, modulePct);
+        // A non-terminal event must never paint a completed crawl.  Some
+        // crawler events report an individual route at 100% while other
+        // modules are still pending.
+        state.scanProgressPct = Math.min(99, Math.min(routePct, modulePct));
       }
       if (event.type === "scan_started") state.scanStatus = "IN_PROGRESS";
       if (event.type === "scan_paused") state.scanStatus = "PAUSED";
       if (event.type === "scan_resumed") state.scanStatus = "IN_PROGRESS";
-      if (event.type === "scan_completed" && !event.scan_stopped_early && event.status !== "partial_success") state.scanStatus = "COMPLETED";
+      // A terminal telemetry event is only a signal to fetch authoritative run
+      // state. Do not mark the UI complete here: the persisted module and route
+      // queues may still contain pending work (or the event may be stale).
+      if (event.type === "scan_completed") state.scanStatus = "RECONCILING";
       if (event.type === "scan_stopped" || event.type === "scan_budget_exceeded") state.scanStatus = "PARTIAL";
       if (event.type === "scan_failed") {
         state.scanStatus = "FAILED";
@@ -3148,9 +4257,14 @@
       }
       updateActiveRunBar();
       if (event.errors !== undefined) {
-        document.getElementById("live-error-badge").textContent = `${event.errors} errors`;
-        if (event.errors > 0) {
-          document.getElementById("live-error-badge").className = "bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded text-[11px]";
+        const errorBadge = document.getElementById("live-error-badge");
+        if (errorBadge) {
+          const errorCount = Math.max(0, Number(event.errors) || 0);
+          errorBadge.textContent = `${errorCount} target console error${errorCount === 1 ? "" : "s"}`;
+          errorBadge.title = "Console errors emitted by the target application's browser page. This is not an OmniTest server error count; route health is reported separately.";
+          errorBadge.className = errorCount > 0
+            ? "bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded text-[11px]"
+            : "bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]";
         }
       }
 
@@ -3194,8 +4308,7 @@
               if (runCtx.scan_results) {
                 state.scanData = runCtx.scan_results;
                 renderAnalyzeView();
-                unlockStep(5);
-                document.getElementById("btn-view-analysis").classList.remove("hidden");
+                if (state.scanStatus === "COMPLETED") unlockStep(5);
               }
             }).catch(() => {});
         } else {
@@ -3276,14 +4389,22 @@
     }
 
     function startDurationTimer() {
-      if (!state.scanStartTime) state.scanStartTime = Date.now();
+      if (!state.scanStartTime) {
+        state.scanStartTime = Date.now();
+      }
       if (state.durationTimer) clearInterval(state.durationTimer);
-      state.durationTimer = setInterval(async () => {
-        const elapsedSec = Math.floor((Date.now() - state.scanStartTime) / 1000);
-        const mins = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+      const updateDuration = () => {
+        const elapsedSec = Math.max(0, Math.floor((Date.now() - state.scanStartTime) / 1000));
+        const hours = String(Math.floor(elapsedSec / 3600)).padStart(2, "0");
+        const mins = String(Math.floor((elapsedSec % 3600) / 60)).padStart(2, "0");
         const secs = String(elapsedSec % 60).padStart(2, "0");
         const durElem = document.getElementById("live-scan-duration");
-        if (durElem) durElem.textContent = `${mins}:${secs}`;
+        if (durElem) durElem.textContent = `Attempt ${hours}:${mins}:${secs}`;
+        return elapsedSec;
+      };
+      updateDuration();
+      state.durationTimer = setInterval(async () => {
+        const elapsedSec = updateDuration();
 
         // Periodically verify if scan finished in backend
         if (state.currentStep === 4 && state.runId && elapsedSec % 2 === 0 && !state.terminalStateProcessed) {
@@ -3303,14 +4424,14 @@
                 if (isTerminalStatus(runCtx.status)) {
                   state.terminalStateProcessed = true;
                   clearInterval(state.durationTimer);
+                  state.durationTimer = null;
                   closeTelemetryStream();
                   if (runCtx.scan_results) {
                     state.scanData = runCtx.scan_results;
                     renderAnalyzeView();
                   }
                   reconcile_terminal_snapshot(state, runCtx);
-                  unlockStep(5);
-                  document.getElementById("btn-view-analysis").classList.remove("hidden");
+                  if (state.scanStatus === "COMPLETED") unlockStep(5);
                 } else if (seq > Number(state.lastEventSequence || 0)) {
                   state.lastEventSequence = seq;
                   reconcile_terminal_snapshot(state, runCtx);
@@ -3320,6 +4441,21 @@
           } catch (_) {}
         }
       }, 1000);
+    }
+
+    function resetScanTelemetryUi() {
+      const duration = document.getElementById("live-scan-duration");
+      if (duration) duration.textContent = "Attempt 00:00:00";
+      const errors = document.getElementById("live-error-badge");
+      if (errors) {
+        errors.textContent = "0 target console errors";
+        errors.className = "bg-slate-200 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]";
+        errors.title = "Console messages emitted by the target application browser context. This is not an OmniTest server error count.";
+      }
+      const bar = document.getElementById("scan-progress-bar");
+      if (bar) bar.style.width = "0%";
+      const label = document.getElementById("scan-progress-label");
+      if (label) label.textContent = "0%";
     }
 
     function getRouteTargets(route) {
@@ -3430,6 +4566,21 @@
         routesBody.appendChild(tr);
       });
 
+      const consoleContainer = document.getElementById("analyze-console-messages");
+      consoleContainer.innerHTML = "";
+      let messageCount = 0;
+      routes.forEach(r => {
+        const messages = Array.isArray(r.console_messages) ? r.console_messages : [];
+        if (!messages.length) return;
+        messageCount += messages.length;
+        const section = document.createElement("section");
+        section.className = "border border-slate-200 rounded p-2";
+        section.innerHTML = `<p class="font-semibold break-all">${escapeHtml(r.url || r.path || "Unknown route")}</p>` +
+          messages.map(message => `<pre class="whitespace-pre-wrap break-all mt-1 text-slate-700">${escapeHtml(message)}</pre>`).join("");
+        consoleContainer.appendChild(section);
+      });
+      if (!messageCount) consoleContainer.textContent = "No browser console messages were captured for these routes.";
+
       const evidenceBody = document.getElementById("analyze-elements-table-body");
       const evidenceCount = appendTargetEvidenceRows(evidenceBody, routes);
       document.getElementById("analyze-target-count-badge").textContent = `${evidenceCount} target${evidenceCount === 1 ? "" : "s"}`;
@@ -3442,19 +4593,80 @@
       if (!parkingLot.length) {
         parkingList.innerHTML = `<p class="text-slate-500 py-3 text-center">No high-risk actions encountered in the scanned boundary.</p>`;
       } else {
-        parkingLot.forEach(p => {
+        parkingLot.forEach((p, index) => {
           const div = document.createElement("div");
-          div.className = "py-2 flex items-center justify-between";
+          div.className = "py-3 border-b border-slate-100 last:border-b-0";
+          const review = p.manual_review || {};
+          const reviewed = review.decision === "approve_for_test_planning";
+          const assertionId = `parking-assertion-${index}`;
           div.innerHTML = `
-            <div>
-              <span class="font-bold text-slate-800">${escapeHtml(p.label || "unlabeled")}</span>
-              <span class="text-[10px] text-slate-400 font-mono ml-2">[${escapeHtml(p.route || "/")}]</span>
-              <p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(p.reason || "Manual verification required")}</p>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <span class="font-bold text-slate-800">${escapeHtml(p.label || "unlabeled")}</span>
+                <span class="text-[10px] text-slate-400 font-mono ml-2">[${escapeHtml(p.route || "/")}]</span>
+                <p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(p.reason || "Manual verification required")}</p>
+                <p class="text-[10px] text-slate-500 mt-1">${reviewed ? "Approved for test planning; action remains parked and will not be executed." : "This action is not executed automatically. Add an expected result to include a safe assertion in test planning."}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${reviewed ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-amber-100 text-amber-800 border-amber-200"} border">${reviewed ? "REVIEWED FOR ASSERTION" : escapeHtml(p.classification || "PARKED")}</span>
             </div>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">${escapeHtml(p.classification || "PARKED")}</span>
+            <label class="block text-[10px] font-semibold text-slate-600 mt-2" for="${assertionId}">Expected result / assertion</label>
+            <textarea id="${assertionId}" rows="2" maxlength="2000" class="w-full mt-1 px-2 py-1.5 border border-slate-300 rounded text-xs" placeholder="e.g. Checkout is available only after the user confirms the order; no order is submitted during this scan.">${escapeHtml(review.assertion || "")}</textarea>
+            <p class="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-2">Review only: saving an assertion adds expected behavior to planning evidence. The parked action is never executed by this control.</p>
+            <label class="flex items-start gap-2 text-[10px] text-slate-700 mt-2">
+              <input type="checkbox" data-parking-confirm="${index}" class="mt-0.5" ${review.confirmed ? "checked" : ""}>
+              <span>I reviewed this action and confirm the assertion is safe to use for test planning.</span>
+            </label>
+            <div class="flex items-center gap-2 mt-2">
+              <button type="button" data-parking-review="approve" data-index="${index}" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-semibold">Confirm &amp; save assertion</button>
+              <button type="button" data-parking-review="keep" data-index="${index}" class="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-semibold">Keep parked</button>
+              <span class="text-[10px] text-slate-500" data-parking-status="${index}">${reviewed ? `Saved ${escapeHtml(review.reviewed_at || "")}` : "Not reviewed"}</span>
+            </div>
           `;
+          div.querySelectorAll("[data-parking-review]").forEach(button => {
+            button.addEventListener("click", () => saveParkingReview(Number(button.dataset.index), button.dataset.parkingReview, div));
+          });
           parkingList.appendChild(div);
         });
+      }
+    }
+
+    async function saveParkingReview(index, decision, card) {
+      const action = state.scanData?.parking_lot_actions?.[index];
+      if (!state.runId || !action) return;
+      const assertionInput = card?.querySelector(`#parking-assertion-${index}`);
+      const confirmation = card?.querySelector(`[data-parking-confirm="${index}"]`);
+      const assertion = assertionInput?.value.trim() || "";
+      if (decision === "approve" && !assertion) {
+        showToast("Enter the expected result before saving this assertion.", "error");
+        assertionInput?.focus();
+        return;
+      }
+      if (decision === "approve" && !confirmation?.checked) {
+        showToast("Confirm that you reviewed the action before saving its assertion.", "error");
+        confirmation?.focus();
+        return;
+      }
+      const status = card?.querySelector(`[data-parking-status="${index}"]`);
+      const buttons = card?.querySelectorAll(`[data-index="${index}"][data-parking-review]`) || [];
+      buttons.forEach(button => button.disabled = true);
+      if (status) status.textContent = "Saving review…";
+      try {
+        const res = await fetch(`${API_BASE}/run/${encodeURIComponent(state.runId)}/parking-lot/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action_index: index, decision: decision === "approve" ? "approve_for_test_planning" : "keep_parked", assertion: assertion || null, confirmed: decision === "approve" && Boolean(confirmation?.checked) })
+        });
+        const data = await readApiResponse(res, "Parking-lot review");
+        if (!res.ok) throw new Error(formatApiError(data, "Could not save parking-lot review"));
+        state.scanData.parking_lot_actions[index] = data.action;
+        if (state.currentStep === 8) renderReportView();
+        else renderAnalyzeView();
+        showToast(decision === "approve" ? "Assertion saved for test planning. The parked action remains non-executable." : "Action remains parked; review decision saved.", "success");
+      } catch (err) {
+        if (status) status.textContent = `Save failed: ${err.message}`;
+        showToast(`Could not save review: ${err.message}`, "error");
+      } finally {
+        buttons.forEach(button => { if (button.isConnected) button.disabled = false; });
       }
     }
 
@@ -3492,6 +4704,8 @@
       }
       if (state.isGeneratingPlan) return;
       state.isGeneratingPlan = true;
+      const generationToken = ++state.planGenerationToken;
+      const generationRunId = state.runId;
       const btn = document.getElementById("btn-generate-plan");
       btn.disabled = true;
       btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Generating Plan...`;
@@ -3499,7 +4713,7 @@
       try {
         const provider = document.getElementById("llm-provider-select").value;
         const model = document.getElementById("llm-model-input").value.trim() || null;
-        const prompt = document.getElementById("planning-prompt").value.trim() || null;
+        const prompt = document.getElementById("planning-prompt").value.trim();
         const requestedCount = Math.max(0, Math.min(100, Number.parseInt(document.getElementById("testcase-count")?.value || "0", 10) || 0));
 
         // Persist user artifacts first. The scan map is always sent in the
@@ -3516,19 +4730,30 @@
           const contextRes = await fetch(`${API_BASE}/test-context/upload`, { method: "POST", body: form });
           const contextData = await readApiResponse(contextRes, "Context upload");
           if (!contextRes.ok) throw new Error(formatApiError(contextData, "Context upload failed"));
+          if (generationToken !== state.planGenerationToken || generationRunId !== state.runId) return;
           contextId = contextData.context_id;
           state.testContextId = contextId;
           const sources = (contextData.source_files || []).join(", ") || "scenario prompt";
           document.getElementById("planning-context-status").textContent = `Attached: scan report + ${sources}`;
         }
 
+        const reviewedParkingAssertions = (state.scanData.parking_lot_actions || [])
+          .map(action => action.manual_review)
+          .filter(review => review?.decision === "approve_for_test_planning" && review.assertion)
+          .map(review => `- ${review.assertion}`);
+        const planningPrompt = [
+          prompt,
+          reviewedParkingAssertions.length
+            ? `Human-reviewed expected results for parked actions (planning/assertion only; do not execute the parked actions):\n${reviewedParkingAssertions.join("\n")}`
+            : null
+        ].filter(Boolean).join("\n\n");
         const generationPayload = {
           mock: !state.isLive,
           base_url: state.targetUrl,
           scan: state.scanData,
           provider,
           model,
-          user_prompt: prompt,
+          user_prompt: planningPrompt,
           context_id: contextId,
           run_id: state.runId,
           testcase_count: requestedCount
@@ -3539,6 +4764,7 @@
           generationPayload,
           "Test generation"
         );
+        if (generationToken !== state.planGenerationToken || generationRunId !== state.runId) return;
 
         state.generatedPlan = data;
         // A newly generated plan is a new execution contract.  Carrying the
@@ -3557,6 +4783,10 @@
         document.getElementById("plan-script-code").textContent = data.script || "# No script generated";
         renderPlanCases(data.test_cases || []);
         renderPlanShortfall(data.shortfall_explanation || meta.shortfall_explanation || null);
+        const coverageWarning = document.getElementById("plan-coverage-warning");
+        const searchGaps = (data.coverage_gaps || []).filter(gap => gap.type === "search_result_unverified");
+        coverageWarning.textContent = searchGaps.map(gap => gap.reason).join("\n");
+        coverageWarning.classList.toggle("hidden", !searchGaps.length);
 
         // Grounding status & fallback warnings
         const isFallback = data.fallback_used || false;
@@ -3579,12 +4809,35 @@
 
         unlockStep(7);
       } catch (err) {
-        showActionableError("Test Generation", state.runId, "PLANNING_ERROR", err.message, "Try switching to Deterministic provider or check target elements.");
+        if (generationToken === state.planGenerationToken && generationRunId === state.runId) {
+          showActionableError("Test Generation", state.runId, "PLANNING_ERROR", err.message, "Try switching to Deterministic provider or check target elements.");
+        }
       } finally {
-        state.isGeneratingPlan = false;
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
+        if (generationToken === state.planGenerationToken) {
+          state.isGeneratingPlan = false;
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Generate Test Plan`;
+        }
       }
+    }
+
+    function clearPlanningInputs() {
+      state.planGenerationToken += 1;
+      state.isGeneratingPlan = false;
+      state.testContextId = "";
+      const prompt = document.getElementById("planning-prompt");
+      if (prompt) prompt.value = "";
+      ["upload-requirements", "upload-testcases"].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = "";
+      });
+      const contextStatus = document.getElementById("planning-context-status");
+      if (contextStatus) contextStatus.textContent = "Scan report will be attached automatically.";
+      const script = document.getElementById("plan-script-code");
+      if (script) script.textContent = "# Script will appear here once generated...";
+      renderPlanCases([]);
+      renderPlanShortfall(null);
+      document.getElementById("fallback-warning-box")?.classList.add("hidden");
     }
 
     function renderPlanShortfall(shortfall) {
@@ -3783,7 +5036,7 @@
           </td>
           <td class="table-cell text-center">
             ${r.Artifact_Path ? `
-              <button class="text-blue-600 hover:text-blue-800 text-xs font-semibold" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')">
+              <button class="text-blue-600 hover:text-blue-800 text-xs font-semibold" onclick="viewScreenshot(decodeURIComponent('${encodeURIComponent(r.Artifact_Path).replace(/'/g, '%27')}'))">
                 <i class="fa-solid fa-image"></i> View
               </button>
             ` : `<span class="text-slate-300">--</span>`}
@@ -3902,8 +5155,20 @@
       } else {
         parkingLot.forEach(p => {
           const div = document.createElement("div");
-          div.className = "p-2 bg-slate-50 border border-slate-200 rounded flex items-center justify-between";
-          div.innerHTML = `<div><span class="font-bold text-slate-800">${escapeHtml(p.label)}</span> <span class="text-slate-400 font-mono text-[10px]">(${escapeHtml(p.route)})</span><p class="text-slate-500 text-[11px] mt-0.5">${escapeHtml(p.reason)}</p></div><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">${escapeHtml(p.classification)}</span>`;
+          const review = p.manual_review || {};
+          const approvedForPlanning = review.decision === "approve_for_test_planning";
+          div.className = "p-3 bg-slate-50 border border-slate-200 rounded-lg";
+          div.innerHTML = `
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <span class="font-bold text-slate-800">${escapeHtml(p.label || "Unlabeled action")}</span>
+                <span class="text-slate-400 font-mono text-[10px] ml-1">(${escapeHtml(p.route || "/")})</span>
+                <p class="text-slate-500 text-[11px] mt-0.5">${escapeHtml(p.reason || "Manual review required")}</p>
+              </div>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${approvedForPlanning ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}">${approvedForPlanning ? "Assertion saved for planning" : escapeHtml(p.classification || "PARKED")}</span>
+            </div>
+            ${review.assertion ? `<div class="mt-2 rounded border border-slate-200 bg-white p-2"><p class="text-[10px] font-semibold text-slate-500">Human-provided expected result</p><p class="text-xs text-slate-700 whitespace-pre-wrap">${escapeHtml(review.assertion)}</p></div>` : ""}
+            <p class="mt-2 text-[10px] text-slate-500">${review.reviewed_at ? `Reviewed ${escapeHtml(review.reviewed_at)} · ` : ""}Action remained parked and was not executed.</p>`;
           parkingContainer.appendChild(div);
         });
       }
@@ -3921,7 +5186,7 @@
           <td class="table-cell text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isPass ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}">${escapeHtml(r.Status)}</span></td>
           <td class="table-cell text-center text-slate-600">${escapeHtml(r.failure_category || "--")}</td>
           <td class="table-cell text-center">
-            ${r.Artifact_Path ? `<button class="text-blue-600 text-xs font-semibold" onclick="viewScreenshot('${escapeHtml(r.Artifact_Path)}')"><i class="fa-solid fa-image"></i> View</button>` : `<span class="text-slate-300">--</span>`}
+            ${r.Artifact_Path ? `<button class="text-blue-600 text-xs font-semibold" onclick="viewScreenshot(decodeURIComponent('${encodeURIComponent(r.Artifact_Path).replace(/'/g, '%27')}'))"><i class="fa-solid fa-image"></i> View</button>` : `<span class="text-slate-300">--</span>`}
           </td>
         `;
         execBody.appendChild(tr);
@@ -3963,7 +5228,7 @@
       if (!state.runId) return;
       const buttonMap = {
         json: "btn-dl-json", yaml: "btn-dl-yaml", excel: "btn-dl-excel", markdown: "btn-dl-markdown",
-        execution_results: "btn-dl-execution", source_excel: "btn-dl-source-excel",
+        execution_results: "btn-dl-execution", execution_excel: "btn-dl-execution-excel", source_excel: "btn-dl-source-excel",
         checkpoint: "btn-dl-checkpoint", screenshots: "btn-dl-screenshots"
       };
       try {
@@ -4107,6 +5372,9 @@
 
         const data = await res.json();
         if (!res.ok) throw new Error(formatApiError(data, "Session refresh failed"));
+        if (data.verified !== true) {
+          throw new Error("The target did not confirm the refreshed session on a protected page. Check the credentials and try again.");
+        }
 
         state.authSessionId = data.auth_session_id;
         document.getElementById("session-expired-banner").classList.add("hidden");
@@ -4193,10 +5461,10 @@
           displayCategory = "BACKEND_UNAVAILABLE";
           const isTunnel = window.location.hostname.includes("loca.lt") || window.location.hostname.includes("ngrok") || combined.includes("localtunnel");
           if (isTunnel) {
-            displayMessage = "The local app tunnel returned 502 Bad Gateway, so the browser is not reaching the Testmate service.";
+            displayMessage = "The local app tunnel returned 502 Bad Gateway, so the browser is not reaching the OmniTest service.";
             displaySuggestion = "Restart the FastAPI server and localtunnel, confirm the tunnel url matches, and retry.";
           } else {
-            displayMessage = "Cannot connect to the PiOne Testmate backend service at " + (window.location.origin || "http://localhost:8000") + ".";
+            displayMessage = "Cannot connect to the OmniTest by PiOne backend service at " + (window.location.origin || "http://localhost:8000") + ".";
             displaySuggestion = "Ensure the FastAPI server is running (`.venv\\Scripts\\python.exe -m uvicorn api.main:app --port 8000`) and healthy.";
           }
         } else if (combined.includes("not found") || combined.includes("404") || combined.includes("no artifact")) {
@@ -4262,7 +5530,7 @@
     }
 
     async function downloadArtifact(type) {
-      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "source_excel", "execution_results", "checkpoint", "screenshots", "log"];
+      const ALLOWED_TYPES = ["json", "yaml", "markdown", "excel", "source_excel", "execution_results", "execution_excel", "checkpoint", "screenshots", "log"];
       if (!ALLOWED_TYPES.includes(type)) {
         showActionableError("Download Artifact", state.runId, "INVALID_ARTIFACT", `Artifact type '${type}' is not permitted.`, "Select a standard artifact type.");
         return;
@@ -4284,7 +5552,6 @@
         }
         const link = document.createElement("a");
         link.href = url;
-        link.setAttribute("download", "");
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -4295,6 +5562,7 @@
           source_excel: "Uploaded Excel + Execution Results",
           markdown: "Markdown Summary",
           execution_results: "Execution Results JSON",
+          execution_excel: "Execution Results Excel",
           checkpoint: "Checkpoint State",
           screenshots: "Step Screenshots ZIP",
           log: "Failure Log"
@@ -4306,6 +5574,10 @@
     }
 
     function resetRun() {
+      if (state.durationTimer) clearInterval(state.durationTimer);
+      state.durationTimer = null;
+      state.scanStartTime = null;
+      clearPlanningInputs();
       state.currentStep = 1;
       state.maxUnlockedStep = 1;
       state.runId = null;
@@ -4331,6 +5603,7 @@
       state.terminalStateProcessed = false;
       state.lastCompletedRoute = "";
       closeTelemetryStream();
+      resetScanTelemetryUi();
 
       document.getElementById("nav-run-badge").classList.add("hidden");
       document.getElementById("nav-session-badge").classList.add("hidden");
@@ -4420,11 +5693,38 @@
     async function initializeAssuranceDesk() {
       try {
         const response = await fetch(`${API_BASE}/version`);
+        if (!response.ok) throw new Error("Feature metadata unavailable");
         const version = await response.json();
-        if (version.v3_assurance_enabled === true) {
+        const v3Enabled = version.v3_assurance_enabled === true;
+        window.__OMNITEST_V3_ENABLED__ = v3Enabled;
+
+        const apiTestingOption = document.querySelector('#assessment-mode-first option[value="api_testing"]');
+        if (apiTestingOption) apiTestingOption.hidden = !v3Enabled;
+
+        if (v3Enabled) {
           document.getElementById("btn-nav-assurance").classList.remove("hidden");
+        } else {
+          const modeSelect = document.getElementById("assessment-mode-first");
+          const detailMode = document.getElementById("assessment-mode");
+          if (modeSelect?.value === "api_testing") {
+            modeSelect.value = "both";
+            modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          if (detailMode?.value === "api_testing") detailMode.value = "both";
         }
-      } catch (_) { /* V3 must remain invisible if metadata cannot be verified. */ }
+      } catch (_) {
+        // Fail closed: keep V3 controls unavailable if server state is unknown.
+        window.__OMNITEST_V3_ENABLED__ = false;
+        const apiTestingOption = document.querySelector('#assessment-mode-first option[value="api_testing"]');
+        if (apiTestingOption) apiTestingOption.hidden = true;
+        const modeSelect = document.getElementById("assessment-mode-first");
+        const detailMode = document.getElementById("assessment-mode");
+        if (modeSelect?.value === "api_testing") {
+          modeSelect.value = "both";
+          modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        if (detailMode?.value === "api_testing") detailMode.value = "both";
+      }
     }
 
     function assuranceEscape(value) {
@@ -5674,7 +6974,8 @@
                 <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/yaml" class="bg-white hover:bg-slate-50 border border-slate-300 text-purple-700 px-2 py-1 rounded text-[10px] font-semibold">YAML</a>
                 <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/excel" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-semibold">Excel</a>
                 <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/markdown" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 px-2 py-1 rounded text-[10px] font-semibold">MD</a>
-                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/execution_results" class="bg-white hover:bg-slate-50 border border-slate-300 text-indigo-700 px-2 py-1 rounded text-[10px] font-semibold">Exec</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/execution_excel" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[10px] font-semibold">Execution Excel</a>
+                <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/execution_results" class="bg-white hover:bg-slate-50 border border-slate-300 text-indigo-700 px-2 py-1 rounded text-[10px] font-semibold">Execution JSON</a>
                 <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/checkpoint" class="bg-white hover:bg-slate-50 border border-slate-300 text-slate-600 px-2 py-1 rounded text-[10px] font-semibold">Checkpoint</a>
                 <a href="${API_BASE}/reports/${encodeURIComponent(r.run_id)}/download/screenshots" class="bg-white hover:bg-slate-50 border border-slate-300 text-rose-700 px-2 py-1 rounded text-[10px] font-semibold">Screenshots</a>
               </div>
@@ -5815,7 +7116,7 @@ function closeScreenshotModal() {
       }[c]));
     }
   </script>
-  <script src="/ui/js/security_review.js?v=security-authorization-gate-3"></script>
+  <script src="/ui/js/security_review.js?v=security-authorization-gate-4"></script>
   <!-- Floating Toast Notifications -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
 

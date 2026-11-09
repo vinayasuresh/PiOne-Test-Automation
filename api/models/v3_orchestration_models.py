@@ -33,7 +33,7 @@ class V3RetryRequest(_StrictModel):
 
 
 class AssignmentRuleRequest(_StrictModel):
-    product: str = Field(default="PiOne Testmate", max_length=255)
+    product: str = Field(default="OmniTest by PiOne", max_length=255)
     feature: str = Field(default="", max_length=255)
     service: str = Field(default="", max_length=255)
     owner_team: str = Field(min_length=2, max_length=255)

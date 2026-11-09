@@ -7,6 +7,7 @@ Create Date: 2026-11-03
 
 from alembic import op
 import sqlalchemy as sa
+from migration_compat import table_exists, column_exists
 
 
 revision = "d4e5f6a7b8c9"
@@ -16,6 +17,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if (
+        table_exists("assurance_scenarios")
+        and table_exists("monitoring_schedules")
+        and all(column_exists("support_incidents", name) for name in
+                ("owner_team", "next_action", "last_outcome", "resolved_at"))
+        and all(column_exists("verification_jobs", name) for name in
+                ("scenario_id", "policy_decision"))
+    ):
+        return
     op.create_table(
         "assurance_scenarios",
         sa.Column("id", sa.String(length=80), primary_key=True),

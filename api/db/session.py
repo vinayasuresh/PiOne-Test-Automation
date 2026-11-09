@@ -1,9 +1,9 @@
-"""api/db/session.py: Database connection, session management, and fallback handling.
+"""Database connection, session management, and explicit fallback handling.
 
 Supports:
-- PostgreSQL in production via DATABASE_URL
-- SQLite fallback for local development and test environments
-- Safe fallback if PostgreSQL is temporarily unreachable or unconfigured
+- PostgreSQL as the application database via DATABASE_URL
+- SQLite only when explicitly enabled as a fallback (primarily isolated tests)
+- Configured-database failures can fail closed to prevent split local state
 - Configurable connection pool parameters (DATABASE_POOL_SIZE, DATABASE_MAX_OVERFLOW, DATABASE_SSL_MODE)
 """
 
@@ -58,6 +58,9 @@ def _apply_sqlite_additive_schema(engine: Engine) -> None:
             "response_schema": "JSON NOT NULL DEFAULT '{}'",
             "approved_parameters": "JSON NOT NULL DEFAULT '[]'",
         },
+        "data_assertion_scenarios": {
+            "database_query_id": "VARCHAR(80)",
+        },
     }
     with engine.begin() as connection:
         for table, columns in additions.items():
@@ -74,8 +77,16 @@ def get_default_sqlite_url() -> str:
 
 
 def build_engine_and_factory() -> tuple[Engine, sessionmaker, bool, str | None]:
-    """Create SQLAlchemy engine with retry and graceful SQLite fallback."""
+    """Create the configured engine, optionally falling back to local SQLite.
+
+    SQLite fallback must be explicitly enabled. In PostgreSQL-first local and
+    deployed configurations, a missing or unreachable DATABASE_URL fails
+    startup instead of silently splitting application state into SQLite.
+    """
     raw_url = os.getenv("DATABASE_URL", "").strip()
+    fallback_enabled = os.getenv("DATABASE_FALLBACK_ENABLED", "false").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
     pool_size = int(os.getenv("DATABASE_POOL_SIZE", "5"))
     max_overflow = int(os.getenv("DATABASE_MAX_OVERFLOW", "10"))
     ssl_mode = os.getenv("DATABASE_SSL_MODE", "prefer").strip()
@@ -84,6 +95,24 @@ def build_engine_and_factory() -> tuple[Engine, sessionmaker, bool, str | None]:
     last_error = None
 
     if raw_url:
+        if raw_url.startswith("sqlite"):
+            if not fallback_enabled:
+                raise RuntimeError(
+                    "SQLite is restricted to explicitly enabled test or recovery fallback."
+                )
+            try:
+                engine = create_engine(
+                    raw_url,
+                    connect_args={"check_same_thread": False},
+                    pool_pre_ping=True,
+                )
+                factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+                logger.warning("[DB] Using explicitly enabled SQLite fallback database.")
+                return engine, factory, True, "SQLite fallback explicitly enabled."
+            except Exception:
+                logger.exception("[DB] Failed to initialize explicitly enabled SQLite fallback.")
+                raise
+
         connect_args: dict[str, Any] = {}
         if "postgresql" in raw_url:
             if ssl_mode and ssl_mode != "disable":
@@ -105,12 +134,26 @@ def build_engine_and_factory() -> tuple[Engine, sessionmaker, bool, str | None]:
             factory = sessionmaker(bind=engine, autoflush=False, autocommit=False)
             logger.info(f"[DB] Successfully connected to configured database: {engine.dialect.name}")
             return engine, factory, False, None
-        except Exception as exc:
-            last_error = f"Configured DATABASE_URL failed: {exc}"
-            logger.warning(f"[DB] {last_error}. Activating local SQLite fallback.")
+        except Exception:
+            # Driver messages can contain credentials and host details.
+            last_error = "Configured database connection failed."
+            if not fallback_enabled:
+                logger.error("[DB] Configured database is unavailable; SQLite fallback is disabled.")
+                raise RuntimeError(
+                    "Configured database is unavailable and local SQLite fallback is disabled."
+                ) from None
+            logger.warning("[DB] Configured database is unavailable. Activating local SQLite fallback.")
             is_fallback = True
 
-    # Fallback to local SQLite
+    if not fallback_enabled:
+        message = "DATABASE_URL is required when SQLite fallback is disabled."
+        logger.error("[DB] DATABASE_URL is missing; SQLite fallback is disabled.")
+        raise RuntimeError(message)
+
+    # SQLite is a deliberate fallback for isolated tests and recovery only.
+    is_fallback = True
+    if not raw_url:
+        last_error = "DATABASE_URL is not configured; using explicitly enabled SQLite fallback."
     sqlite_url = get_default_sqlite_url()
     try:
         engine = create_engine(

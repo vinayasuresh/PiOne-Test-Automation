@@ -1,4 +1,4 @@
-# PiOne Testmate V3 Release Task List and Phase Prompts
+# OmniTest by PiOne V3 Release Task List and Phase Prompts
 
 ## Purpose
 
@@ -9,6 +9,11 @@ to a durable incident, approved verification, evidence, assignment and retest.
 The first priority is **API contract testing and dashboard-data validation**.
 They must be implemented before broader agent autonomy, external connectors or
 IoT command testing.
+
+> **Status discipline:** use the [Documentation Index](OMNITEST_DOCUMENTATION_INDEX.md)
+> as the single current-status source. A phase is complete only after its stated
+> test evidence is recorded; Tara/support-bot integration remains planned until
+> a signed, tenant-isolated end-to-end connector is implemented and proven.
 
 ## Non-negotiable rules for every phase
 
@@ -39,6 +44,8 @@ IoT command testing.
 
 ### Phase 0 evidence (2026-11-03)
 
+> Historical evidence below was recorded before the later rendered-browser run.
+
 - The working tree was inspected before this phase; the only pre-existing
   untracked item was the generated status PDF under `output/`, and it was not
   included in the phase commit.
@@ -54,6 +61,32 @@ IoT command testing.
 - Browser-marked release-gate tests were not counted as Phase 0 proof in this
   Windows run because the local browser/async test harness did not complete
   within the diagnostic timeout. They remain a Phase 6 rendered-browser gate.
+
+### Phase 0 verification update (2026-11-06)
+
+- The later rendered-browser V2 regression is recorded in
+  `docs/OMNITEST_V2_PHASE0_LIVE_REGRESSION_PROOF_2026-11-06.md`: the V2 Mock
+  Demo flow completed with V3 disabled; 262 default tests, 83 browser-marked
+  tests, and the focused 49-test V2 slice passed in the recorded run.
+- **Technical V2 protection exit: PASS for that local run.** The evidence is
+  limited to the source revision, local environment, and Mock Demo described in
+  the proof; it is not customer-site or CI-host evidence.
+- **Governance Phase 0: OPEN.** GOV-01–GOV-04 remain `In progress` pending
+  accountable product, security, QA/release, pilot-owner, and DBA/DevOps
+  approvals. Review the recommended decisions and sign-off fields in
+  `docs/PHASE0_GOVERNANCE_DECISION_PACK_2026-11-06.md`. Do not mark these rows
+  complete based on draft recommendations or connectivity evidence alone.
+- **Local database decision and migration: COMPLETE (2026-11-06).** Per the
+  owner's local-development decision, `.env` now selects PostgreSQL
+  `Omni_Test` and disables SQLite fallback. The 32 ORM tables plus
+  `alembic_version` were created/migrated; all source/destination row counts
+  matched, and the app reports PostgreSQL connected with no fallback. A
+  timestamped SQLite backup is preserved. Four source FK relationships had
+  385 pre-existing orphan rows; those rows were retained and the corresponding
+  PostgreSQL constraints are `NOT VALID`, which still enforces future writes.
+  This closes only the local DB implementation item. Shared/production DB
+  topology, privileges, TLS, backup/restore drill, rollback, retention and
+  accountable DBA/DevOps approval remain open.
 
 ### Exit criteria
 
@@ -150,6 +183,21 @@ rollback and redaction. Do not change the V2 user flow or replace existing table
 - Request metadata, response validation, latency and evidence are visible and
   redacted.
 
+### Phase 2 final matrix proof (2026-11-03)
+
+- `python -m pytest automation_framework/tests/test_v3_api_contract_phase2.py
+  automation_framework/tests/test_v3_api_contract_phase7.py -q` passed **17
+  tests**. The matrix covers OpenAPI/Postman normalization, nested JSON Schema
+  and local `$ref` handling, required fields, status codes, latency, timeout,
+  authentication boundaries, traversal/parameter guards, mutation blocking,
+  redaction, persistence and observation export.
+- The combined V3 regression slice also passed **31 tests** across API contract,
+  dashboard-data and orchestration coverage (`7 deselected` browser-marked
+  cases). No browser proof is claimed by this phase; the rendered-browser gate
+  remains Phase 5 work.
+- The generated `output/` directory was intentionally left untracked and is
+  not part of the release commit.
+
 ### Implementation prompt
 
 ```text
@@ -184,6 +232,19 @@ Keep V2 unchanged.
 - A dashboard metric comparison detects a deliberate mismatch and explains it
   with the UI value, source value, filters, tolerance and evidence.
 
+### Phase 3 verification evidence (2026-11-03)
+
+- `python -m pytest automation_framework/tests/test_v3_dashboard_data_phase3.py
+  automation_framework/tests/test_v3_dashboard_data_phase8.py -q` passed **6
+  service and persistence tests**; **7 browser-marked tests were deselected**.
+- Verified matching values, currency and percentage normalization, rounding
+  tolerance, stale data, missing source data, filter mismatch, visual/source
+  mismatch, unsafe source-operation blocking, redacted observation persistence,
+  and timezone normalization.
+- The service-level exit criteria are met. Rendered-browser capture and live
+  dashboard proof remain explicitly unverified and belong to Phase 5 release
+  proof; this phase does not claim them as complete.
+
 ### Implementation prompt
 
 ```text
@@ -197,7 +258,51 @@ arbitrary SQL or production writes. Add tests for matching values, rounding
 tolerance, stale data, missing data and filter mismatch. Preserve V2 behaviour.
 ```
 
-## Phase 4 - Incident orchestration and controlled agent loop
+## Revised Phase 4 - API/database cross-read validation (Priority 0)
+
+### Phase 4 implementation evidence (2026-11-03)
+
+- Added `api/services/v3_database_assertion_service.py` with an approved-query
+  adapter for test/staging databases. It accepts server-owned query definitions
+  only, permits one `SELECT`/CTE read, binds declared parameters, caps evidence
+  at 500 rows, and redacts sensitive values before returning evidence.
+- Mutation statements, multi-statements, PRAGMA/admin commands, production
+  environments, unknown parameters and missing parameters return `blocked`.
+- Added API/database comparison classification for exact, tolerance-based and
+  mismatched values without converting a source outage into a product failure.
+- Added the `database_query_definitions` model and Alembic migration
+  `f6a7b8c9d0e1_v3_database_query_definitions.py`. Registration is explicitly
+  approved, test/staging-only, and public metadata never returns SQL.
+- Added feature-gated routes for query registration, listing, lookup and one
+  bounded read/compare operation under `/v3/database-queries`.
+- Dashboard assertion scenarios can now reference an approved database query
+  definition, preserving the API → dashboard → database lineage without
+  changing existing API-only scenarios.
+- Bound database definitions are now executed during scenario evaluation with
+  transient declared parameters; API↔database comparison and the query ID are
+  included in the persisted comparison lineage. Empty, unavailable and
+  ambiguous database results remain blocked rather than becoming UI failures.
+- Database driver errors are normalized before evidence export so SQL text,
+  schema names and bound values are not echoed in API responses. Tolerance
+  values are finite, non-negative decimals; invalid values are blocked.
+- Proof: `python -m pytest
+  automation_framework/tests/test_v3_database_assertion_phase4.py
+  automation_framework/tests/test_v3_api_contract_phase2.py
+  automation_framework/tests/test_v3_dashboard_data_phase3.py
+  automation_framework/tests/test_v3_orchestration_phase45.py -q` passed
+  **31 tests**. Deterministic Phase-7 security checks also passed (10 tests).
+
+### Remaining Phase 4 wiring
+
+- Add a rendered-browser flow proving registration, read, mismatch and blocked
+  outcomes; service/API tests do not count as browser proof.
+- Run the rendered-browser/dashboard proof in Phase 5; no browser proof is
+  claimed by this service-level implementation.
+- Production authorization for V3 routes is still a Phase-8 gate. The V3
+  feature flag is disabled by default, but enabling it behind an internet
+  boundary without tenant/RBAC authentication is not release-safe.
+
+## Supporting implementation - Incident orchestration and controlled agent loop
 
 ### Current implementation status (uncommitted; validated 2026-11-03)
 
@@ -249,7 +354,7 @@ application defect. Add tests for duplicate intake, target denial, missing role,
 auth expiry, target outage and worker interruption. Do not remove manual mode.
 ```
 
-## Phase 5 - Helpdesk and continuous-check prototype
+## Supporting implementation - Helpdesk and continuous-check prototype
 
 ### Current implementation status (uncommitted; validated 2026-11-03)
 
@@ -294,7 +399,7 @@ repeated failures by scenario, target and environment; record recovery on a
 subsequent pass. Add UI/API tests and preserve V2 screens and navigation.
 ```
 
-## Phase 6 - V3 release hardening and client rehearsal
+## Supporting implementation - V3 release hardening and client rehearsal
 
 ### Validation evidence to date (uncommitted; 2026-11-03)
 
@@ -358,6 +463,39 @@ listing passed checks, failures, known limitations and an explicit go/no-go.
 
 Phase 6 is release-proof complete for the bounded vertical slice. The next functional priority is API testing and dashboard-data validation, followed by Tara/helpdesk connectors and production scheduling.
 
+### Pre-Tara foundation slices implemented (2026-11-04)
+
+The next three implementation slices are now present in the feature-gated V3
+working tree. They extend the existing interactive-learning flow without
+changing the V2 browser workflow:
+
+- **Recovery-safe worker lifecycle:** stale interactive sessions can be marked
+  `recovery_required`, retain their last checkpoint, and be restarted through a
+  controlled retry/resume action. Terminal sessions are not reopened.
+- **Bounded interaction evidence:** manual clicks, inputs, selections,
+  navigation and assertions can be recorded against an allowed target origin
+  with route, CSS selector, XPath, source and page metadata. Input text is
+  stored only as a SHA-256/length summary; secrets, raw values and page HTML are
+  never persisted.
+- **Focused release gate:** feature-flag, evidence-lineage, recovery and
+  cross-origin rejection checks are covered by deterministic tests.
+
+Verification completed for this slice:
+
+- `compileall`: passed.
+- Interactive phase tests: `9 passed`.
+- Focused release-gate tests: `4 passed`.
+- V3-focused suite: `77 passed, 7 deselected`.
+- Fresh SQLite Alembic upgrade through the new evidence migration: passed.
+- `git diff --check`: passed.
+
+The rendered-browser proof is still an explicit follow-up gate because this
+Windows host currently cannot expose the local app socket to the browser
+bridge. No browser pass is claimed from these deterministic service tests. A
+socket-capable environment must still verify the visible multi-module flow,
+retry/resume interaction, evidence display and V2 regression with V3 disabled
+before Tara integration begins.
+
 ### V3.1 - Coverage Mesh
 
 - [ ] Excel row-by-row execution with no lost input rows.
@@ -379,3 +517,5 @@ Phase 6 is release-proof complete for the bounded vertical slice. The next funct
 - [ ] Production schedules, webhooks and approved Jira/TestRail/GitHub/Teams
   connectors.
 - [ ] Retention, deletion, audit policy and signed report manifests.
+
+**Local database operational follow-up (2026-11-06):** Migration and parity checks are complete, but the latest recheck found the PostgreSQL service not listening on port 5432. The app fails closed (no SQLite split). Service recovery requires local Windows DBA/admin access; preserve the stale postmaster.pid and database directory until an administrator verifies the actual service state.

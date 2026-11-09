@@ -8,6 +8,7 @@ V3 feature flag is enabled.
 from __future__ import annotations
 
 import re
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Response, status
@@ -24,9 +25,28 @@ from api.models.v3_api_contract_models import (
     ApiContractRegistrationRequest,
     ApiOperationConfigurationRequest,
     ApiOperationValidationRequest,
+    ApiContractIngestRequest,
+    AuthFixtureRegistrationRequest,
+    AuthConnectionProbeRequest,
+    ApiTestPlanExecutionRequest,
+    DatabaseCrossValidationRequest,
 )
-from api.services.v3_api_contract_service import normalize_contract, validate_registered_operation
+from api.services.v3_api_contract_service import (
+    normalize_contract,
+    validate_registered_operation,
+    detect_and_parse_contract,
+    fetch_remote_contract,
+    execute_api_test_plan,
+    get_api_plan_progress,
+    restore_api_plan,
+)
+from api.services.v3_secret_vault import register_secret_fixture, probe_api_connection
+from api.services.v3_api_report_service import generate_v3_api_excel_report
+from api.services.v3_database_cross_validation_service import execute_database_cross_read
 from api.models.v3_data_assertion_models import DataAssertionEvaluationRequest, DataAssertionScenarioRequest
+from api.models.v3_database_models import DatabaseQueryRegistrationRequest, DatabaseReadRequest
+from api.services.v3_database_assertion_service import ApprovedDatabaseQuery, compare_api_and_database, read_approved_database
+from api.db.session import get_engine
 from api.services.v3_data_assertion_service import capture_dashboard_ui_value, compare_dashboard_data, parse_timestamp, read_approved_source
 from api.services.v3_feature_flags import is_v3_assurance_enabled
 from api.models.v3_orchestration_models import (
@@ -385,6 +405,66 @@ def export_api_observations(contract_id: str) -> JSONResponse:
     return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_api_observations(contract_id)})
 
 
+@router.post("/database-queries", status_code=status.HTTP_201_CREATED)
+def register_database_query(request: DatabaseQueryRegistrationRequest) -> dict:
+    """Register one explicitly approved, read-only test/staging query."""
+    _require_v3()
+    if request.environment == "production":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Production database reads are not allowed")
+    try:
+        query = DBRepository.register_v3_database_query(request.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return {"status": "created", "query": query}
+
+
+@router.get("/database-queries")
+def list_database_queries() -> dict:
+    _require_v3()
+    return {"status": "ok", "queries": DBRepository.list_v3_database_queries()}
+
+
+@router.get("/database-queries/{query_id}")
+def get_database_query(query_id: str) -> dict:
+    _require_v3(); _validate_id(query_id, "database query ID")
+    query = DBRepository.get_v3_database_query(query_id)
+    if not query:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database query not found")
+    return {"status": "ok", "query": query}
+
+
+@router.post("/database-queries/{query_id}/read")
+def read_database_query(query_id: str, request: DatabaseReadRequest) -> dict:
+    """Execute a registered query against the configured test/staging database."""
+    _require_v3(); _validate_id(query_id, "database query ID")
+    definition = DBRepository.get_v3_database_query_definition(query_id)
+    if not definition:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database query not found")
+    if not definition["is_approved"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database query is not approved")
+    approved = ApprovedDatabaseQuery(
+        query_id=definition["query_id"], sql=definition["sql"],
+        parameter_names=tuple(definition.get("parameter_names", [])),
+        database_ref=definition["database_ref"], environment=definition["environment"],
+    )
+    reading = read_approved_database(get_engine(), approved, request.parameters)
+    response: dict = {"status": "ok", "reading": reading}
+    if request.api_value is not None or request.api_result != "ok":
+        database_value = None
+        rows = reading.get("rows") or []
+        if rows:
+            first_row = rows[0]
+            if len(first_row) == 1:
+                database_value = next(iter(first_row.values()))
+            else:
+                database_value = first_row
+        response["comparison"] = compare_api_and_database(
+            request.api_value, database_value,
+            tolerance=request.tolerance, api_result=request.api_result, database_result=reading.get("result", "blocked"),
+        )
+    return response
+
+
 @router.post("/data-assertion-scenarios", status_code=status.HTTP_201_CREATED)
 def register_data_assertion_scenario(request: DataAssertionScenarioRequest) -> dict:
     """Register an approved comparison against an existing read-only API operation."""
@@ -416,7 +496,7 @@ def get_data_assertion_scenario(scenario_id: str) -> dict:
 
 @router.post("/data-assertion-scenarios/{scenario_id}/evaluate", status_code=status.HTTP_201_CREATED)
 def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEvaluationRequest) -> dict:
-    """Compare a captured UI value to the scenario's approved API source only."""
+    """Compare UI to API and, when bound, API to an approved DB read."""
     _require_v3()
     _validate_id(scenario_id, "data assertion scenario ID")
     scenario = DBRepository.get_v3_data_assertion_scenario(scenario_id)
@@ -454,6 +534,61 @@ def evaluate_data_assertion_scenario(scenario_id: str, request: DataAssertionEva
             eval_dict["classification"] = ui_cap.get("classification", "ui_capture_failed")
 
     comparison = compare_dashboard_data(scenario, eval_dict, source_reading)
+    database_comparison = None
+    database_query_id = scenario.get("database_query_id")
+    if database_query_id:
+        definition = DBRepository.get_v3_database_query_definition(database_query_id)
+        if not definition or not definition["is_approved"]:
+            database_comparison = {
+                "result": "blocked",
+                "classification": "database_query_not_approved",
+            }
+        else:
+            approved = ApprovedDatabaseQuery(
+                query_id=definition["query_id"], sql=definition["sql"],
+                parameter_names=tuple(definition.get("parameter_names", [])),
+                database_ref=definition["database_ref"], environment=definition["environment"],
+            )
+            database_reading = read_approved_database(
+                get_engine(), approved, request.database_parameters,
+            )
+            database_value = None
+            rows = database_reading.get("rows") or []
+            if not rows and database_reading.get("result") == "ok":
+                database_reading = {
+                    **database_reading,
+                    "result": "blocked",
+                    "classification": "database_result_empty",
+                }
+            elif rows:
+                first_row = rows[0]
+                if len(first_row) == 1:
+                    database_value = next(iter(first_row.values()))
+                else:
+                    database_reading = {
+                        **database_reading,
+                        "result": "blocked",
+                        "classification": "database_result_ambiguous",
+                    }
+            database_comparison = compare_api_and_database(
+                source_reading.get("source_value"), database_value,
+                tolerance=scenario.get("tolerance", "0"),
+                api_result=source_reading.get("result", "blocked"),
+                database_result=database_reading.get("result", "blocked"),
+            )
+        if database_comparison["result"] != "pass":
+            comparison = {
+                **comparison,
+                "result": "blocked" if database_comparison["result"] == "blocked" else "fail",
+                "classification": database_comparison["classification"],
+            }
+        comparison["database_query_id"] = database_query_id
+        comparison["database_comparison"] = database_comparison
+        comparison["source_metadata"] = {
+            **(comparison.get("source_metadata") or {}),
+            "database_query_id": database_query_id,
+            "database_comparison": database_comparison,
+        }
     evidence_id = request.evidence_manifest_id
     if request.job_id and not evidence_id and screenshot_loc:
         manifest = DBRepository.add_v3_evidence_manifest(request.job_id, {
@@ -496,3 +631,224 @@ def export_data_assertion_observations(scenario_id: str) -> JSONResponse:
     if not DBRepository.get_v3_data_assertion_scenario(scenario_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Data assertion scenario not found")
     return JSONResponse({"status": "ok", "observations": DBRepository.list_v3_data_assertion_observations(scenario_id)})
+
+
+# ---------------------------------------------------------------------------
+# V3 API Testing Workflow & Database Cross-Read Validation Endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/api-contracts/ingest", status_code=status.HTTP_201_CREATED)
+def ingest_api_contract(request: ApiContractIngestRequest) -> dict:
+    """Ingest OpenAPI, Swagger, or Postman contracts from URL, file, or paste."""
+    _require_v3()
+    try:
+        if request.input_mode == "url":
+            if not request.url:
+                raise ValueError("URL must be provided when input_mode is 'url'")
+            is_mock = request.url.endswith((".test", ".example", ".invalid", ":8000", ":8001"))
+            detected_type, parsed_doc = fetch_remote_contract(request.url, is_mock=is_mock)
+        elif request.input_mode in {"file", "paste"}:
+            if not request.content:
+                raise ValueError("Content must be provided when input_mode is 'file' or 'paste'")
+            detected_type, parsed_doc = detect_and_parse_contract(
+                request.content,
+                source_type_hint=request.source_type if request.source_type != "auto" else None,
+            )
+        else:
+            raise ValueError(f"Unsupported input mode: {request.input_mode}")
+
+        source_type = detected_type if detected_type in {"openapi", "swagger", "postman"} else "openapi"
+        operations = normalize_contract(source_type, parsed_doc, request.base_url)
+
+        contract = DBRepository.register_v3_api_contract(
+            {
+                "name": request.name,
+                "version": request.version,
+                "source_type": source_type,
+                "base_url": request.base_url,
+                "environment": request.environment,
+                "approved": request.approved,
+            },
+            operations,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {
+        "status": "created",
+        "detected_type": detected_type,
+        "operations_count": len(operations),
+        "contract": contract,
+        "operations": operations,
+    }
+
+
+@router.post("/auth/register-fixture", status_code=status.HTTP_201_CREATED)
+def register_auth_fixture(request: AuthFixtureRegistrationRequest) -> dict:
+    """Register credentials in ephemeral server vault and return safe fixture reference."""
+    _require_v3()
+    try:
+        fixture_meta = register_secret_fixture(
+            request.auth_type,
+            token=request.token,
+            api_key_name=request.api_key_name,
+            api_key_location=request.api_key_location,
+            api_key_value=request.api_key_value,
+            username=request.username,
+            password=request.password,
+            client_id=request.client_id,
+            client_secret=request.client_secret,
+            token_url=request.token_url,
+            scope=request.scope,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {"status": "created", "fixture": fixture_meta}
+
+
+@router.post("/auth/test-connection")
+def check_auth_connection(request: AuthConnectionProbeRequest) -> dict:
+    """Safe connection probe action without echoing credentials."""
+    _require_v3()
+    is_mock = request.base_url.endswith((".test", ".example", ".invalid", ":8000", ":8001"))
+    result = probe_api_connection(
+        request.base_url,
+        fixture_ref=request.auth_fixture_ref,
+        probe_path=request.probe_path,
+        probe_method=request.probe_method,
+        is_mock=is_mock,
+    )
+    return {"status": "ok", "probe": result}
+
+
+@router.post("/api-contracts/execute-plan", status_code=status.HTTP_201_CREATED)
+def run_api_contract_plan(request: ApiTestPlanExecutionRequest) -> dict:
+    """Execute an API test plan with deduplication locking, per-operation checkpoints, and resume."""
+    _require_v3()
+    _validate_id(request.contract_id, "contract ID")
+    contract = DBRepository.get_v3_api_contract(request.contract_id)
+    if not contract:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API contract not found")
+
+    all_operations = contract.get("operations") or []
+    if request.operation_keys:
+        op_keys_set = set(request.operation_keys)
+        target_operations = [op for op in all_operations if op["operation_key"] in op_keys_set]
+    else:
+        target_operations = all_operations
+
+    if not target_operations:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No operations selected for execution")
+
+    # Resumes must address the original plan.  Generating a fresh id for every
+    # request silently discarded checkpoints and made the UI's Resume action
+    # look successful while restarting from zero.
+    import uuid
+    plan_id = request.plan_id if request.resume_checkpoint and request.plan_id else f"plan_{uuid.uuid4().hex[:12]}"
+    if request.resume_checkpoint and not request.plan_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="plan_id is required when resuming an API plan")
+
+    if request.resume_checkpoint:
+        persisted_plan = DBRepository.get_v3_api_plan(request.plan_id)
+        if persisted_plan:
+            if persisted_plan.get("contract_id") != request.contract_id:
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Plan belongs to a different API contract")
+            restore_api_plan(persisted_plan)
+
+    if request.allow_mutation:
+        # A client-side checkbox is not authorization.  Mutations are only
+        # allowed for explicitly approved test/staging runs with a server-side
+        # feature flag and an unambiguous confirmation phrase.
+        if request.mutation_confirmation != "I_CONFIRM_STAGING_MUTATIONS":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mutation execution requires explicit staging confirmation")
+        if os.getenv("V3_ALLOW_API_MUTATIONS", "").strip().lower() not in {"1", "true", "yes"}:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API mutations are disabled by server policy")
+        if contract.get("environment") not in {"staging", "test"}:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API mutations are not allowed for this environment")
+
+    try:
+        plan_result = execute_api_test_plan(
+            plan_id,
+            contract,
+            target_operations,
+            auth_fixture_ref=request.auth_fixture_ref,
+            parameter_overrides=request.parameter_overrides,
+            allow_mutation=request.allow_mutation,
+            concurrency=request.concurrency,
+            timeout_seconds=request.timeout_seconds,
+            retry_limit=request.retry_limit,
+            resume_checkpoint=request.resume_checkpoint,
+            checkpoint_callback=DBRepository.save_v3_api_plan,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return {"status": "completed", "plan": plan_result}
+
+
+@router.get("/api-contracts/plans/{plan_id}/progress")
+def get_plan_progress(plan_id: str) -> dict:
+    """Retrieve execution progress and per-operation checkpoints."""
+    _require_v3()
+    _validate_id(plan_id, "plan ID")
+    plan = get_api_plan_progress(plan_id)
+    if not plan:
+        plan = DBRepository.get_v3_api_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    return {"status": "ok", "plan": plan}
+
+
+@router.get("/api-contracts/plans/{plan_id}/report.xlsx")
+def download_api_excel_report(plan_id: str) -> Response:
+    """Stream the 10-sheet functional Excel report with zero secret leakage."""
+    _require_v3()
+    _validate_id(plan_id, "plan ID")
+    plan = get_api_plan_progress(plan_id)
+    if not plan:
+        plan = DBRepository.get_v3_api_plan(plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    contract = DBRepository.get_v3_api_contract(plan["contract_id"])
+    if not contract:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated contract not found")
+    operations = contract.get("operations") or []
+
+    excel_bytes = generate_v3_api_excel_report(plan, contract, operations)
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="omnitest_api_report_{plan_id}.xlsx"'},
+    )
+
+
+@router.post("/database-cross-validation/validate")
+def validate_database_cross_read(request: DatabaseCrossValidationRequest) -> dict:
+    """Execute server-side read-only DB query and run 3-way DB/API/UI cross validation."""
+    _require_v3()
+    _validate_id(request.query_id, "database query ID")
+    definition = DBRepository.get_v3_database_query_definition(request.query_id)
+    if not definition:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database query not found")
+    if not definition["is_approved"]:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Database query is not approved")
+
+    approved = ApprovedDatabaseQuery(
+        query_id=definition["query_id"],
+        sql=definition["sql"],
+        parameter_names=tuple(definition.get("parameter_names", [])),
+        database_ref=definition["database_ref"],
+        environment=definition["environment"],
+    )
+
+    result = execute_database_cross_read(
+        get_engine(),
+        approved,
+        parameters=request.parameters,
+        api_value=request.api_value,
+        dashboard_ui_value=request.dashboard_ui_value,
+        tolerance=request.tolerance,
+        context_metadata=request.context_metadata,
+    )
+    return {"status": "ok", "cross_validation": result}

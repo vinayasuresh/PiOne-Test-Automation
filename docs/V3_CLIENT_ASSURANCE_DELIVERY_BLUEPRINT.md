@@ -4,6 +4,12 @@
 **Release target:** Monday, 2 November 2026
 **Delivery rule:** Ship one evidence-backed vertical slice. Do not label an unfinished enterprise platform as complete.
 
+> **Scope boundary (updated 2026-11-09):** this blueprint describes the
+> pre-Tara assurance foundation and delivery order. It does not mean that Tara,
+> any external chatbot, unattended scheduling, MQTT telemetry, or physical-device
+> testing has been integrated. The proposed connector contract is maintained in
+> [Universal Tara and Support-Bot Integration Blueprint](OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md).
+
 ## 1. Product decision
 
 PiOne Testmate V3 is an **evidence-first assurance platform**. It turns a customer complaint, scheduled journey, deployment event or approved IoT signal into an authorized verification job, an honest verdict and evidence for the right owner.

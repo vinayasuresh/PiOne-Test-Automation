@@ -106,3 +106,66 @@ class ApiOperationValidationRequest(_StrictModel):
         if value is not None and not _ID_PATTERN.fullmatch(value):
             raise ValueError("linked IDs may contain only letters, numbers, '_' and '-'")
         return value
+
+
+class ApiContractIngestRequest(_StrictModel):
+    name: str = Field(default="Ingested API Contract", min_length=1, max_length=255)
+    version: str = Field(default="1.0.0", max_length=100)
+    source_type: Literal["openapi", "swagger", "postman", "auto"] = "auto"
+    input_mode: Literal["url", "file", "paste"]
+    url: str | None = None
+    content: str | None = None
+    base_url: str = Field(min_length=8, max_length=1024)
+    environment: Literal["staging", "test", "production"] = "staging"
+    approved: bool = True
+
+
+class AuthFixtureRegistrationRequest(_StrictModel):
+    auth_type: Literal["bearer", "api_key", "basic", "oauth2"]
+    token: str | None = None
+    api_key_name: str | None = None
+    api_key_location: Literal["header", "query"] = "header"
+    api_key_value: str | None = None
+    username: str | None = None
+    password: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    token_url: str | None = None
+    scope: str = ""
+
+
+class AuthConnectionProbeRequest(_StrictModel):
+    base_url: str = Field(min_length=8, max_length=1024)
+    auth_fixture_ref: str | None = None
+    probe_path: str = Field(default="/", max_length=255)
+    probe_method: Literal["GET", "HEAD", "OPTIONS"] = "GET"
+
+
+class ApiTestPlanExecutionRequest(_StrictModel):
+    contract_id: str = Field(min_length=1, max_length=80)
+    operation_keys: list[str] = Field(default_factory=list)
+    auth_fixture_ref: str = Field(default="", max_length=160)
+    parameter_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    concurrency: int = Field(default=1, ge=1, le=10)
+    timeout_seconds: float = Field(default=10.0, ge=1.0, le=60.0)
+    retry_limit: int = Field(default=1, ge=0, le=5)
+    allow_mutation: bool = False
+    plan_id: str = Field(default="", max_length=80)
+    mutation_confirmation: str = Field(default="", max_length=80)
+    resume_checkpoint: bool = False
+
+    @field_validator("plan_id")
+    @classmethod
+    def validate_plan_id(cls, value: str) -> str:
+        if value and not _ID_PATTERN.fullmatch(value):
+            raise ValueError("plan_id may contain only letters, numbers, '_' and '-'")
+        return value
+
+
+class DatabaseCrossValidationRequest(_StrictModel):
+    query_id: str = Field(min_length=1, max_length=80)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    api_value: Any = None
+    dashboard_ui_value: Any = None
+    tolerance: str = Field(default="0", max_length=30)
+    context_metadata: dict[str, Any] = Field(default_factory=dict)

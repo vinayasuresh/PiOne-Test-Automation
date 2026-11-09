@@ -15,7 +15,7 @@ To maintain repository hygiene, clear audit provenance, and prevent accidental d
 | **Authored V2 Documentation** | `docs/v2_release/` | **Tracked in Git** | Formal specifications, user guides, verification status, audit reports, and engineering handoff prompts. |
 | **Authored Presentations** | `presentation/` | **Tracked in Git** | Executive pitch decks, presentation slide outlines, speaker notes, and demo walk-through scripts. |
 | **Project Onboarding** | `README.md` (root) | **Tracked in Git** | Quickstart, installation, local setup, architecture overview, and onboarding instructions. |
-| **Future V3 Blueprints** | `docs/` (root) | **Tracked in Git** | V3 roadmap and architecture planning (`V3_PHASE_ROADMAP.md`, `ANTIGRAVITY_V3_EXECUTION_PROMPT.md`). |
+| **V3 Status and Blueprints** | `docs/` (root) | **Tracked in Git** | Current delivery status, roadmap and architecture planning. Start with `OMNITEST_DOCUMENTATION_INDEX.md`, then `V3_PHASE_ROADMAP.md`, `ANTIGRAVITY_V3_EXECUTION_PROMPT.md`, and `OMNITEST_TARA_AND_UNIVERSAL_BOT_INTEGRATION_BLUEPRINT.md`. |
 | **Generated Workbooks & Reports** | `automation_framework/reports/` | **Ignored / Runtime** | Generated 10-sheet Excel workbooks (`.xlsx`), JSON summaries, Markdown executive summaries, and YAML test plans. |
 | **Generated Forensic Screenshots**| `automation_framework/screenshots/` | **Ignored / Runtime** | Step-by-step visual assertion screenshots (`{tc_id}_{step_id}.png`) and failure captures. |
 | **Runtime Persistence & DB** | `storage/`, `*.db`, `pione_testmate.db` | **Ignored / Runtime** | SQLite database files, WAL logs, and file-based state locks. |

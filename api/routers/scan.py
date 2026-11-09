@@ -11,7 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from typing import Any
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from automation_framework.crawler.auth_exceptions import (
@@ -29,6 +29,7 @@ ALLOWED_ARTIFACT_TYPES = {
     "excel",
     "source_excel",
     "execution_results",
+    "execution_excel",
     "checkpoint",
     "screenshots",
     "log",
@@ -66,6 +67,7 @@ from api.models.scan_models import (
     ResumeRunRequest,
     SaveBaselineRequest,
     SaveProgressRequest,
+    ParkingLotReviewRequest,
     UpdateRegressionSuiteRequest,
     TestContextResponse,
     TestCase,
@@ -272,6 +274,23 @@ async def start_scan_async(request: ScanRequest) -> dict[str, Any]:
     run_id = request.run_id or request.resume_run_id or request.scan_id or uuid4().hex
     request.run_id = run_id
     request.scan_id = request.scan_id or run_id
+    # The async endpoint returns before the crawl worker reaches /scan. Create
+    # the run record now so report downloads during/after the crawl can resolve
+    # the user's session name instead of falling back to the opaque run ID.
+    run_ctx = get_run_context(run_id)
+    if run_ctx is None:
+        run_ctx = create_run_context(
+            target_origin=request.url,
+            allowed_path_namespace="/",
+            run_id=run_id,
+            auth_session_id=request.auth_session_id,
+            username=request.username,
+            display_name=request.session_name,
+            is_mock=request.mock,
+        )
+    elif request.session_name and not run_ctx.display_name:
+        run_ctx.display_name = request.session_name.strip()[:120] or None
+        save_run_context(run_ctx)
     logger.info("[BACKGROUND_SCAN] queued | run_id={} | url={}", run_id, request.url)
     task = asyncio.create_task(_run_scan_in_background(request))
     _BACKGROUND_SCAN_TASKS.add(task)
@@ -482,10 +501,13 @@ async def refresh_session(request: RefreshSessionRequest) -> Any:
             auth_session_id=None,
             run_id=request.run_id,
         )
+        if result.get("verified") is not True:
+            raise ValueError("The refreshed session was not verified on a protected page.")
         resp = RefreshSessionResponse(
             status="success",
             run_id=result["run_id"],
             auth_session_id=result["auth_session_id"],
+            verified=True,
             message="Session refreshed successfully. You can continue scanning or execution.",
         )
         return JSONResponse(
@@ -893,7 +915,12 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         raise HTTPException(status_code=400, detail="Scan data has no routes to test")
 
     context = load_context(request.context_id)
-    combined_prompt = (request.user_prompt or context.get("user_prompt") or request.description or "").strip()
+    # An explicitly supplied empty prompt means the user cleared it for this
+    # generation. Do not resurrect a prompt from an earlier uploaded context.
+    if request.user_prompt is not None:
+        combined_prompt = request.user_prompt.strip()
+    else:
+        combined_prompt = (context.get("user_prompt") or request.description or "").strip()
 
     # 1. Normalize requirements & test cases
     normalized_items = TestInputNormalizer.normalize_all(
@@ -967,7 +994,7 @@ async def generate_test(request: GenerateTestRequest) -> GeneratedTestResponse:
         except Exception:
             continue
 
-    if not test_cases:
+    if not test_cases and not plan_result.get("planning_metadata", {}).get("prompt_scope_applied"):
         test_cases = build_test_cases(request.scan, context)
 
     # Do not silently drop an uploaded testcase row when an AI response omits
@@ -1547,6 +1574,37 @@ def _build_llm_prompt(request: GenerateTestRequest, context: dict, user_prompt: 
 # End of router helpers.
 
 
+@router.post("/run/{run_id}/parking-lot/review", summary="Save a human review decision for a parked action")
+async def review_parking_lot_action(run_id: str, request: ParkingLotReviewRequest) -> dict[str, Any]:
+    if not run_id or not _RUN_ID_REGEX.fullmatch(run_id):
+        raise HTTPException(status_code=400, detail="Invalid run ID format")
+    if request.decision == "approve_for_test_planning" and not request.assertion:
+        raise HTTPException(status_code=422, detail="An explicit expected-result assertion is required for test planning approval")
+    if request.decision == "approve_for_test_planning" and not request.confirmed:
+        raise HTTPException(status_code=422, detail="Explicit human confirmation is required for test planning approval")
+
+    run_ctx = get_run_context(run_id)
+    if not run_ctx or not isinstance(run_ctx.scan_results, dict):
+        raise HTTPException(status_code=404, detail="Scanned run was not found")
+    parking_actions = run_ctx.scan_results.get("parking_lot_actions", [])
+    if not isinstance(parking_actions, list) or request.action_index >= len(parking_actions):
+        raise HTTPException(status_code=404, detail="Parking-lot action was not found")
+
+    action = dict(parking_actions[request.action_index])
+    review = {
+        "decision": request.decision,
+        "assertion": redact_sensitive_data(request.assertion) if request.assertion else None,
+        "confirmed": bool(request.confirmed),
+        "reviewed_at": datetime.now(timezone.utc).isoformat(),
+        "execution_authorized": False,
+    }
+    action["manual_review"] = review
+    parking_actions[request.action_index] = action
+    run_ctx.scan_results["parking_lot_actions"] = parking_actions
+    save_run_context(run_ctx)
+    return {"run_id": run_id, "action_index": request.action_index, "action": action}
+
+
 @router.get("/run/{run_id}/state", summary="Retrieve active run context and workflow state")
 async def get_run_state(run_id: str) -> dict[str, Any]:
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
@@ -1765,6 +1823,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
 
     exec_dir = REPORT_PATH / run_id
     exec_json = (exec_dir / "execution_results.json") if exec_dir.exists() else None
+    exec_excel = (exec_dir / "execution_results.xlsx") if exec_dir.exists() else None
 
     screenshots = []
     if exec_dir.exists():
@@ -1779,6 +1838,7 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
         "excel": excel_path.is_file(),
         "source_excel": bool(run_ctx and run_ctx.artifact_paths.get("source_excel") and Path(run_ctx.artifact_paths["source_excel"]).is_file()),
         "execution_results": bool(exec_json and exec_json.is_file()) or bool(run_ctx and run_ctx.execution_results),
+        "execution_excel": bool(exec_excel and exec_excel.is_file()),
         "checkpoint": chk_path.is_file(),
         "screenshots": len(screenshots) > 0,
         "log": log_path.is_file(),
@@ -1801,14 +1861,15 @@ async def reports_status(run_id: str) -> ArtifactStatusResponse:
 
 @router.get("/download-artifact/{run_id}", summary="Download specific artifact alias", operation_id="download_artifact_alias")
 @router.head("/download-artifact/{run_id}", include_in_schema=False)
-async def download_artifact_alias(run_id: str, artifact_type: str = "excel"):
-    return await download_artifact(run_id=run_id, artifact_type=artifact_type)
+async def download_artifact_alias(run_id: str, request: Request, artifact_type: str = "excel"):
+    return await download_artifact(run_id=run_id, artifact_type=artifact_type, request=request)
 
 
 @router.get("/reports/{run_id}/download/{artifact_type}", summary="Download specific artifact by stable run ID URL", operation_id="download_report_artifact")
 @router.head("/reports/{run_id}/download/{artifact_type}", include_in_schema=False)
-async def download_artifact(run_id: str, artifact_type: str):
-    from fastapi.responses import FileResponse, Response
+async def download_artifact(run_id: str, artifact_type: str, request: Request):
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
     import zipfile
     import io
 
@@ -1822,7 +1883,28 @@ async def download_artifact(run_id: str, artifact_type: str):
         raise HTTPException(status_code=403, detail="Access denied: Forbidden artifact access")
 
     run_ctx = get_run_context(run_id)
-    display_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", (run_ctx.display_name if run_ctx else "") or run_id).strip("._-")[:80] or run_id
+    # A file can survive a process restart while the in-memory context cannot.
+    # Read PostgreSQL for *every* download (not only when the context is gone),
+    # because that is the durable source of the user-facing session name.
+    persisted_run = None
+    try:
+        persisted_run = DBRepository.get_run(run_id)
+    except Exception:
+        persisted_run = None
+
+    # A legacy/file-only context should still become a durable run before an
+    # artifact is served.  This makes report lineage visible in PostgreSQL
+    # rather than silently returning a file with no artifact record.
+    if not persisted_run and run_ctx:
+        try:
+            save_run_context(run_ctx)
+            persisted_run = DBRepository.get_run(run_id)
+        except Exception as exc:
+            logger.warning("Unable to persist legacy run %s before artifact download: %s", run_id, exc)
+
+    persisted_display_name = (persisted_run or {}).get("display_name", "") if persisted_run else ""
+    context_display_name = getattr(run_ctx, "display_name", "") if run_ctx else ""
+    display_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", context_display_name or persisted_display_name or run_id).strip("._-")[:80] or run_id
     is_in_progress = bool(run_ctx and run_ctx.status in {"running", "paused", "executing"})
     base_stem = f"{run_id}_crawl_results"
 
@@ -1833,6 +1915,7 @@ async def download_artifact(run_id: str, artifact_type: str):
         "excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "source_excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "execution_results": "application/json",
+        "execution_excel": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "checkpoint": "application/json",
         "screenshots": "application/zip",
         "log": "text/plain",
@@ -1873,20 +1956,12 @@ async def download_artifact(run_id: str, artifact_type: str):
         if exec_dir.exists() and (exec_dir / "execution_results.json").is_file():
             target_file = exec_dir / "execution_results.json"
             filename = f"{display_stem}_execution_results.json"
-        elif run_ctx and run_ctx.artifact_paths and "json" in run_ctx.artifact_paths:
-            candidate = Path(run_ctx.artifact_paths["json"])
-            if candidate.is_file():
-                target_file = candidate
-                filename = f"{display_stem}_execution_results.json"
-        if not target_file and run_ctx and run_ctx.execution_results:
-            safe_results = redact_sensitive_data(run_ctx.execution_results)
-            safe_summary = redact_sensitive_data(run_ctx.execution_summary or {})
-            content = json.dumps({"summary": safe_summary, "rows": safe_results}, indent=2)
-            return Response(
-                content=content,
-                media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="{display_stem}_execution_results.json"'},
-            )
+    elif artifact_type == "execution_excel":
+        exec_dir = REPORT_PATH / run_id
+        candidate = exec_dir / "execution_results.xlsx"
+        if candidate.is_file():
+            target_file = candidate
+            filename = f"{display_stem}_execution_results.xlsx"
     elif artifact_type == "screenshots":
         exec_dir = REPORT_PATH / run_id
         images = []
@@ -1920,12 +1995,10 @@ async def download_artifact(run_id: str, artifact_type: str):
                         zf.write(resolved_img, arcname=img.name)
             else:
                 zf.writestr(f"{run_id}_info.txt", f"No failure screenshots generated for run {run_id}.\n")
-        buf.seek(0)
-        return Response(
-            content=buf.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{display_stem}_screenshots.zip"'},
-        )
+        target_file = REPORT_PATH / run_id / "screenshots.zip"
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_bytes(buf.getvalue())
+        filename = f"{display_stem}_screenshots.zip"
     elif artifact_type == "log":
         target_file = LOG_PATH / f"{run_id}.log"
         filename = f"{display_stem}_failure.log"
@@ -1946,10 +2019,27 @@ async def download_artifact(run_id: str, artifact_type: str):
         if not is_owned_artifact:
             raise HTTPException(status_code=403, detail=f"Access denied: Artifact does not belong to run '{run_id}'")
 
+        registered = DBRepository.register_artifacts(
+            run_id,
+            {artifact_type: str(resolved)},
+            execution_id=(run_ctx.artifact_paths.get("execution_id") if run_ctx and run_ctx.artifact_paths else None),
+        )
+        artifact_id = registered[0]["id"] if registered else None
+        response_background = None
+        if request.method.upper() == "GET":
+            response_background = BackgroundTask(
+                DBRepository.record_artifact_download,
+                run_id,
+                artifact_id,
+                artifact_type,
+                filename or resolved.name,
+                resolved.stat().st_size,
+            )
         return FileResponse(
             str(resolved),
             media_type=media_types.get(artifact_type, "application/octet-stream"),
             filename=filename or target_file.name,
+            background=response_background,
         )
 
     if is_in_progress:
@@ -1965,8 +2055,9 @@ async def download_artifact(run_id: str, artifact_type: str):
 
 @router.get("/reports/{run_id}/screenshot/{filename}", summary="Download specific screenshot safely", operation_id="download_report_screenshot")
 @router.head("/reports/{run_id}/screenshot/{filename}", include_in_schema=False)
-async def download_screenshot(run_id: str, filename: str):
+async def download_screenshot(run_id: str, filename: str, request: Request):
     from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
 
     if not run_id or not _RUN_ID_REGEX.fullmatch(run_id) or ".." in run_id or "/" in run_id or "\\" in run_id:
         raise HTTPException(status_code=400, detail="Invalid run ID format")
@@ -1996,11 +2087,24 @@ async def download_screenshot(run_id: str, filename: str):
     # This endpoint is used as the report modal's <img src>.  FileResponse's
     # default `attachment` disposition makes browsers download the PNG instead
     # of rendering it inline.
+    registered = DBRepository.register_artifacts(run_id, {"screenshots": str(resolved)})
+    artifact_id = registered[0]["id"] if registered else None
+    response_background = None
+    if request.method.upper() == "GET":
+        response_background = BackgroundTask(
+            DBRepository.record_artifact_download,
+            run_id,
+            artifact_id,
+            "screenshots",
+            filename,
+            resolved.stat().st_size,
+        )
     return FileResponse(
         str(resolved),
         media_type="image/png",
         filename=filename,
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        background=response_background,
     )
 
 
@@ -2394,20 +2498,38 @@ async def delete_all_artifacts_endpoint() -> dict[str, Any]:
 
 @router.get("/artifacts", summary="List runs with available generated artifacts")
 async def list_artifacts_endpoint() -> list[dict[str, Any]]:
-    """Return only saved runs that still have at least one downloadable artifact."""
+    """Return saved runs backed by registered database artifact metadata."""
     artifact_runs: list[dict[str, Any]] = []
-    report_root = Path(REPORT_PATH)
-    for run in DBRepository.list_runs():
+    artifact_rows = DBRepository.list_artifacts()
+    artifacts_by_run: dict[str, list[dict[str, Any]]] = {}
+    for artifact in artifact_rows:
+        artifacts_by_run.setdefault(artifact["run_id"], []).append(artifact)
+
+    report_root = Path(REPORT_PATH).resolve()
+    log_root = Path(LOG_PATH).resolve()
+    for run in DBRepository.list_runs(limit=5000):
         run_id = str(run.get("run_id", ""))
-        if not run_id:
+        run_artifacts = artifacts_by_run.get(run_id, [])
+        if not run_id or not run_artifacts:
             continue
-        has_artifact = (
-            any(report_root.glob(f"{run_id}*"))
-            or any(report_root.glob(f"checkpoint_{run_id}*"))
-            or (report_root / run_id).exists()
-        )
+
+        available_artifacts = []
+        for artifact in run_artifacts:
+            parts = Path(str(artifact.get("file_path", "")).replace("\\", "/")).parts
+            if len(parts) < 2 or parts[0] not in {"reports", "logs"}:
+                continue
+            root = report_root if parts[0] == "reports" else log_root
+            resolved = root.joinpath(*parts[1:]).resolve()
+            if resolved.is_relative_to(root) and resolved.is_file():
+                available_artifacts.append(artifact)
+        has_artifact = bool(available_artifacts)
         if has_artifact:
-            artifact_runs.append(run)
+            run_ctx = get_run_context(run_id)
+            artifact_runs.append({
+                **run,
+                "display_name": run_ctx.display_name if run_ctx else None,
+                "artifacts": available_artifacts,
+            })
     return artifact_runs
 
 

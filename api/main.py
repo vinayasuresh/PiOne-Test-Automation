@@ -22,10 +22,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import scan, scan_events, security_scan, v3_assurance
+from api.routers import interactive_sessions, scan, scan_events, security_scan, v3_assurance
 from api.db.session import init_db
 from api.services import browser_readiness
-from api.services.v3_feature_flags import is_v3_assurance_enabled
+from api.services.v3_feature_flags import is_interactive_browser_enabled, is_v3_assurance_enabled
 from automation_framework.config.settings import STORAGE_STATE_PATH
 from automation_framework.utils.redactor import redact_text
 
@@ -85,9 +85,9 @@ async def _application_lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="PiOne Testmate API",
+    title="OmniTest by PiOne API",
     description=(
-        "PiOne Testmate — Deterministic UI Scanner, Test Intelligence Platform & Grounded Automation Framework."
+        "OmniTest by PiOne — Deterministic UI Scanner, Test Intelligence Platform & Grounded Automation Framework."
     ),
     version="2.0.0",
     docs_url="/docs",
@@ -168,6 +168,7 @@ app.include_router(scan.router, tags=["Scan"])
 app.include_router(scan_events.router, tags=["Scan Events"])
 app.include_router(security_scan.router)
 app.include_router(v3_assurance.router)
+app.include_router(interactive_sessions.router)
 
 # ---------------------------------------------------------------------------
 # Serve the frontend
@@ -210,8 +211,8 @@ def health() -> dict:
     browser = browser_readiness.check_browser_readiness()
     return {
         "status": "ok",
-        "service": "PiOne Testmate API",
-        "application": "PiOne Testmate",
+        "service": "OmniTest by PiOne API",
+        "application": "OmniTest by PiOne",
         "version": "2.0.0",
         "build_id": BUILD_IDENTIFIER,
         "process_start": PROCESS_START_TIMESTAMP,
@@ -226,9 +227,10 @@ async def version() -> dict:
     # or persistence path while the assurance feature flag is disabled.
     return {
         "status": "ok",
-        "application": "PiOne Testmate",
+        "application": "OmniTest by PiOne",
         "version": "2.0.0",
         "build_id": BUILD_IDENTIFIER,
         "process_start": PROCESS_START_TIMESTAMP,
         "v3_assurance_enabled": is_v3_assurance_enabled(),
+        "interactive_browser_enabled": is_interactive_browser_enabled(),
     }
