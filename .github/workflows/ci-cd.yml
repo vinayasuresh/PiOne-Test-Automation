@@ -349,6 +349,19 @@ jobs:
             echo "DATABASE_FALLBACK_ENABLED=false" >> "$APP_DIR/.env"
           fi
 
+          # Ensure V3 assurance is enabled on staging
+          if grep -q '^V3_ASSURANCE_ENABLED=' "$APP_DIR/.env" 2>/dev/null; then
+            sed -i "s|^V3_ASSURANCE_ENABLED=.*|V3_ASSURANCE_ENABLED=true|" "$APP_DIR/.env"
+          else
+            echo "V3_ASSURANCE_ENABLED=true" >> "$APP_DIR/.env"
+          fi
+
+          if grep -q '^V3_ASSURANCE_ENABLED=' "$DEPLOY_PATH/.env" 2>/dev/null; then
+            sed -i "s|^V3_ASSURANCE_ENABLED=.*|V3_ASSURANCE_ENABLED=true|" "$DEPLOY_PATH/.env"
+          else
+            echo "V3_ASSURANCE_ENABLED=true" >> "$DEPLOY_PATH/.env"
+          fi
+
           # Sync back to $DEPLOY_PATH/.env so future releases retain it
           if ! grep -qE '^DATABASE_URL=.+' "$DEPLOY_PATH/.env" 2>/dev/null; then
             ACTIVE_DB_LINE="$(grep '^DATABASE_URL=' "$APP_DIR/.env" | head -n 1)"
