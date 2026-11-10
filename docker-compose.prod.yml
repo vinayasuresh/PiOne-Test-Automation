@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the PostgreSQL application database}
+      DATABASE_URL: ${DATABASE_URL:-}
       DATABASE_FALLBACK_ENABLED: "false"
       PYTHONUNBUFFERED: "1"
     ports:

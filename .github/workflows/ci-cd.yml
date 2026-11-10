@@ -177,6 +177,7 @@ jobs:
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       GHCR_IMAGE: ${{ needs.build-and-push-image.outputs.image }}
       IMAGE_TAG: ${{ needs.build-and-push-image.outputs.sha }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     steps:
       - name: Validate deployment secrets
@@ -311,7 +312,7 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 \
             -o BatchMode=yes \
             "$SERVER_USER@$SERVER_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' GHCR_IMAGE='$GHCR_IMAGE' IMAGE_TAG='$IMAGE_TAG' bash -s" <<'REMOTE_SCRIPT'
+            "DEPLOY_PATH='$DEPLOY_PATH' GHCR_IMAGE='$GHCR_IMAGE' IMAGE_TAG='$IMAGE_TAG' DATABASE_URL='${DATABASE_URL:-}' bash -s" <<'REMOTE_SCRIPT'
 
           set -euo pipefail
 
@@ -333,8 +334,35 @@ jobs:
             "$APP_DIR/docker-compose.prod.yml"
           cp "$DEPLOY_PATH/.env" "$APP_DIR/.env"
 
+          # Ensure DATABASE_URL is configured in $APP_DIR/.env
+          if ! grep -qE '^DATABASE_URL=.+' "$APP_DIR/.env" 2>/dev/null; then
+            FALLBACK_DB_URL="postgresql+psycopg://testmate_user:Admin%2366%23@20.204.98.59:5433/testmate"
+            TARGET_DB_URL="${DATABASE_URL:-$FALLBACK_DB_URL}"
+            if grep -q '^DATABASE_URL=' "$APP_DIR/.env" 2>/dev/null; then
+              sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${TARGET_DB_URL}|" "$APP_DIR/.env"
+            else
+              echo "DATABASE_URL=${TARGET_DB_URL}" >> "$APP_DIR/.env"
+            fi
+          fi
+
+          if ! grep -q '^DATABASE_FALLBACK_ENABLED=' "$APP_DIR/.env" 2>/dev/null; then
+            echo "DATABASE_FALLBACK_ENABLED=false" >> "$APP_DIR/.env"
+          fi
+
+          # Sync back to $DEPLOY_PATH/.env so future releases retain it
+          if ! grep -qE '^DATABASE_URL=.+' "$DEPLOY_PATH/.env" 2>/dev/null; then
+            ACTIVE_DB_LINE="$(grep '^DATABASE_URL=' "$APP_DIR/.env" | head -n 1)"
+            if grep -q '^DATABASE_URL=' "$DEPLOY_PATH/.env" 2>/dev/null; then
+              sed -i "s|^DATABASE_URL=.*|${ACTIVE_DB_LINE}|" "$DEPLOY_PATH/.env"
+            else
+              echo "${ACTIVE_DB_LINE}" >> "$DEPLOY_PATH/.env"
+            fi
+          fi
+
           cd "$APP_DIR"
 
+          CURRENT_DATABASE_URL="$(grep '^DATABASE_URL=' "$APP_DIR/.env" | head -n 1 | cut -d= -f2-)"
+          export DATABASE_URL="$CURRENT_DATABASE_URL"
           export GHCR_IMAGE IMAGE_TAG
 
           echo "Pulling image: $GHCR_IMAGE:$IMAGE_TAG"
