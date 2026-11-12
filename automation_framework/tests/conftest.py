@@ -10,6 +10,11 @@ import httpx
 import pytest
 import pytest_asyncio
 
+from automation_framework.config.settings import load_environment
+
+# Ensure the root .env environment is loaded for all pytest test suites
+load_environment()
+
 from api.main import app
 
 

@@ -10,13 +10,13 @@
 
 * **Tara Connector Test Suite:**
   `.\.venv\Scripts\python.exe -m pytest automation_framework/tests/test_v3_tara_connector.py -q`
-  * **Result:** **9 passed** in 0.13s (0 failed, 0 errors)
+  * **Result:** **9 passed** in 0.06s (0 failed, 0 errors)
 * **V3 API Testing Workflow Suite:**
   `.\.venv\Scripts\python.exe -m pytest automation_framework/tests/test_v3_api_testing_workflow.py -q`
-  * **Result:** **16 passed** in 12.52s (0 failed, 0 errors)
+  * **Result:** **16 passed** in 12.20s (0 failed, 0 errors)
 * **Complete Regression Suite:**
   `.\.venv\Scripts\python.exe -m pytest -q`
-  * **Result:** **292 passed**, 85 deselected (browser-marked), 1 warning (Starlette testclient deprecation) in 38.60s (0 failed, 0 errors)
+  * **Result:** **292 passed**, 85 deselected (browser-marked), 1 warning (Starlette testclient deprecation) in 25.28s (0 failed, 0 errors)
 * **Compilation Integrity Check:**
   `.\.venv\Scripts\python.exe -m compileall -q api automation_framework`
   * **Result:** **Clean pass** (Exit code 0, 0 syntax/compilation errors)
@@ -33,6 +33,7 @@
 | `test_phase1_expires_sessions_before_authentication` (`test_interactive_session_phases.py`) | PostgreSQL session timezone defaulted to local Windows offset (`Asia/Calcutta`, UTC+05:30), creating a 5.5h discrepancy between naive DB timestamp storage and timezone-aware UTC datetime comparisons. | Configured `options: "-c timezone=utc"` in `api/db/session.py` for all PostgreSQL connections so timestamp comparisons always evaluate consistently in UTC. |
 | `test_assignment_and_schedule_are_persisted_without_starting_a_scheduler` (`test_v3_orchestration_phase45.py`) | The test used a hardcoded static grouping key (`reports:staging:daily`), causing `trigger_v3_monitoring_schedule` to match and append jobs to historical incidents from previous test runs in persistent PostgreSQL database `Omni_Test` (`assert len(jobs) == 2` failed with 3). | Updated `_intake()` in the test harness to allow unique tenant-scoped grouping keys (`reports:staging:{token}`), ensuring strict incident isolation across repeated PostgreSQL test runs. |
 | Interactive browser worker network errors during suite run | `.env` had `INTERACTIVE_BROWSER_LAUNCH=true`, triggering real Chromium launches against dummy fixture URLs (`https://release-gate.example/`). | Set `INTERACTIVE_BROWSER_LAUNCH=false` in `.env` (matching `.env.example`). |
+| Pytest standalone harness environment synchronization | When pytest was run in shells without prior `.env` activation, test database fixtures could miss root environment settings. | Explicitly invoked `load_environment()` in `automation_framework/tests/conftest.py` so root `.env` configuration is uniformly imported across all pytest runners. |
 
 ---
 
