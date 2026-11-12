@@ -25,13 +25,30 @@ jobs:
     name: Python quality and V2 unit suite
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: omnitest_ci
+          POSTGRES_USER: omnitest_ci
+          POSTGRES_PASSWORD: omnitest_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U omnitest_ci -d omnitest_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       PYTHONUNBUFFERED: "1"
       CI: "true"
-      # CI uses a deliberately isolated SQLite test database. Application and
-      # deployment runs require PostgreSQL and never inherit this test setting.
-      DATABASE_URL: sqlite:////tmp/omnitest-ci-tests.sqlite
-      DATABASE_FALLBACK_ENABLED: "true"
+      # CI uses an isolated PostgreSQL service. Release and deployment runs do
+      # not use SQLite fallback.
+      DATABASE_URL: postgresql+psycopg://omnitest_ci:omnitest_ci@127.0.0.1:5432/omnitest_ci
+      DATABASE_FALLBACK_ENABLED: "false"
+      V3_ASSURANCE_ENABLED: "true"
+      TARA_INTEGRATION_ENABLED: "true"
+      TARA_WEBHOOK_SECRET: ci-only-tara-test-secret
 
     steps:
       - name: Check out source
@@ -72,6 +89,13 @@ jobs:
         run: |
           mkdir -p artifacts
           pytest -q --junitxml=artifacts/unit-results.xml
+
+      - name: Verify V3 API and Tara connector boundaries
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q automation_framework/tests/test_v3_api_testing_workflow.py
+          pytest -q automation_framework/tests/test_v3_tara_connector.py
 
       - name: Run browser readiness checks
         shell: bash
@@ -328,6 +352,11 @@ jobs:
             exit 1
           fi
 
+          if ! grep -Eq '^[[:space:]]*DATABASE_URL=[^[:space:]]+.*$' "$DEPLOY_PATH/.env"; then
+            echo "Missing non-empty DATABASE_URL in $DEPLOY_PATH/.env. Provision the staging PostgreSQL URL on the server."
+            exit 1
+          fi
+
           mkdir -p "$APP_DIR" "$RELEASE_ROOT"
           install -m 644 /tmp/pione-testmate-docker-compose.prod.yml \
             "$APP_DIR/docker-compose.prod.yml"
@@ -336,6 +365,12 @@ jobs:
           cd "$APP_DIR"
 
           export GHCR_IMAGE IMAGE_TAG
+
+          docker compose \
+            --env-file .env \
+            -f docker-compose.prod.yml \
+            --project-name pione-testmate \
+            config >/dev/null
 
           echo "Pulling image: $GHCR_IMAGE:$IMAGE_TAG"
           docker compose \

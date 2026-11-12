@@ -13,6 +13,7 @@ import os
 
 V3_ASSURANCE_ENABLED_ENV = "V3_ASSURANCE_ENABLED"
 INTERACTIVE_BROWSER_ENABLED_ENV = "INTERACTIVE_BROWSER_ENABLED"
+TARA_INTEGRATION_ENABLED_ENV = "TARA_INTEGRATION_ENABLED"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 
 
@@ -37,4 +38,11 @@ def is_interactive_browser_enabled() -> bool:
     """
 
     value = os.getenv(INTERACTIVE_BROWSER_ENABLED_ENV, "").strip().lower()
+    return is_v3_assurance_enabled() and value in _TRUE_VALUES
+
+
+def is_tara_integration_enabled() -> bool:
+    """Return whether the signed Tara connector is enabled behind V3."""
+
+    value = os.getenv(TARA_INTEGRATION_ENABLED_ENV, "").strip().lower()
     return is_v3_assurance_enabled() and value in _TRUE_VALUES

@@ -11,7 +11,7 @@ from migration_compat import table_exists
 
 
 revision = "a1b2c3d4e5f6"
-down_revision = "7366c6a3b93d"
+down_revision = "0b1c2d3e5f5g"
 branch_labels = None
 depends_on = None
 

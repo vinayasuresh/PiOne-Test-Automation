@@ -115,6 +115,7 @@ def build_engine_and_factory() -> tuple[Engine, sessionmaker, bool, str | None]:
 
         connect_args: dict[str, Any] = {}
         if "postgresql" in raw_url:
+            connect_args["options"] = "-c timezone=utc"
             if ssl_mode and ssl_mode != "disable":
                 connect_args["sslmode"] = ssl_mode
 

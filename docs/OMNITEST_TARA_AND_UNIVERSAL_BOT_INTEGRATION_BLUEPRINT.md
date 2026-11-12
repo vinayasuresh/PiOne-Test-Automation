@@ -3,6 +3,30 @@
 **Status:** Planned architecture. No production Tara, CAT Sentinel, Teams, Jira, ServiceNow or other customer connector is claimed as implemented by this document.
 **Prerequisite:** Complete the pre-Tara release gate in [OMNITEST_V3_PRE_TARA_EXECUTION_TASK.md](OMNITEST_V3_PRE_TARA_EXECUTION_TASK.md).
 
+## CAT Sentinel discovery — 2026-11-10
+
+The separate `Cat_sentinel_API_doc` Angular project renders an OpenAPI document dynamically. Its configuration identifies `/api/v1/openapi.json` and API base `https://catsentinelapi.pionedata.com`; its browser cache can show an older document, so a displayed catalogue alone does not prove freshness. `http://localhost:4200/` is the documentation UI, not necessarily an API server or an OpenAPI document URL. A direct request to its `/api/v1/openapi.json` returned HTTP 404 during this review; check the actual development proxy and refresh state.
+
+A read-only fetch of the configured API host's OpenAPI 3.1 document found these documented operations:
+
+- Support knowledge: `POST /api/v1/support-knowledge`, `GET /api/v1/support-knowledge/chat-history`, feedback and seed operations.
+- Tickets: `POST` and `GET /api/v1/support-tickets`, `GET` and `PUT /api/v1/support-tickets/{ticket_id}`.
+- Responses: `POST` and `GET /api/v1/support-tickets/{ticket_id}/responses`, response lookup/update, and attachment download operations.
+- Administration synchronization: `PUT /api/v1/support-tickets/sync-status` and `POST /api/v1/support-tickets/sync-response`.
+
+These are documentation observations, not verified authorization, runtime behavior, webhook support, or proof that Tara and the admin helpdesk share the same ticket lifecycle. The screenshot's support-knowledge search does not establish that ticket endpoints are absent. Compare the target environment's current spec and deployed behavior; confirm whether the admin synchronization endpoints are intended for external consumers. Do not call seed, sync, or mutation operations against live data merely to discover behavior.
+
+### Updated pilot sequence
+
+1. Obtain the target environment's OpenAPI snapshot and approved staging accounts; map ticket create/list/read, response, status and role/tenant requirements with CAT developers. Establish whether the API offers signed events; no webhook contract was established by the fetch above.
+2. Verify a staging ticket created through Tara appears under the correct super-admin and can be read through the documented ticket API. Investigate any ticket-not-found or cross-tenant discrepancy before integration.
+3. Prefer a CAT-generated signed ticket event. If unavailable, use a bounded read-only polling connector against the documented list/read API with durable cursor and tenant-scoped idempotency; confirm filtering, pagination and permissions first.
+4. Map each ticket to an approved scenario and run one bounded verification; retain incident and evidence when blocked. Use an authenticated service identity and secret reference, not user passwords or tokens in logs.
+5. With CAT team approval, post a sanitized result and protected evidence link using the appropriate response API; validate visibility and status ownership separately. A support operator communicates with the user and approves closure.
+6. Exercise duplicate deliveries, callback failures, restart recovery, tenant isolation and redaction. Record actual evidence and limitations before claiming the connector is complete.
+
+The separate `C:\support_auto` Playwright project can supply chatbot question/answer regression scenarios and report ideas. It requires manual login according to its README and is not a ticket-event connector; use it as a separate UI acceptance test, subject to staging authorization.
+
 ## Goal
 
 Connect Tara or another customer chatbot/helpdesk to OmniTest so an authorised user complaint can become a **durable, policy-bounded verification job**. The result must be a trustworthy outcome and evidence for the support owner, not an unsupported AI judgement.
