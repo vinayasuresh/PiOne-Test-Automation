@@ -1,3 +1,11 @@
+"""CONTRACT TESTS ONLY — NOT LIVE INTEGRATION PROOF.
+
+These tests verify OmniTest's Tara connector contract, signature validation,
+payload bounds, deduplication, and feature gating using safe deterministic local fixtures.
+Live external integration is NOT verified until real CAT Sentinel staging webhook credentials,
+signing secret, callback URL, and event payloads are provided and verified.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -48,6 +56,7 @@ def _signed_headers(body, secret="secret"):
 
 
 def test_hmac_signature_accepts_valid_and_rejects_invalid():
+    """CONTRACT TEST: Validates HMAC-SHA256 signature acceptance and rejection."""
     body = b'{"ticket_id":"T-1"}'
     timestamp = str(int(time.time()))
     signature = hmac.new(b"secret", f"{timestamp}.{body.decode()}".encode(), hashlib.sha256).hexdigest()
@@ -57,11 +66,13 @@ def test_hmac_signature_accepts_valid_and_rejects_invalid():
 
 
 def test_hmac_rejects_stale_timestamp():
+    """CONTRACT TEST: Rejects timestamps exceeding tolerance window."""
     with pytest.raises(ValueError, match="stale"):
         verify_hmac_signature(b"{}", str(int(time.time()) - 1000), "sha256=bad", "secret", tolerance_seconds=10)
 
 
 def test_connector_config_is_sanitized_and_requires_reference():
+    """CONTRACT TEST: Ensures connector config sanitization and secret_reference requirement."""
     request = TaraConnectorConfigRequest(connector_name="CAT", tenant_id="tenant-1", tenant_api_base_url="https://example.com", auth_mode="none")
     result = validate_connector_config(request)
     assert result["secret_configured"] is False
@@ -71,6 +82,7 @@ def test_connector_config_is_sanitized_and_requires_reference():
 
 
 def test_ticket_normalization_is_deterministic_and_grounded():
+    """CONTRACT TEST: Verifies deterministic normalization of incoming ticket event payload."""
     request = TaraTicketEventRequest(
         tenant_id="tenant-1", ticket_id="T-7", event_id="evt-1", summary="Report is stale",
         target_origin="https://example.com", assessment_mode="both", priority="high",
@@ -84,6 +96,7 @@ def test_ticket_normalization_is_deterministic_and_grounded():
 
 
 def test_routes_are_feature_gated(monkeypatch):
+    """CONTRACT TEST: Verifies that Tara endpoints return 404/503 when feature flags are disabled."""
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "false")
     monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "false")
     with pytest.raises(HTTPException) as status_error:
@@ -102,6 +115,7 @@ def test_routes_are_feature_gated(monkeypatch):
 
 
 def test_status_reports_truthful_scope(monkeypatch):
+    """CONTRACT TEST: Verifies /v3/tara/status truthfully reports enabled connector capabilities."""
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
     monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "true")
     assert connector_status() == {
@@ -113,6 +127,7 @@ def test_status_reports_truthful_scope(monkeypatch):
 
 
 def test_connector_validation_sanitizes_secret(monkeypatch):
+    """CONTRACT TEST: Validates that secret references are never echoed back in connector validation."""
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
     monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "true")
     result = validate_connector(
@@ -130,6 +145,7 @@ def test_connector_validation_sanitizes_secret(monkeypatch):
 
 
 def test_webhook_rejects_bad_signature_and_oversized_content(monkeypatch):
+    """CONTRACT TEST: Enforces signature verification and 256KB payload size limit."""
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
     monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "true")
     monkeypatch.setenv("TARA_WEBHOOK_SECRET", "secret")
@@ -146,7 +162,31 @@ def test_webhook_rejects_bad_signature_and_oversized_content(monkeypatch):
     assert size_error.value.status_code == 413
 
 
+def test_webhook_rejects_malformed_json_and_payload_schema(monkeypatch):
+    """CONTRACT TEST: Verifies rejection of non-JSON and missing required schema fields."""
+    monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
+    monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "true")
+    monkeypatch.setenv("TARA_WEBHOOK_SECRET", "secret")
+
+    # Non-JSON raw bytes -> HTTP 422
+    malformed_raw = b"this is not json"
+    headers_bad_json = _signed_headers(malformed_raw)
+    with pytest.raises(HTTPException) as exc_info:
+        _process_webhook(malformed_raw, headers_bad_json, Response())
+    assert exc_info.value.status_code == 422
+    assert "invalid Tara ticket payload" in exc_info.value.detail
+
+    # Missing required field (e.g. ticket_id, summary) -> HTTP 422
+    incomplete_raw = json.dumps({"tenant_id": "tenant-1"}).encode()
+    headers_incomplete = _signed_headers(incomplete_raw)
+    with pytest.raises(HTTPException) as schema_exc:
+        _process_webhook(incomplete_raw, headers_incomplete, Response())
+    assert schema_exc.value.status_code == 422
+    assert "invalid Tara ticket payload" in schema_exc.value.detail
+
+
 def test_webhook_accepts_and_deduplicates_with_allowlisted_response(monkeypatch):
+    """CONTRACT TEST: Verifies idempotent handling, returning 201 for first and 200 for duplicates."""
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
     monkeypatch.setenv("TARA_INTEGRATION_ENABLED", "true")
     monkeypatch.setenv("TARA_WEBHOOK_SECRET", "secret")

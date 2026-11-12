@@ -10,13 +10,13 @@
 
 * **Tara Connector Test Suite:**
   `.\.venv\Scripts\python.exe -m pytest automation_framework/tests/test_v3_tara_connector.py -q`
-  * **Result:** **9 passed** in 0.06s (0 failed, 0 errors)
+  * **Result:** **10 passed** in 0.16s (0 failed, 0 errors)
 * **V3 API Testing Workflow Suite:**
   `.\.venv\Scripts\python.exe -m pytest automation_framework/tests/test_v3_api_testing_workflow.py -q`
-  * **Result:** **16 passed** in 12.20s (0 failed, 0 errors)
+  * **Result:** **16 passed** in 12.98s (0 failed, 0 errors)
 * **Complete Regression Suite:**
   `.\.venv\Scripts\python.exe -m pytest -q`
-  * **Result:** **292 passed**, 85 deselected (browser-marked), 1 warning (Starlette testclient deprecation) in 25.28s (0 failed, 0 errors)
+  * **Result:** **293 passed**, 85 deselected (browser-marked), 1 warning (Starlette testclient deprecation) in 39.39s (0 failed, 0 errors)
 * **Compilation Integrity Check:**
   `.\.venv\Scripts\python.exe -m compileall -q api automation_framework`
   * **Result:** **Clean pass** (Exit code 0, 0 syntax/compilation errors)
@@ -94,7 +94,7 @@
 ## 7. Remaining Blockers & Next Steps
 
 1. **CAT Sentinel Team Handshake:**
-   Deliver [docs/CAT_SENTINEL_OMNITEST_INTEGRATION_QUESTIONNAIRE.md](CAT_SENTINEL_OMNITEST_INTEGRATION_QUESTIONNAIRE.md) to the CAT Sentinel team to obtain:
+   Deliver [docs/CAT_SENTINEL_LIVE_INTEGRATION_CHECKLIST.md](CAT_SENTINEL_LIVE_INTEGRATION_CHECKLIST.md) and [docs/CAT_SENTINEL_OMNITEST_INTEGRATION_QUESTIONNAIRE.md](CAT_SENTINEL_OMNITEST_INTEGRATION_QUESTIONNAIRE.md) to the CAT Sentinel team to obtain:
    * Production/staging webhook URL.
    * Shared HMAC signing secret.
    * Mutual authentication parameters.
