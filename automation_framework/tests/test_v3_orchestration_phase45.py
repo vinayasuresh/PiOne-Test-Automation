@@ -44,10 +44,10 @@ def _registered_operation() -> dict:
     return contract["operations"][0]
 
 
-def _intake(retry_limit: int = 0) -> dict:
+def _intake(retry_limit: int = 0, grouping_key: str | None = None) -> dict:
     token = uuid4().hex
     return intake_incident(V3IncidentIntakeRequest(
-        correlation_id=f"v3-phase45-{token}", grouping_key="reports:staging:daily",
+        correlation_id=f"v3-phase45-{token}", grouping_key=grouping_key or f"reports:staging:{token[:8]}",
         summary="The daily report did not load.", affected_feature="Reports",
         expected_behavior="The report opens.", actual_behavior="The report returned an error.",
         target="https://example.com/reports", authorized_role="analyst", mode="functional_only", retry_limit=retry_limit,
@@ -160,6 +160,7 @@ def test_duplicate_intake_reuses_one_incident_and_one_job(monkeypatch) -> None:
 
 def test_assignment_and_schedule_are_persisted_without_starting_a_scheduler(monkeypatch) -> None:
     monkeypatch.setenv("V3_ASSURANCE_ENABLED", "true")
+    grouping_key = f"reports:staging:{uuid4().hex[:8]}"
     operation = _registered_operation()
     scenario = DBRepository.register_v3_assurance_scenario({
         "name": "Report monitor", "feature": "Reports", "environment": "staging",
@@ -167,7 +168,7 @@ def test_assignment_and_schedule_are_persisted_without_starting_a_scheduler(monk
         "reference_id": operation["operation_id"], "max_actions": 2, "is_approved": True,
     })
     create_assignment_rule(AssignmentRuleRequest(feature="Reports", owner_team="Reporting Engineering"))
-    incident = _intake()["incident"]
+    incident = _intake(grouping_key=grouping_key)["incident"]
     assigned = DBRepository.auto_assign_v3_incident(incident["incident_id"])
     assert assigned["owner_team"] == "Reporting Engineering"
     job_id = incident["jobs"][0]["job_id"]
@@ -176,7 +177,7 @@ def test_assignment_and_schedule_are_persisted_without_starting_a_scheduler(monk
     DBRepository.transition_v3_job(job_id, "completed", "reproduced", "fixture_failure")
     saved = create_monitoring_schedule(MonitoringScheduleRequest(
         name="Reports monitor", scenario_id=scenario["scenario_id"], target="https://example.com/reports",
-        grouping_key="reports:staging:daily", interval_minutes=30,
+        grouping_key=grouping_key, interval_minutes=30,
     ))["schedule"]
     assert saved["last_triggered_at"] is None
     assert any(item["schedule_id"] == saved["schedule_id"] for item in DBRepository.list_v3_monitoring_schedules())

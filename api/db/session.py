@@ -15,6 +15,7 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
+from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -84,6 +85,14 @@ def build_engine_and_factory() -> tuple[Engine, sessionmaker, bool, str | None]:
     startup instead of silently splitting application state into SQLite.
     """
     raw_url = os.getenv("DATABASE_URL", "").strip()
+    if not raw_url and (os.getenv("DB_NAME") or os.getenv("DB_HOST")):
+        db_user = os.getenv("DB_USER", "postgres").strip()
+        db_pass = os.getenv("DB_PASSWORD", "").strip()
+        db_host = os.getenv("DB_HOST", "127.0.0.1").strip()
+        db_port = os.getenv("DB_PORT", "5432").strip()
+        db_name = os.getenv("DB_NAME", "Omni_Test").strip()
+        auth = f"{db_user}:{quote_plus(db_pass)}@" if db_pass else (f"{db_user}@" if db_user else "")
+        raw_url = f"postgresql+psycopg://{auth}{db_host}:{db_port}/{db_name}"
     fallback_enabled = os.getenv("DATABASE_FALLBACK_ENABLED", "false").strip().lower() in {
         "1", "true", "yes", "on"
     }
